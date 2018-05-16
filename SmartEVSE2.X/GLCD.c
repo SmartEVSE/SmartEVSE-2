@@ -673,7 +673,7 @@ void GLCDMenu(unsigned char Buttons)
 			case MENU_CAL:
 					if (SubMenu)
 					{
-						if (CT1>=100 && CT1<1000) CT1++;			// Increase CT1 measurement value by 0.1A
+						if (CT1>=60 && CT1<1000) CT1++; 			// Increase CT1 measurement value by 0.1A
 																	// Max 99.9A
 					}
 					else 
@@ -700,7 +700,7 @@ void GLCDMenu(unsigned char Buttons)
 			case MENU_CAL:
 					if (SubMenu)
 					{
-						if (CT1>100) CT1--;						// Min 10.0A
+						if (CT1>60) CT1--;						// Min 6.0A
 					}
 					else 
 					{
@@ -751,8 +751,8 @@ void GLCDMenu(unsigned char Buttons)
 					if (SubMenu)
 					{
 						MaxMains--;								// Set new MaxMains
-						if (MaxMains<25) MaxMains=25;			// Min 25A
-					} else LCDNav=MENU_LOADBL;
+						if (MaxMains<10) MaxMains=10;			// Min 10A (version 2.03 changed from 16A)
+					} else LCDNav=MENU_LOADBL;                  
 					break;
 			case MENU_LOADBL:
 					if (SubMenu)

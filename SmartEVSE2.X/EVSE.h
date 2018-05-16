@@ -32,7 +32,7 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.02"					// SmartEVSE software version
+#define VERSION "2.03"					// SmartEVSE software version
 #define DEBUG_P							// Debug print enable/disable
 
 #define ICAL 3.00						// Irms Calibration value (for Current transformers) 

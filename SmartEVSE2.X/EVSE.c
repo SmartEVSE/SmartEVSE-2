@@ -1,6 +1,6 @@
 /*
 ;    Project:       Smart EVSE
-;    Date:          30 May 2017
+;    Date:          16 May 2018
 ;
 ;    Changes:
 ;
@@ -12,11 +12,12 @@
 ;          Bugfixes to load balancing code (only affects v2)
 ;   2.02   Fix: Slave Max charge current was set to Cable limit instead of MaxCurrent
 ;          Fix: Charging sometimes stopped because State C control pilot ranges were too strict. 
+;   2.03   Changed lowest MaxMains setting to 10A, lowest CT calibration value to 6A.
 ;
 ;    set XC8 linker memory model settings to: double 32 bit, float 32 bit
 ;    extended instruction set is not used on XC8
 ;
-;    (C) 2013-2017  Michael Stegen / Stegen Electronics
+;    (C) 2013-2018  Michael Stegen / Stegen Electronics
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -726,7 +727,7 @@ void RS232cli(void)
 		if (menu==1 || menu==2 || menu==3 || menu==8)
 		{
 			n=(unsigned int)atoi(U2buffer);
-			if ((menu==1) && (n>24) && (n<101))
+			if ((menu==1) && (n>9) && (n<101))
 			{
 				MaxMains=n;						// Set new MaxMains
 				write_settings();				// Write to eeprom
@@ -751,7 +752,7 @@ void RS232cli(void)
 		else if (menu==4)
 		{
 			Inew =atof(U2buffer);
-			if ((Inew<10) || (Inew >80)) printf("\r\nError! please calibrate with atleast 10A\r\n");
+			if ((Inew<6) || (Inew >80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
 			else
 			{
 				Iold=Irms[0]/ICal; 
@@ -892,7 +893,7 @@ void RS232cli(void)
 	{
 		printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n"); 
         printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-		printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (25-100): ",MaxMains);
+		printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-100): ",MaxMains);
 	}
 	else if (menu==2) 
 	{

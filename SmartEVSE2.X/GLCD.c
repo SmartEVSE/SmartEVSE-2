@@ -305,6 +305,8 @@ const far char StrMaster[] =	"Master";
 const far char StrSlave1[] =	"Slave 1";
 const far char StrSlave2[] =	"Slave 2";
 const far char StrSlave3[] =	"Slave 3";
+const far char StrAccess[] = 	"ACCESS";
+const far char StrSwitch[] =	"Switch";
 const far char StrExit[] =	 	"EXIT";
 const far char StrExitMenu[] =	"MENU";
 
@@ -421,7 +423,11 @@ void GLCDHelp(void)							// Display/Scroll helptext on LCD
 						x=strlen(MenuCal);
 						GLCD_print_row(MenuCal+LCDpos);
 						break;
-
+                case MENU_ACCESS:
+						x=strlen(MenuAccess);
+						GLCD_print_row(MenuAccess+LCDpos);
+						break;
+                        
 				default:
 						break;
 			}
@@ -502,18 +508,21 @@ void GLCD(void)
 			for (x=0; x<3 ;x++)
 			{
 				GLCDx=4+12+x*(12*3);								// calc offset
-				GLCD_write_buf2((Irms[x]/100)+0x30 );
+				GLCD_write_buf2((unsigned int)(Irms[x]/100)+0x30 );
 				GLCD_write_buf2(((unsigned int)(Irms[x]/10)%10)+0x30 );
 			}
-			GLCD_sendbuf(4);									// copy buffer to LCD
+			GLCD_sendbuf(4);                                        // copy buffer to LCD
 		}
 		else if ((State == STATE_A) || (State == STATE_B))
 		{
-			BACKLIGHT_OFF;					// LCD backlight off
-
+			BACKLIGHT_OFF;                                          // LCD backlight off
+            glcd_clrln(0,0x00);
+        	glcd_clrln(1,0x04);                                     // horizontal line
 			GLCD_print2(2,(const far char *)"READY TO");
 			GLCD_print2(4,(const far char *)"CHARGE  ");
-
+         	glcd_clrln(6,0x10);                                     // horizontal line
+            glcd_clrln(7,0x00);
+            
 			if (ChargeDelay>0)
 			{
 				GLCDx=12*8+4;
@@ -558,6 +567,8 @@ void GLCD(void)
 // 70 CABLE				- Set Fixed Cable Current limit 
 // 80 CAL 		  		- Calibrate CT1
 // 90 EXIT				- Exit Menu
+//100 LOADBL            - Load Balancing
+//110 ACCESS            - Access control on IO2
 
 
 void GLCDMenu(unsigned char Buttons)
@@ -667,7 +678,7 @@ void GLCDMenu(unsigned char Buttons)
 					else 
 					{
 						if (Mode) LCDNav=MENU_CAL;
-						else LCDNav=MENU_EXIT;
+						else LCDNav=MENU_ACCESS;
 					}
 					break;
 			case MENU_CAL:
@@ -678,9 +689,20 @@ void GLCDMenu(unsigned char Buttons)
 					}
 					else 
 					{
-						LCDNav=MENU_EXIT;
+						LCDNav=MENU_ACCESS;
 					}
 					break;
+            case MENU_ACCESS:
+					if (SubMenu)
+					{
+						if (Access) Access=0;
+						else Access=1;
+					}
+                    else 
+                    {
+                        LCDNav=MENU_EXIT;
+                    }
+                    break;
 			case MENU_EXIT:
 					LCDNav=MENU_CONFIG;
 			default:
@@ -693,10 +715,18 @@ void GLCDMenu(unsigned char Buttons)
 		switch (LCDNav)
 		{
 			case MENU_EXIT:
-					if (Mode) LCDNav=MENU_CAL;					// Smart Mode? Goto Cal CT1
+                    LCDNav=MENU_ACCESS;
+					break;
+            case MENU_ACCESS:
+                    if (SubMenu)
+                    {
+                        if (Access) Access=0;
+                        else Access=1;
+                    }
+                    else if (Mode) LCDNav=MENU_CAL;				// Smart Mode? Goto Cal CT1
 					else if (Config) LCDNav=MENU_CABLE;			// Cable Configuration, go to Cable Current
 					else LCDNav=MENU_LOCK;						// Fixed Cable, use the lock
-					break;
+                    break;
 			case MENU_CAL:
 					if (SubMenu)
 					{
@@ -777,7 +807,9 @@ void GLCDMenu(unsigned char Buttons)
 						else Config=1;
 					} 
 					else LCDNav=MENU_EXIT;
-			default:
+                    break;
+			
+            default:
 					break;
 		}
 		ButtonRelease=1;
@@ -809,7 +841,7 @@ void GLCDMenu(unsigned char Buttons)
 			{
 				LCDNav=0;			
 				SubMenu=0;
-				BACKLIGHT_OFF;//PORTCbits.RC0 = 0;						// LCD backlight off
+				BACKLIGHT_OFF;  						// LCD backlight off
 				Error=NO_ERROR;							// Clear Errors
 				TestState=0;							// Clear TestState
 				write_settings();						// Write to eeprom
@@ -911,6 +943,13 @@ void GLCDMenu(unsigned char Buttons)
 			GLCD_sendbuf(4);									// copy buffer to LCD
 
 		}
+        else if (LCDNav==MENU_ACCESS)
+		{ 
+			GLCD_print_menu(StrAccess,2);
+			if (Access) GLCD_print_menu(StrSwitch,4);
+            else GLCD_print_menu(StrDisable,4);
+			
+		}
 		else if (LCDNav==MENU_EXIT)
 		{
 			GLCD_print_menu(StrExit,2);
@@ -934,7 +973,6 @@ void st7565_command(unsigned char data)
 	PIR1bits.SSP1IF=0;				// clear flag
 	SSP1BUF=data;					// and send SPI data
 	while(!PIR1bits.SSP1IF);		// wait for bit to become set
-	delay(1);
 }
 void st7565_data(unsigned char data)
 {
@@ -1142,27 +1180,29 @@ void GLCD_print2(unsigned char y,const far char* data)
 {
 	GLCD_buffer_clr();										// Clear buffer
 
-	GLCDx=64-(strlen(data)*6);						// calculate offset for centering text
+	GLCDx=64-(strlen(data)*6);                              // calculate offset for centering text
 	do
   	{
     	GLCD_write_buf2(*data);
   	} while (*++data);
 
-	GLCD_sendbuf(y);									// copy buffer to LCD
+	GLCD_sendbuf(y);                                        // copy buffer to LCD
 }
 
-
+void delayus(int us)
+{
+    while(us--) {};
+}
 
 void GLCD_init(void)
 {
 	_A0_0;							// A0=0
-	delay(100);
 	_RSTB_0;						// Reset GLCD module
-	delay(1);
+	delayus(4);
 	_RSTB_1;						// Reset line high
-	delay(2);
+	delayus(4);
 
-	st7565_command(0xA2);			// set bias at duty cycle 1.65 (0xA2=1.9 0xA3=1.6)
+    st7565_command(0xA2);			// set bias at duty cycle 1.65 (0xA2=1.9 0xA3=1.6)
 	st7565_command(0xC8);			// comm direction normal =0xC0 comm reverse= 0xC8
 	st7565_command(0xA0);			// seg dir (0xA0 or 0xA1)
 	st7565_command(0xA6);			// set inverse (0xA7=inverse 0xA6=normal)
@@ -1180,12 +1220,10 @@ void GLCD_init(void)
 
 	goto_row(0x00);					// Set page address
  	goto_col(0x00);               	// Set coloumn addr LSB
-	glcd_clear();
-	st7565_command(0xAF); 			// ON command     
-	glcd_clrln(1,0x04);				// horizontal line
-	glcd_clrln(6,0x10);				// horizontal line
-
+	st7565_command(0xAF); 			// ON command  
+    
 }
+
 
 void GLCD_version(void)
 {
@@ -1193,6 +1231,5 @@ void GLCD_version(void)
 	GLCD_print2(4,(const far char *)"Ver "VERSION);
 	
     delay(2000);        // show version for 2 seconds
-	//GLCD_print(0,0,(const far char *)"Mode:Balanced/Master");
 }
 

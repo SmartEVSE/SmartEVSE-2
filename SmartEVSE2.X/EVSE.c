@@ -1,6 +1,6 @@
 /*
 ;    Project:       Smart EVSE
-;    Date:          16 May 2018
+;    Date:          25 September 2018
 ;
 ;    Changes:
 ;
@@ -13,9 +13,22 @@
 ;   2.02   Fix: Slave Max charge current was set to Cable limit instead of MaxCurrent
 ;          Fix: Charging sometimes stopped because State C control pilot ranges were too strict. 
 ;   2.03   Changed lowest MaxMains setting to 10A, lowest CT calibration value to 6A.
+;   2.04   Fix: In Normal mode, the MAX charge current was limited by the MAINS setting (which is not shown in this mode).
+;          Fix: default LoadBl EEPROM setting was not set correctly.
+;          MAX charge current can be adjusted while charging in Normal mode.
+;          ACCESS menu option added. Allows to Start/Stop charging by connecting a button/switch to IO2.
+;          if the ACCESS option is set to disabled, the button can be used to stop charging.
+;          On IO1 a LED can be connected, which acts as a charging/error indicator.
+;          
+;
+;
+;    Use XC8 compiler version 1.45, version 2.x currently does not work.
 ;
 ;    set XC8 linker memory model settings to: double 32 bit, float 32 bit
 ;    extended instruction set is not used on XC8
+;    add the following XC8 linker option to reserve space for the bootloader:
+:    --rom=0-FCFB
+;
 ;
 ;    (C) 2013-2018  Michael Stegen / Stegen Electronics
 ;
@@ -69,8 +82,8 @@ const unsigned int EE_MinCurrent @ 0xf00004 = MIN_CURRENT;
 const double EE_ICal @ 0xf00006 = ICAL;
 const unsigned int EE_Mode @ 0xf0000a = MODE + (LOCK<<8);
 const unsigned int EE_CableLimit @ 0xf0000c = CABLE_LIMIT;
-const char EE_Config @ 0xf0000e = CONFIG + (LOADBL<<8);
-
+const unsigned int EE_Config_LoadBl @ 0xf0000e = CONFIG + (LOADBL<<8);
+const unsigned int EE_Access @ 0xf00010 = ACCESS;
 
 // Global data
 char	U1buffer[50];               // Uart1 Receive buffer /RS485
@@ -90,8 +103,9 @@ char Lock;							// Cable lock enable/disable
 unsigned int CableLimit;			// Fixed Cable Current limit (only used when config is set to Fixed Cable)
 char Config;						// Configuration (Fixed Cable or Type 2 Socket)
 char LoadBl;						// Load Balance Setting (Disable, Master or Slave1-3)
+char Access;           				// External Start/Stop button on I/O 2
 
-// total 16 bytes
+// total 17 bytes
 
 double Irms[3]={0,0,0};             // Momentary current per Phase (Amps *10) (23= 2.3A)
 									// Max 3 phases supported
@@ -126,6 +140,13 @@ unsigned char LCDpos=8;
 unsigned char ChargeDelay=0;		// Delays charging up to 60 seconds in case of not enough current available.
 unsigned char NoCurrent=0;			// counts overcurrent situations.
 unsigned char TestState=0;
+unsigned char LedTimer=0;           // LED on I01 uses TMR2 and a PWM signal to fade in/out
+unsigned char LedUpdate=0;          // Flag that LED PWM data has been updated
+unsigned char LedCount=0;           // Raw Counter before being converted to PWM value
+unsigned char LedPwm=0;             // PWM value 0-255
+
+unsigned char Access_bit=0;
+unsigned int AccessTimer=0;         
 
 const far char MenuConfig[] = "CONFIG - Set to Fixed Cable or Type 2 Socket";
 const far char MenuMode[] 	= "MODE   - Set to Smart mode or Normal EVSE mode";
@@ -136,6 +157,7 @@ const far char MenuMin[] 	= "MIN    - Set MIN Charge Current the EV will accept"
 const far char MenuCable[] 	= "CABLE  - Set Fixed Cable Current limit";
 const far char MenuLock[] 	= "LOCK   - Cable locking actuator type";
 const far char MenuCal[]	= "CAL    - Calibrate CT1 (CT2+3 will also change)";
+const far char MenuAccess[] = "ACCESS - Access control on IO2";
 
 
 void interrupt high_isr(void)
@@ -211,7 +233,7 @@ void interrupt high_isr(void)
 		}
 	}
 
-		while(PIR5bits.TMR4IF)				// Timer 4 interrupt, called 1000 times/sec
+	while(PIR5bits.TMR4IF)				// Timer 4 interrupt, called 1000 times/sec
 	{
 		if (Lock==1)												// Cable lock type Solenoid?
 		{
@@ -289,10 +311,60 @@ void interrupt high_isr(void)
 		}	
 
 		Timer++;						// mSec counter (overflows in 1193 hours)
-
-		PIR5bits.TMR4IF=0;				// clear interrupt flag
+        if (AccessTimer) AccessTimer--;
+        
+        if (LedTimer-- == 0)
+        {   
+            CCPR2L = LedPwm;            // MSB of DutyCycle, Lsb 0-1 are part of CCP2CON, but not used
+                                        // LedPwm is calculated in the main loop
+            LedTimer=10;                // Led is updated every 10ms (1ms*10)
+            LedUpdate=1;                // Flag that LED PWM value has been updated
+        }        
+        PIR5bits.TMR4IF=0;				// clear interrupt flag
 	}
 	
+}
+
+
+/* triwave8: triangle (sawtooth) wave generator.  Useful for
+           turning a one-byte ever-increasing value into a
+           one-byte value that oscillates up and down.
+
+           input         output
+           0..127        0..254 (positive slope)
+           128..255      254..0 (negative slope)
+*/
+unsigned char triwave8(unsigned char in)
+{
+    if( in & 0x80) {
+        in = 255 - in;
+    }
+    unsigned char out = in << 1;
+    return out;
+}
+
+unsigned char scale8( unsigned char i, unsigned char scale)
+{
+    return (((unsigned int)i) * (1+(unsigned int)(scale))) >> 8;
+}
+
+
+/* easing functions; see http://easings.net
+
+    ease8InOutQuad: 8-bit quadratic ease-in / ease-out function
+*/
+unsigned char ease8InOutQuad( unsigned char i)
+{
+    unsigned char j = i;
+    if( j & 0x80 ) {
+        j = 255 - j;
+    }
+    unsigned char jj  = scale8(  j, j);
+    unsigned char jj2 = jj << 1;
+    if( i & 0x80 ) {
+        jj2 = 255 - jj2;
+    }
+    return jj2;
 }
 
 
@@ -369,6 +441,7 @@ void read_settings(void)
     eeprom_read_object(&CableLimit, sizeof CableLimit);
     eeprom_read_object(&Config, sizeof Config);
     eeprom_read_object(&LoadBl, sizeof LoadBl);
+    eeprom_read_object(&Access, sizeof Access);
     
     INTCON = savint; 			// Restore interrupts
 }
@@ -392,10 +465,11 @@ void write_settings(void)
     eeprom_write_object(&CableLimit, sizeof CableLimit);
     eeprom_write_object(&Config, sizeof Config);
     eeprom_write_object(&LoadBl, sizeof LoadBl);
-        
+    eeprom_write_object(&Access, sizeof Access);    
+    
     INTCON = savint; 			// Restore interrupts
 	printf("\r\nsettings saved\r\n");
-
+    
 }
 
 
@@ -489,6 +563,35 @@ void Temp(void)								// Measure Temperature EVSE (0-125 C)
 	else TempEVSE = temp-50;				// set Temp (1-125 deg C), and remove offset
 }
 
+void BlinkLed(void)
+{   
+    if (Error || ChargeDelay)
+    {
+        if (LedUpdate)
+        {
+            if (Error && ChargeDelay) LedCount=LedCount+10;     // Rapid flashing indicates ERROR
+            else LedCount=LedCount+3;                           // short Blinks indicate waiting for ChargeDelay to clear
+            
+            if (Error && LedCount>128) LedPwm=255;              // LED 50% of time on, full brightness
+            else if (ChargeDelay && LedCount>200) LedPwm=255;   // LED 22% of time on, full brightness
+            else LedPwm=0;                                      // LED off
+            LedUpdate=0;
+        }
+    }
+    else if (Access && Access_bit==0) LedPwm=0;                 // No Access, LED off
+    else if (State == STATE_A) LedPwm=40;                       // STATE A, LED on (dimmed)
+    else if (State == STATE_B)
+    {
+        LedPwm=255;                                             // STATE B, LED on (full brightness)
+        LedCount=128;                                           // When switching to STATE C, start at full brightness
+    }
+    else if (State == STATE_C && LedUpdate)                     // STATE C, LED fades in/out
+    {
+        LedCount=LedCount+2;
+        LedPwm = ease8InOutQuad(triwave8(LedCount) );           // pre calculate new LedPwm value
+        LedUpdate=0;
+    } 
+}
 
 
 void SetCurrent(unsigned int current)		// current in Amps (16= 16A)
@@ -496,9 +599,9 @@ void SetCurrent(unsigned int current)		// current in Amps (16= 16A)
 	unsigned int DutyCycle;
 
 	current=current*10;						// multiply by 10 (current in Amps x10	(160= 16A) )
-	if ((current >= 60) && (current <= 510)) DutyCycle = current/0.6;
+	if ((current >= 60) && (current <= 510)) DutyCycle = (unsigned int)(current/0.6);
 											// calculate DutyCycle from current
-	else if ((current > 510) && (current <=800)) DutyCycle = (current / 2.5)+640;
+	else if ((current > 510) && (current <=800)) DutyCycle = (unsigned int)(current / 2.5)+640;
 	else DutyCycle = 100;					// invalid, use 6A
 	CCPR1L = DutyCycle >> 2;				// Msb of DutyCycle
 											// 2 Lsb are part of CCP1CON, use Timer 2	
@@ -556,6 +659,9 @@ void CalcBalancedCurrent(char mod)
         for (n=1;n<4;n++) BalancedState[n]=0;                       // Yes, disable old active Slave states
     }    
     
+    if (BalancedState[0]==2 && MaxCurrent> MaxCapacity) MaxCurrent = MaxCapacity;          // When Charging: limit MaxCurrent to MaxCapacity
+    if (LoadBl<2) BalancedMax[0] = MaxCurrent;                      // Load Balancing Disabled or Master: update BalancedMax[0] if the MAX current was adjusted using buttons or CLI
+        
 	for (n=0;n<4;n++) if (BalancedState[n]==2)
 	{
 		BalancedLeft++;												// Count nr of Active (Charging) EVSE's
@@ -575,8 +681,12 @@ void CalcBalancedCurrent(char mod)
 	Baseload = Imeasured-(TotalCurrent*10);							// Calculate Baseload (load without any active EVSE)
 	if (Baseload<0) Baseload=0;
 
-	if (!Mode) IsetBalanced=MaxMains*10;							// for Normal mode, set current to Max Mains	
-	
+	if (!Mode)                                                      // Normal Mode
+    {
+        if (LoadBl) IsetBalanced=MaxMains*10;                       // Load Balancing active? MAINS is max current for all active EVSE's
+        else IsetBalanced=MaxCurrent*10;             				// No Load Balancing in Normal Mode. Set current to Max Current	(fix: v2.04)
+    } 
+    
 	if (BalancedLeft)												// Only if we have active EVSE's
 	{
 	
@@ -720,7 +830,8 @@ void RS232cli(void)
 		if (strcmp(U2buffer,(const far char *)"CONFIG") == 0) menu=7;				// Switch to Fixed cable or Type 2 Socket
 		if ((strcmp(U2buffer,(const far char *)"CABLE") == 0) && Config) menu=8;		// Switch to Set fixed Cable Current limit (Config=Fixed)
 		if (strcmp(U2buffer,(const far char *)"LOADBL") == 0) menu=9;				// Switch to Set Load Balancing
-	}
+		if (strcmp(U2buffer,(const far char *)"ACCESS") == 0) menu=10;				// External Start/Stop button on I/O 2
+    }
 	else if (U2buffer[0]==0) menu=0;
 	else							// menu = 1,2,3,4 read entered value from cli
 	{		
@@ -735,7 +846,7 @@ void RS232cli(void)
 			else if ((menu==2) && (n>9) && (n<81))
 			{
 				MaxCurrent=n;					// Set new MaxCurrent
-				write_settings();				// Write to eeprom
+                write_settings();				// Write to eeprom
 			}
 			else if ((menu==3) && (n>5) && (n<17))
 			{
@@ -833,7 +944,19 @@ void RS232cli(void)
 				LoadBl = 4;
 				write_settings();				// Write to eeprom
 			}
-
+		}
+        else if (menu==10)					// Start/Stop button on I/O 2
+		{
+			if (strcmp(U2buffer,(const far char *)"DISABLE") == 0)
+			{
+				Access = 0;
+				write_settings();				// Write to eeprom
+			}
+			else if (strcmp(U2buffer,(const far char *)"SWITCH") == 0)
+			{
+				Access = 1;
+				write_settings();				// Write to eeprom
+			}
 		}
 
 		menu=0;
@@ -862,7 +985,8 @@ void RS232cli(void)
 		else if (LoadBl==2) printf("Slave1\r\n");
 		else if (LoadBl==3) printf("Slave2\r\n");
 		else printf("Slave3\r\n");
-
+        	
+        
 		if (Mode || LoadBl==1) 
 		{
 			//printf("MAINS  - Set Max MAINS Current (Smart mode)        (%3u A)\r\n",MaxMains);
@@ -887,6 +1011,10 @@ void RS232cli(void)
 			else printf("Disabled\r\n");
 		}
 		if (Mode) printf("CAL    - Calibrate CT1  (CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)\r\n",(unsigned int)Irms[0]/10, (unsigned int)Irms[0]%10, (unsigned int)Irms[1]/10, (unsigned int)Irms[1]%10, (unsigned int)Irms[2]/10, (unsigned int)Irms[2]%10);
+        
+        printf(MenuAccess); printf("                    - ");     //Access control on IO2
+		if (Access==0) printf("Disabled\r\n");
+		else printf("Switch\r\n");
 		printf(">");
 	}
 	else if (menu==1) 
@@ -946,6 +1074,13 @@ void RS232cli(void)
 		else printf("Slave%u\r\n",LoadBl-1);
 		printf("Enter Load Balancing mode (DISABLE/MASTER/SLAVE1/SLAVE2/SLAVE3): ");
 	}
+    else if (menu==10)
+	{
+		printf("Access Control on I/O 2 set to : ");
+		if (Access==0) printf("Disabled\r\n");
+		else printf("Switch\r\n");
+		printf("Access Control on IO2 (DISABLE/SWITCH): ");
+	}
 
 	ISR2FLAG=0;				// clear flag
 	idx2=0;					// reset buffer pointer
@@ -969,8 +1104,11 @@ void TestIO(void)							// Test connector should be connected to CON1
 
 	if (TestState==1) 
 	{
+        CCP2CON = 0;                            // Disable PWM on LED output
+        LATBbits.LATB3 = 0;						// set IO1 to low, State B
+        
 		SOLENOID_OFF;
-		delay(5000);							// wait 5 seconds for capacitor to charge
+		delay(2000);							// wait 2 seconds for capacitor to charge
 		
 		CCP1CON = 0;							// PWM off
 		PORTCbits.RC2 = 0;						// Control pilot static -12V
@@ -990,7 +1128,6 @@ void TestIO(void)							// Test connector should be connected to CON1
 		Lock=1;									// enable Lock
 		TRISB = 0b10000101;						// RB7(RX2), RB0,2 inputs. all other output
 		LATBbits.LATB1=1;						// set IO3 to high
-
 		delay(5000);							// wait 5 seconds for capacitor to charge
 		if (PORTCbits.RC1 == 1) error^=4;		// error, Solenoid not activated !
 
@@ -1051,8 +1188,8 @@ void init(void)
 
 	PORTB = 0;
 	ANSELB = 0;				// All digital IO
-	TRISB = 0b10000001;		// RB7(RX2), RB0 inputs. all other output
-	WPUB = 0x81;			// weak pullup on RB7 and RB0
+	TRISB = 0b10000111;		// RB7(RX2), RB0-RB2 inputs. all other output
+	WPUB = 0b10000111;		// weak pullup on RB7 and RB0-RB2
 	INTCON2bits.RBPU = 0;	// Enable weak pullups on PORTB
 
 	PORTC = 0;
@@ -1082,9 +1219,10 @@ void init(void)
 
 	PR2 = 249;				// Timer 2 frequency value -> 1Khz @ 16 Mhz
 	T2CON = 0b00000110;		// Timer 2 ON, prescaler 1:16
-	CCP1CON = 0;			// PWM off
-
-	PR4 = 249;				// Timer 4 frequency value -> 1Khz @ 16 Mhz
+	CCP1CON = 0;			// PWM off (Control Pilot signal)
+    CCP2CON = 0;			// PWM off (Led on I/O 1)
+    
+    PR4 = 249;				// Timer 4 frequency value -> 1Khz @ 16 Mhz
 	T4CON = 0b00000110;		// Timer 4 ON, prescaler 1:16
 
 // SPI registers
@@ -1102,7 +1240,10 @@ void init(void)
 	INTCONbits.GIEL = 0;	// global Low Priority interrupts disabled
 
 	SOLENOID_OFF;			// R and W outputs held at Capacitor voltage (+12V) 
-
+    
+    CCPR2L = 0;     		// LED DutyCycle 0%
+    CCP2CON = 0x0C;         // LED PWM on
+    
 	printf("\r\nSmart EVSE powerup.\r\n");
 
 }
@@ -1115,7 +1256,7 @@ void main(void)
 	char x,n;
 	unsigned char pilot,count=0,timeout=5;
 	char DiodeCheck=0;
-	char SlaveAdr, Command, Broadcast=0;
+	char SlaveAdr, Command, Broadcast=0, Switch_count=0;
 	unsigned int ChargeCurrent;
 	    
     init();									// initialize ports, ADC, UARTs etc
@@ -1126,17 +1267,19 @@ void main(void)
 	GLCD_init();
 	GLCD_version();							// Display Version
 
-        
+          
     while(1)								// MAIN loop
 	{
 
-		if (TestState) TestIO();			// TestMode. Test all I/O of Module
+        if (TestState) TestIO();			// TestMode. Test all I/O of Module
 
 		if (ISR2FLAG) RS232cli();			// RS232 command line interface
 
         if (!ISRTXFLAG && TXSTA1bits.TRMT) LATBbits.LATB5 = 0;	// set RS485 transceiver to receive if the last character has been sent
+
+        BlinkLed();                         // Handle the blinking of the 12V LED
         
-		TRISC = 0b10100011;					// Set RC5 and RC0 to input. Make sure there are pull-ups on these pins.
+        TRISC = 0b10100011;					// Set RC5 and RC0 to input. Make sure there are pull-ups on these pins.
 		NOP();
         NOP();
 		x= (PORTC & 0b00100001);			// Read Two Button Inputs on RC5(>) and RC0(select)
@@ -1145,13 +1288,40 @@ void main(void)
 		ButtonState = ButtonState | (PORTB & 0x01);	 // Read the state of the last button RB0(<).
 		TRISC = 0b10000010;					// RC1 and RC7 input (RX1), all other output
 		
-
         //printf("ButtonState %02x\r",ButtonState);
         
 		if ( (ButtonState != 0x07) || (ButtonState != OldButtonState) ) GLCDMenu( ButtonState );		// Any button pressed or just released?
 
 		if ( LCDNav && (ScrollTimer+5000<Timer) && (!SubMenu) )  GLCDHelp();		// Update/Show Helpmenu
 
+        
+        if (PORTBbits.RB2 == 0)                     // Switch input pulled low?
+        {
+            if (Switch_count++ > 5)
+            {   
+                if (AccessTimer==0 )
+                {
+                    if (Access)                     // Menu option Access is enabled (set to Switch))
+                    {    
+                        if (Access_bit)             
+                        {
+                            Access_bit = 0;         // Toggle Access bit on/off
+                            State = STATE_A;        // Switch back to state A
+                        } else Access_bit = 1;
+
+                        printf("access: %d ",Access_bit );
+                    }
+                    else if (State == STATE_C)     // Menu option Access is set to Disabled
+                    {                               // We only use the switch/button now to STOP charging
+                        State = STATE_A;
+                        if (!TestState) ChargeDelay=15;             // Keep in State A for 15 seconds, so the Charge cable can be removed.
+                    }
+                }                                   // Reset timer while button is pressed.
+                AccessTimer=200;                    // this de-bounces the switch, and makes sure we don't toggle between Access and No-Access.    
+                Switch_count=0;                     // make sure that noise on the input does not switch off charging
+            }                  
+        } else Switch_count=0;   
+        
         
         if ((State == STATE_COMM_A) && (Timer>ACK_TIMEOUT))			// Wait for response from Master
 		{
@@ -1168,9 +1338,13 @@ void main(void)
 			BalancedState[0]=0;				// Mark as inactive
 
 			pilot = ReadPilot();
+            if (pilot == PILOT_12V)         // Check if we are disconnected, or forced to State A, but still connected to the EV
+            {
+                ChargeDelay=0;              // Clear ChargeDelay when disconnected.
+            }
 			if (pilot == PILOT_9V)			// switch to State B ?
 			{
-				if (NextState == STATE_B)
+				if ((NextState == STATE_B) && (Access_bit || Access==0))           // Access is permitted when Access is disabled or Access_bit=1
 				{
 					if (count++ > 5) 													// repeat 5 times
 					{
@@ -1181,13 +1355,13 @@ void main(void)
 							DiodeCheck=0;
 							ProximityPin();					// Sample Proximity Pin
 	 						printf("Cable limit: %uA  Max: %uA \r\n",MaxCapacity, MaxCurrent);
-                            if (MaxCapacity > MaxCurrent) MaxCapacity=MaxCurrent;       // make sure MaxCurrent setting is limit here. (fix v2.02)    
-	
+                            if (MaxCurrent> MaxCapacity) MaxCurrent=MaxCapacity;        // Do not modify Max Cable Capacity.
+                            
 							if (LoadBl>1)												// Load Balancing : Slave 
 							{
 								
-                                SendRS485(LoadBl-1,0x02,0x00,MaxCapacity);				// Send command to Master, followed by Max cable capacity
-								printf("02 sent to Master, requested %uA\r\n",MaxCapacity);
+                                SendRS485(LoadBl-1,0x02,0x00,MaxCurrent);				// Send command to Master, followed by Max cable capacity
+								printf("02 sent to Master, requested %uA\r\n",MaxCurrent);
 								State = STATE_COMM_B;
 								Timer=0;												// Clear the Timer
 							}
@@ -1253,14 +1427,14 @@ void main(void)
 							{
 								if (LoadBl>1)												// Load Balancing : Slave 
 								{
-									SendRS485(LoadBl-1,0x03,0x00,MaxCapacity);				// Send command to Master, followed by Max cable capacity
-									printf("03 sent to Master, requested %uA\r\n",MaxCapacity);
+									SendRS485(LoadBl-1,0x03,0x00,MaxCurrent);				// Send command to Master, followed by Max cable capacity
+									printf("03 sent to Master, requested %uA\r\n",MaxCurrent);
 									State = STATE_COMM_C;
 									Timer=0;												// Clear the Timer
 								}
 								else
 								{															// Load Balancing: Master or Disabled
-									BalancedMax[0]=MaxCapacity;
+									BalancedMax[0]=MaxCurrent;
 									if (IsCurrentAvailable()==0)
 									{
 										BalancedState[0]=2;										// Mark as Charging
@@ -1274,7 +1448,6 @@ void main(void)
 										Timer =0;												// reset msTimer and ChargeTimer
 										if (!LCDNav)											// Don't update the LCD if we are navigating the menu
 										{
-											//LCD_init();											// re-init LCD
 											GLCD();												// immediately update LCD
 										}
 										printf("STATE B->C\r\n");
@@ -1333,6 +1506,7 @@ void main(void)
 						{
 							State = STATE_A;	// switch back to STATE_A
 							printf("STATE C->A\r\n");
+                            GLCD_init();                                        // Re-init LCD
                             if (LoadBl>1)										// Load Balancing : Slave 
 							{
 								State = STATE_COMM_A;							// Tell Master we switched to State A
@@ -1356,6 +1530,7 @@ void main(void)
 						{
 
 							CONTACTOR_OFF;									// Contactor OFF
+                            GLCD_init();                                    // Re-init LCD
 							DiodeCheck=0;
 							State = STATE_B;								// switch back to STATE_B
 							if (LoadBl>1)									// Load Balancing : Slave 
@@ -1530,7 +1705,7 @@ void main(void)
 	                *pBytes++=(unsigned char)U1buffer[n++];
 	                *pBytes=(unsigned char)U1buffer[n++];
                     Irms[x]= Irms[x]*ICal;						// adjust CT values with Calibration value
-					if (Irms[x] > Imeasured) Imeasured=Irms[x];	// Imeasured holds highest Irms of all channels
+					if (Irms[x] > Imeasured) Imeasured=(unsigned int)Irms[x];	// Imeasured holds highest Irms of all channels
 				}
                 if (U1buffer[4]==0xA5 && !TestState) TestState=1;	// TestIO command received, perform selfcheck (test interface required)
          			
@@ -1617,7 +1792,6 @@ void main(void)
 							Timer =0;									// reset msTimer and ChargeTimer
 							if (!LCDNav)								// Don't update the LCD if we are navigating the menu
 							{
-								//LCD_init();								// re-init LCD
 								GLCD();									// immediately update LCD
 							}
 							DEBUG_PRINT(("83 ACK State C charge current: %uA\r\n",ChargeCurrent));

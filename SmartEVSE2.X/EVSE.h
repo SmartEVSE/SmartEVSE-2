@@ -32,8 +32,8 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.03"					// SmartEVSE software version
-#define DEBUG_P							// Debug print enable/disable
+#define VERSION "2.04"					// SmartEVSE software version
+//#define DEBUG_P							// Debug print enable/disable
 
 #define ICAL 3.00						// Irms Calibration value (for Current transformers) 
 #define MAX_MAINS 25					// max Current the Mains connection can supply
@@ -44,7 +44,8 @@
 #define CABLE_LIMIT 13					// Manual set Cable Limit (for use with Fixed Cable)
 #define CONFIG 0						// Configuration: 0= TYPE 2 socket, 1= Fixed Cable
 #define LOADBL 0						// Load Balancing disabled
-#define CHARGEDELAY 60					// Seconds to wait after overcurrent, before tryting again
+#define ACCESS 0                        // 0= Charge on plugin, 1= (Push)Button on IO2 is used to Start/Stop charging.
+#define CHARGEDELAY 60					// Seconds to wait after overcurrent, before trying again
 
 #define GOODFCS16 0x0f47				// crc16 frame check value
 #define ACK_TIMEOUT 1000				// 1000ms timeout
@@ -93,6 +94,7 @@
 #define MENU_CABLE 70
 #define MENU_CAL 80
 #define MENU_EXIT 90
+#define MENU_ACCESS 110
 
 #ifdef DEBUG_P
  #define DEBUG_PRINT(x) printf x
@@ -121,8 +123,10 @@ extern char Lock;					// Cable lock enable/disable
 extern unsigned int CableLimit;		// Fixed Cable Current limit (only used when config is set to Fixed Cable)
 extern char Config;					// Configuration (Fixed Cable or Type 2 Socket)
 extern char LoadBl;					// Load Balance Setting (Disable, Master or Slave)
+extern char Access;                 // Allow access to EVSE with button on IO2
 
-#define EEPROM_BYTES 16				// total 16 bytes
+
+#define EEPROM_BYTES 17				// total 17 bytes
 
 
 extern double Irms[3];				// Momentary current per Phase (Amps *10) (23= 2.3A)
@@ -162,6 +166,7 @@ extern const far char MenuMin[];
 extern const far char MenuCable[];
 extern const far char MenuLock[];
 extern const far char MenuCal[];
+extern const far char MenuAccess[];
 
 void delay(unsigned int d);
 void read_settings(void);

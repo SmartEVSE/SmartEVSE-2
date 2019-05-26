@@ -51,7 +51,8 @@
 #define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
 
-#define MODE_NORMAL 0                                                           // Mode settings
+// Mode settings
+#define MODE_NORMAL 0
 #define MODE_SMART 1
 #define MODE_SOLAR 2                    
 
@@ -93,6 +94,7 @@
 #define BACKLIGHT_OFF PORTAbits.RA3 = 0;                                        // LCD Backlight OFF
 #define BACKLIGHT_ON  PORTAbits.RA3 = 1;                                        // LCD Backlight ON
 
+#define MENU_ENTER 1
 #define MENU_CONFIG 10
 #define MENU_MODE 20
 #define MENU_START 130

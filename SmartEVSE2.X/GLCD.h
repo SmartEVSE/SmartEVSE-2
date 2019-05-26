@@ -29,6 +29,7 @@
 
 void GLCD_write(unsigned int c);
 void GLCD_write2(unsigned int c);
+void GLCD_write_buf(unsigned int c);
 void GLCD_write_buf2(unsigned int c);
 void GLCD_write3(unsigned int c);
 void GLCD_print(unsigned char x,unsigned char y,const far char* str);
@@ -38,8 +39,10 @@ void GLCD_print_menu(const far char *data,char RowAdr );
 void GLCD_print_Amps(unsigned int Amps );
 void glcd_clrln(unsigned char ln,unsigned char data);
 void GLCD_sendbuf(unsigned char RowAdr);
+void GLCD_sendbuf4(unsigned char RowAdr);
 void GLCD_buffer_clr(void);
-
+void GLCD_Flow_buf(void);
+void glcd_clear(void);
 
 extern void GLCDHelp(void);
 extern void GLCD(void);

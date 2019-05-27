@@ -36,7 +36,6 @@ void GLCD_print(unsigned char x,unsigned char y,const far char* str);
 void GLCD_print2(unsigned char y,const far char* str);
 void GLCD_print8(const far char *data );
 void GLCD_print_menu(const far char *data,char RowAdr );
-void GLCD_print_Amps(unsigned int Amps );
 void glcd_clrln(unsigned char ln,unsigned char data);
 void GLCD_sendbuf(unsigned char RowAdr);
 void GLCD_sendbuf4(unsigned char RowAdr);

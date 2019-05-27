@@ -203,5 +203,6 @@ void delay(unsigned int d);
 void read_settings(void);
 void write_settings(void);
 unsigned char getMenuItems (void);
+const char * getMenuItemOption(unsigned char nav);
 
 #endif

@@ -99,6 +99,23 @@ const unsigned int EE_Access_RCmon @ 0xf00010 = ACCESS + (RC_MON << 8);
 const unsigned int EE_StartCurrent @ 0xf00012 = START_CURRENT;
 const unsigned int EE_StopTime @ 0xf00014 = STOP_TIME;
 
+// Text
+const far char StrFixed[]   = "Fixed";
+const far char StrSocket[]  = "Socket";
+const far char StrSmart[]   = "Smart";
+const far char StrNormal[]  = "Normal";
+const far char StrSolar[]   = "Solar";
+const far char StrSolenoid[] = "Solenoid";
+const far char StrMotor[]   = "Motor";
+const far char StrDisabled[] = "Disabled";
+const far char StrMaster[]  = "Master";
+const far char StrSlave1[]  = "Slave 1";
+const far char StrSlave2[]  = "Slave 2";
+const far char StrSlave3[]  = "Slave 3";
+const far char StrSwitch[]  = "Switch";
+const far char StrEnabled[] = "Enabled";
+const far char StrExitMenu[] = "MENU";
+
 // Global data
 char U1buffer[50];                                                              // Uart1 Receive buffer /RS485
 char U1TXbuffer[50];                                                            // Uart1 Transmit buffer /RS485
@@ -803,6 +820,58 @@ unsigned char getMenuItems (void) {
     return m;
 }
 
+const char * getMenuItemOption(unsigned char nav) {
+    char Str[10];
+
+    switch (nav) {
+        case MENU_CONFIG:
+            if (Config) return StrFixed;
+            else return StrSocket;
+        case MENU_MODE:
+            if (Mode == MODE_SMART) return StrSmart;
+            else if (Mode == MODE_SOLAR) return StrSolar;
+            else return StrNormal;
+        case MENU_START:
+            sprintf(Str, "-%2u A", StartCurrent);
+            return Str;
+        case MENU_STOP:
+            sprintf(Str, "%2u min", StopTime);
+            return Str;
+        case MENU_LOADBL:
+            if (LoadBl == 0) return StrDisabled;
+            else if (LoadBl == 1) return StrMaster;
+            else if (LoadBl == 2) return StrSlave1;
+            else if (LoadBl == 3) return StrSlave2;
+            else return StrSlave3;
+        case MENU_MAINS:
+            sprintf(Str, "%2u A", MaxMains);
+            return Str;
+        case MENU_MIN:
+            sprintf(Str, "%2u A", MinCurrent);
+            return Str;
+        case MENU_MAX:
+            sprintf(Str, "%2u A", MaxCurrent);
+            return Str;
+        case MENU_LOCK:
+            if (Lock == 1) return StrSolenoid;
+            else if (Lock == 2) return StrMotor;
+            else return StrDisabled;
+        case MENU_CABLE:
+            sprintf(Str, "%2u A", CableLimit);
+            return Str;
+        case MENU_ACCESS:
+            if (Access) return StrSwitch;
+            else return StrDisabled;
+        case MENU_RCMON:
+            if (RCmon) return StrEnabled;
+            else return StrDisabled;
+        case MENU_EXIT:
+            return StrExitMenu;
+        default:
+            break;
+    }
+}
+
 // Serial Command line interface
 // Display Menu, and process input.
 //------------------------------------------------
@@ -951,60 +1020,11 @@ void RS232cli(void) {
         printf(" Internal Temperature: %2u C\r\n", TempEVSE);
         printf("---------------------------------------------------------\r\n");
         for(i = 0; i < MenuItemsCount - 1; i++) {
-            printf("%-06s - %-41s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
-            switch (MenuItems[i]) {
-                case MENU_CONFIG:
-                    if (Config) printf("Fixed Cable");
-                    else printf("Type 2 Socket");
-                    break;
-                case MENU_MODE:
-                    if (Mode == MODE_SMART) printf("Smart");
-                    else if (Mode == MODE_SOLAR) printf("Solar");
-                    else printf("Normal");
-                    break;
-                case MENU_START:
-                    printf("%u A", StartCurrent);
-                    break;
-                case MENU_STOP:
-                    printf("%3u min", StopTime);
-                    break;
-                case MENU_LOADBL:
-                    if (LoadBl == 0) printf("Disabled");
-                    else if (LoadBl == 1) printf("Master");
-                    else if (LoadBl == 2) printf("Slave1");
-                    else if (LoadBl == 3) printf("Slave2");
-                    else printf("Slave3");
-                    break;
-                case MENU_MAINS:
-                    printf("%2u A", MaxMains);
-                    break;
-                case MENU_MIN:
-                    printf("%2u A", MinCurrent);
-                    break;
-                case MENU_MAX:
-                    printf("%2u A", MaxCurrent);
-                    break;
-                case MENU_LOCK:
-                    if (Lock == 1) printf("Solenoid");
-                    else if (Lock == 2) printf("Motor");
-                    else printf("Disabled");
-                    break;
-                case MENU_CABLE:
-                    printf("%2u A", CableLimit);
-                    break;
-                case MENU_CAL:
-                    printf("CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)",(unsigned int)Irms[0], (unsigned int)(Irms[0]*10)%10, (unsigned int)Irms[1], (unsigned int)(Irms[1]*10)%10, (unsigned int)Irms[2], (unsigned int)(Irms[2]*10)%10 );
-                    break;
-                case MENU_ACCESS:
-                    if (Access == 0) printf("Disabled");
-                    else printf("Switch");
-                    break;
-                case MENU_RCMON:
-                    if (RCmon == 0) printf("Disabled");
-                    else printf("Enabled");
-                    break;
-                default:
-                    break;
+            printf("%-06s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
+            if (MenuItems[i] == MENU_CAL) {
+                printf("CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)",(unsigned int)Irms[0], (unsigned int)(Irms[0]*10)%10, (unsigned int)Irms[1], (unsigned int)(Irms[1]*10)%10, (unsigned int)Irms[2], (unsigned int)(Irms[2]*10)%10 );
+            } else {
+                printf(getMenuItemOption(MenuItems[i]));
             }
             printf("\r\n");
         }

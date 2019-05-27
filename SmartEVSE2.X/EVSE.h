@@ -95,20 +95,20 @@
 #define BACKLIGHT_ON  PORTAbits.RA3 = 1;                                        // LCD Backlight ON
 
 #define MENU_ENTER 1
-#define MENU_CONFIG 10
-#define MENU_MODE 20
-#define MENU_START 130
-#define MENU_STOP 140
-#define MENU_LOADBL 100
-#define MENU_MAINS 30
-#define MENU_MAX 40
-#define MENU_MIN 50
-#define MENU_LOCK 60
-#define MENU_CABLE 70
-#define MENU_CAL 80
-#define MENU_EXIT 90
-#define MENU_ACCESS 110
-#define MENU_RCMON 120
+#define MENU_CONFIG 2
+#define MENU_MODE 3
+#define MENU_START 4
+#define MENU_STOP 5
+#define MENU_LOADBL 6
+#define MENU_MAINS 7
+#define MENU_MIN 8
+#define MENU_MAX 9
+#define MENU_CABLE 10
+#define MENU_LOCK 11
+#define MENU_ACCESS 12
+#define MENU_RCMON 13
+#define MENU_CAL 14
+#define MENU_EXIT 15
 
 
 #ifdef DEBUG_P
@@ -174,22 +174,34 @@ extern unsigned char ChargeDelay;                                               
 extern unsigned char TestState;
 extern unsigned char Access_bit;
 
-extern const far char MenuConfig[];
-extern const far char MenuMode[];
-extern const far char MenuLoadBl[];
-extern const far char MenuMains[];
-extern const far char MenuMax[];
-extern const far char MenuMin[];
-extern const far char MenuCable[];
-extern const far char MenuLock[];
-extern const far char MenuCal[];
-extern const far char MenuAccess[];
-extern const far char MenuRCmon[];
-extern const far char MenuStart[];
-extern const far char MenuStop[];
+extern unsigned char MenuItems[18];
+
+const far struct {
+    char Key[7];
+    char LCD[9];
+    char Desc[70];
+} MenuStr[21] = {
+    {"",       "",         "Not in menu"},
+    {"",       "",         "Hold 2 sec"},
+    {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket"},
+    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode"},
+    {"START",  "START",    "Surplus energy start Current"},
+    {"STOP",   "STOP",     "Stop solar charging at 6A after this time"},
+    {"LOADBL", "LOAD BAL", "Set Load Balancing mode"},
+    {"MAINS",  "MAINS",    "Set Max MAINS Current"},
+    {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept"},
+    {"MAX",    "MAX",      "Set MAX Charge Current for the EV"},
+    {"CABLE",  "CABLE",    "Set Fixed Cable Current limit"},
+    {"LOCK",   "LOCK",     "Cable locking actuator type"},
+    {"ACCESS", "ACCESS",   "Access control on IO2"},
+    {"RCMON",  "RCMON",    "Residual Current Monitor on IO3"},
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)"},
+    {"EXIT",   "EXIT",     "EXIT"}
+};
 
 void delay(unsigned int d);
 void read_settings(void);
 void write_settings(void);
+unsigned char getMenuItems (void);
 
 #endif

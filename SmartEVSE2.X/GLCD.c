@@ -323,39 +323,24 @@ const unsigned char LCD_Flow [] = {
 
 
 
-const far char StrConfig[] = "CONFIG";
-const far char StrMode[] = "MODE";
 const far char StrFixed[] = "Fixed";
 const far char StrSocket[] = "Socket";
 const far char StrSmart[] = "Smart";
 const far char StrNormal[] = "Normal";
 const far char StrSolar[] = "Solar";
-const far char StrMains[] = "MAINS";
-const far char StrMax[] = "MAX";
-const far char StrMin[] = "MIN";
-const far char StrLock[] = "LOCK";
 const far char StrSolenoid[] = "Solenoid";
 const far char StrMotor[] = "Motor";
 const far char StrDisabled[] = "Disabled";
-const far char StrCable[] = "CABLE";
-const far char StrCal[] = "CAL";
-const far char StrLoadBl[] = "LOAD BAL";
 const far char StrMaster[] = "Master";
 const far char StrSlave1[] = "Slave 1";
 const far char StrSlave2[] = "Slave 2";
 const far char StrSlave3[] = "Slave 3";
-const far char StrAccess[] = "ACCESS";
 const far char StrSwitch[] = "Switch";
-const far char StrRcmon[] = "RCMON";
 const far char StrEnabled[] = "Enabled";
-const far char StrExit[] = "EXIT";
 const far char StrExitMenu[] = "MENU";
-const far char StrStart[] = "START";
-const far char StrStop[] = "STOP";
 
 
 unsigned int GLCDx, GLCDy;
-unsigned char MenuItems[18];
 
 // uses buffer
 
@@ -422,36 +407,6 @@ void GLCD_print_Amps(unsigned int Amps) // write data to LCD
 }
 
 
-unsigned char getMenuItems (void) {
-    unsigned char m = 0;
-
-    MenuItems[m++] = MENU_CONFIG;                                               // Configuration (0:Socket / 1:Fixed Cable)
-    MenuItems[m++] = MENU_MODE;                                                 // EVSE mode (0:Normal / 1:Smart)
-    if (Mode == MODE_SOLAR) {                                                   // ? Solar mode?
-        MenuItems[m++] = MENU_START;                                            // - Start Surplus Current (A)
-        MenuItems[m++] = MENU_STOP;                                             // - Stop time (min)
-    }
-    MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-    if (Mode || (LoadBl == 1)) {                                                // ? Smart or Solar mode and Load Balancing Master?
-        MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
-        MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
-    }
-    MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
-    if (Config) {                                                               // ? Fixed Cable?
-        MenuItems[m++] = MENU_CABLE;                                            // - Fixed Cable Current limit (A)
-    } else {                                                                    // ? Socket?
-        MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
-    }
-    if (Mode) {                                                                 // ? Smart mode?
-        MenuItems[m++] = MENU_CAL;                                              // - Sensorbox calibration
-    }
-    MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
-    MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
-    MenuItems[m++] = MENU_EXIT;
-
-    return m;
-}
-
 /**
  * Increase or decrease char value
  * 
@@ -515,72 +470,17 @@ unsigned int MenuNavInt(unsigned char Buttons, unsigned int Value, unsigned int 
 }
 
 // uses buffer
-
-void GLCDHelp(void) // Display/Scroll helptext on LCD 
+void GLCDHelp(void)                                                             // Display/Scroll helptext on LCD 
 {
     unsigned int x;
+    
+    x = strlen(MenuStr[LCDNav].Desc);
+    GLCD_print_row(MenuStr[LCDNav].Desc + LCDpos);
 
-    switch (LCDNav) {
-        case MENU_CONFIG:
-            x = strlen(MenuConfig);
-            GLCD_print_row(MenuConfig + LCDpos);
-            break;
-        case MENU_MODE:
-            x = strlen(MenuMode);
-            GLCD_print_row(MenuMode + LCDpos);
-            break;
-        case MENU_LOADBL:
-            x = strlen(MenuLoadBl);
-            GLCD_print_row(MenuLoadBl + LCDpos);
-            break;
-        case MENU_MAINS:
-            x = strlen(MenuMains);
-            GLCD_print_row(MenuMains + LCDpos);
-            break;
-        case MENU_MAX:
-            x = strlen(MenuMax);
-            GLCD_print_row(MenuMax + LCDpos);
-            break;
-        case MENU_MIN:
-            x = strlen(MenuMin);
-            GLCD_print_row(MenuMin + LCDpos);
-            break;
-        case MENU_LOCK:
-            x = strlen(MenuLock);
-            GLCD_print_row(MenuLock + LCDpos);
-            break;
-        case MENU_CABLE:
-            x = strlen(MenuCable);
-            GLCD_print_row(MenuCable + LCDpos);
-            break;
-        case MENU_CAL:
-            x = strlen(MenuCal);
-            GLCD_print_row(MenuCal + LCDpos);
-            break;
-        case MENU_ACCESS:
-            x = strlen(MenuAccess);
-            GLCD_print_row(MenuAccess + LCDpos);
-            break;
-        case MENU_RCMON:
-            x = strlen(MenuRCmon);
-            GLCD_print_row(MenuRCmon + LCDpos);
-            break;
-        case MENU_START:
-            x = strlen(MenuStart);
-            GLCD_print_row(MenuStart + LCDpos);
-            break;
-        case MENU_STOP:
-            x = strlen(MenuStop);
-            GLCD_print_row(MenuStop + LCDpos);
-            break;
-            
-        default:
-            break;
-    }
-    if (LCDpos++ == 8) ScrollTimer = Timer - 4000;
+    if (LCDpos++ == 0) ScrollTimer = Timer - 4000;
     else if (LCDpos > (x - 10)) {
         ScrollTimer = Timer - 3000;
-        LCDpos = 8;
+        LCDpos = 0;
     } else ScrollTimer = Timer - 4700;
 }
 
@@ -952,114 +852,112 @@ void GLCDMenu(unsigned char Buttons) {                                          
     if (ButtonRelease == 1 || LCDNav == 1) {
         if (LCDNav == 1) {
             glcd_clrln(0, 0x00);
-            glcd_clrln(1, 0x04); // horizontal line
+            glcd_clrln(1, 0x04);                                                // horizontal line
             GLCD_print2(2, (const far char *) "Hold 2 sec");
             GLCD_print2(4, (const far char *) "for Menu");
-            glcd_clrln(6, 0x10); // horizontal line
+            glcd_clrln(6, 0x10);                                                // horizontal line
             glcd_clrln(7, 0x00);
 
-        } else if (LCDNav == MENU_CONFIG) {
-            GLCD_print_menu(StrConfig, 2); // add navigation arrows on both sides
-            if (Config) GLCD_print_menu(StrFixed, 4); // add spaces on both sides
-            else GLCD_print_menu(StrSocket, 4);
-        } else if (LCDNav == MENU_MODE) {
-            GLCD_print_menu(StrMode, 2);
-            if (Mode == MODE_SMART) GLCD_print_menu(StrSmart, 4);
-            else if (Mode == MODE_SOLAR) GLCD_print_menu(StrSolar, 4);
-            else GLCD_print_menu(StrNormal, 4);
-            
-        } else if (LCDNav == MENU_START) {
-            GLCD_print_menu(StrStart, 2);
-            GLCD_buffer_clr(); // Clear buffer
-            if (SubMenu) GLCD_print_arrows();
-            GLCDx = 4 + (12 * 3);
-            GLCD_write_buf2('-');
-            GLCD_write_buf2((StartCurrent / 10) + 0x30);
-            GLCD_write_buf2((StartCurrent % 10) + 0x30);
-            GLCD_write_buf2('A');
-            GLCD_sendbuf(4); // copy buffer to LCD
-
-        } else if (LCDNav == MENU_STOP) {
-            GLCD_print_menu(StrStop, 2);
-            GLCD_buffer_clr(); // Clear buffer
-            if (SubMenu) GLCD_print_arrows();
-            GLCDx = 4 + (12 * 2);
-            GLCD_write_buf2((StopTime / 10) + 0x30);
-            GLCD_write_buf2((StopTime % 10) + 0x30);
-            GLCDx = 4 + (12 * 5);
-            GLCD_write_buf2('m');
-            GLCD_write_buf2('i');
-            GLCD_write_buf2('n');
-            GLCD_sendbuf(4); // copy buffer to LCD
-            
-        } else if (LCDNav == MENU_LOADBL) {
-            GLCD_print_menu(StrLoadBl, 2);
-            if (LoadBl == 0) GLCD_print_menu(StrDisabled, 4);
-            else if (LoadBl == 1) GLCD_print_menu(StrMaster, 4);
-            else if (LoadBl == 2) GLCD_print_menu(StrSlave1, 4);
-            else if (LoadBl == 3) GLCD_print_menu(StrSlave2, 4);
-            else GLCD_print_menu(StrSlave3, 4);
-        } else if (LCDNav == MENU_MAINS) {
-            GLCD_print_menu(StrMains, 2);
-            GLCD_print_Amps(MaxMains);
-        } else if (LCDNav == MENU_MAX) {
-            GLCD_print_menu(StrMax, 2);
-            GLCD_print_Amps(MaxCurrent);
-        } else if (LCDNav == MENU_MIN) {
-            GLCD_print_menu(StrMin, 2);
-            GLCD_print_Amps(MinCurrent);
-        } else if (LCDNav == MENU_LOCK) {
-            GLCD_print_menu(StrLock, 2);
-            if (Lock == 1) GLCD_print_menu(StrSolenoid, 4);
-            else if (Lock == 2) GLCD_print_menu(StrMotor, 4);
-            else GLCD_print_menu(StrDisabled, 4);
-        } else if (LCDNav == MENU_CABLE) {
-            GLCD_print_menu(StrCable, 2);
-            GLCD_print_Amps(CableLimit);
-        } else if (LCDNav == MENU_CAL) {
-            GLCD_print_menu(StrCal, 2);
-
-            GLCD_buffer_clr(); // Clear buffer
-            if (SubMenu) {
-                GLCD_print_arrows();
-                GLCDx = 4 + (12 * 3);
-                //if (CT1<0) GLCD_write_buf2('-'); else GLCD_write_buf2(' ');
-                GLCD_write_buf2((CT1 / 100) + 0x30);
-                GLCD_write_buf2((CT1 % 100) / 10 + 0x30);
-                GLCD_write_buf2('.');
-                GLCD_write_buf2((CT1 % 10) + 0x30);
-            } else {
-                GLCDx = 4 + (12 * 3);
-                //if ((signed int)Irms[0] <0) GLCD_write_buf2('-'); else GLCD_write_buf2(' ');
-                GLCD_write_buf2(((unsigned int) Irms[0] / 100) + 0x30);
-                GLCD_write_buf2(((unsigned int) Irms[0] % 100 / 10) + 0x30);
-                GLCD_write_buf2('.');
-                GLCD_write_buf2(((unsigned int) Irms[0] % 10) + 0x30);
+        } else {
+            GLCD_print_menu(MenuStr[LCDNav].LCD, 2);                            // add navigation arrows on both sides
+            switch (LCDNav) {
+                case MENU_CONFIG:
+                    if (Config) GLCD_print_menu(StrFixed, 4);                   // add spaces on both sides
+                    else GLCD_print_menu(StrSocket, 4);
+                    break;
+                case MENU_MODE:
+                    if (Mode == MODE_SMART) GLCD_print_menu(StrSmart, 4);
+                    else if (Mode == MODE_SOLAR) GLCD_print_menu(StrSolar, 4);
+                    else GLCD_print_menu(StrNormal, 4);            
+                    break;
+                case MENU_START:
+                    GLCD_buffer_clr(); // Clear buffer
+                    if (SubMenu) GLCD_print_arrows();
+                    GLCDx = 4 + (12 * 3);
+                    GLCD_write_buf2('-');
+                    GLCD_write_buf2((StartCurrent / 10) + 0x30);
+                    GLCD_write_buf2((StartCurrent % 10) + 0x30);
+                    GLCD_write_buf2('A');
+                    GLCD_sendbuf(4); // copy buffer to LCD
+                    break;
+                case MENU_STOP:
+                    GLCD_buffer_clr(); // Clear buffer
+                    if (SubMenu) GLCD_print_arrows();
+                    GLCDx = 4 + (12 * 2);
+                    GLCD_write_buf2((StopTime / 10) + 0x30);
+                    GLCD_write_buf2((StopTime % 10) + 0x30);
+                    GLCDx = 4 + (12 * 5);
+                    GLCD_write_buf2('m');
+                    GLCD_write_buf2('i');
+                    GLCD_write_buf2('n');
+                    GLCD_sendbuf(4); // copy buffer to LCD
+                    break;
+                case MENU_LOADBL:
+                    if (LoadBl == 0) GLCD_print_menu(StrDisabled, 4);
+                    else if (LoadBl == 1) GLCD_print_menu(StrMaster, 4);
+                    else if (LoadBl == 2) GLCD_print_menu(StrSlave1, 4);
+                    else if (LoadBl == 3) GLCD_print_menu(StrSlave2, 4);
+                    else GLCD_print_menu(StrSlave3, 4);
+                    break;
+                case MENU_MAINS:
+                    GLCD_print_Amps(MaxMains);
+                    break;
+                case MENU_MIN:
+                    GLCD_print_Amps(MinCurrent);
+                    break;
+                case MENU_MAX:
+                    GLCD_print_Amps(MaxCurrent);
+                    break;
+                case MENU_LOCK:
+                    if (Lock == 1) GLCD_print_menu(StrSolenoid, 4);
+                    else if (Lock == 2) GLCD_print_menu(StrMotor, 4);
+                    else GLCD_print_menu(StrDisabled, 4);
+                    break;
+                case MENU_CABLE:
+                    GLCD_print_Amps(CableLimit);
+                    break;
+                case MENU_CAL:                                                  // CT Calibration menu
+                    GLCD_buffer_clr();                                          // Clear buffer
+                    if (SubMenu) {
+                        GLCD_print_arrows();
+                        GLCDx = 4 + (12 * 3);
+                        GLCD_write_buf2((CT1 / 100) + 0x30);
+                        GLCD_write_buf2((CT1 % 100) / 10 + 0x30);
+                        GLCD_write_buf2('.');
+                        GLCD_write_buf2((CT1 % 10) + 0x30);
+                    } else {
+                        GLCDx = 4 + (12 * 3);
+                        GLCD_write_buf2(((unsigned int) Irms[0] / 100) + 0x30);
+                        GLCD_write_buf2(((unsigned int) Irms[0] % 100 / 10) + 0x30);
+                        GLCD_write_buf2('.');
+                        GLCD_write_buf2(((unsigned int) Irms[0] % 10) + 0x30);
+                    }
+                    GLCDx = 4 + (12 * 7);
+                    GLCD_write_buf2('A');
+                    GLCD_sendbuf(4);                                            // copy buffer to LCD
+                    break;
+                case MENU_ACCESS:
+                    if (Access) GLCD_print_menu(StrSwitch, 4);
+                    else GLCD_print_menu(StrDisabled, 4);
+                    break;
+                case MENU_RCMON:
+                    if (RCmon) GLCD_print_menu(StrEnabled, 4);
+                    else GLCD_print_menu(StrDisabled, 4);
+                    break;
+                case MENU_EXIT:
+                    GLCD_print_menu(StrExitMenu, 4);
+                    break;
+                default:
+                    break;
             }
-            GLCDx = 4 + (12 * 7);
-            GLCD_write_buf2('A');
-            GLCD_sendbuf(4); // copy buffer to LCD
-
-        } else if (LCDNav == MENU_ACCESS) {
-            GLCD_print_menu(StrAccess, 2);
-            if (Access) GLCD_print_menu(StrSwitch, 4);
-            else GLCD_print_menu(StrDisabled, 4);
-        } else if (LCDNav == MENU_RCMON) {
-            GLCD_print_menu(StrRcmon, 2);
-            if (RCmon) GLCD_print_menu(StrEnabled, 4);
-            else GLCD_print_menu(StrDisabled, 4);
-        } else if (LCDNav == MENU_EXIT) {
-            GLCD_print_menu(StrExit, 2);
-            GLCD_print_menu(StrExitMenu, 4);
         }
-        ButtonRelease = 2; // Set value to 2, so that LCD will be updated only once
+        ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once
     }
 
-    ScrollTimer = Timer; // reset timer for HelpMenu text
-    LCDpos = 8; // reset position of scrolling text
+    ScrollTimer = Timer;                                                        // reset timer for HelpMenu text
+    LCDpos = 0;                                                                 // reset position of scrolling text
     OldButtonState = Buttons;
     LCDTimer = 0;
-
 }
 
 void st7565_command(unsigned char data) {

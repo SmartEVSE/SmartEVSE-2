@@ -160,7 +160,7 @@ unsigned char OldButtonState = 0x0f;                                            
 unsigned char LCDNav = 0;
 unsigned char SubMenu = 0;
 unsigned long ScrollTimer = 0;
-unsigned char LCDpos = 8;
+unsigned char LCDpos = 0;
 unsigned char ChargeDelay = 0;                                                  // Delays charging at least 60 seconds in case of not enough current available.
 unsigned char NoCurrent = 0;                                                    // counts overcurrent situations.
 unsigned char TestState = 0;
@@ -168,26 +168,13 @@ unsigned char LedTimer = 0;                                                     
 unsigned char LedUpdate = 0;                                                    // Flag that LED PWM data has been updated
 unsigned char LedCount = 0;                                                     // Raw Counter before being converted to PWM value
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
+unsigned char MenuItems[18];
 
 unsigned char Access_bit = 0;
 unsigned int AccessTimer = 0;         
 
 unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
-
-const far char MenuConfig[] = "CONFIG - Set to Fixed Cable or Type 2 Socket";
-const far char MenuMode[]   = "MODE   - Set to Normal, Smart or Solar EVSE mode";
-const far char MenuLoadBl[] = "LOADBL - Set Load Balancing mode";
-const far char MenuMains[]  = "MAINS  - Set Max MAINS Current";
-const far char MenuMax[]    = "MAX    - Set MAX Charge Current for the EV";
-const far char MenuMin[]    = "MIN    - Set MIN Charge Current the EV will accept";
-const far char MenuCable[]  = "CABLE  - Set Fixed Cable Current limit";
-const far char MenuLock[]   = "LOCK   - Cable locking actuator type";
-const far char MenuCal[]    = "CAL    - Calibrate CT1 (CT2+3 will also change)";
-const far char MenuAccess[] = "ACCESS - Access control on IO2";
-const far char MenuRCmon[]  = "RCMON  - Residual Current Monitor on IO3";
-const far char MenuStart[]  = "START  - Surplus energy start Current";
-const far char MenuStop[]   = "STOP   - Stop solar charging at 6A after this time";
 
 
 void interrupt high_isr(void) {
@@ -781,6 +768,40 @@ void SendRS485(char address, char command, char data, char data2)               
     RS485SendBuf(Tbuffer, 8);                                                   // send buffer to RS485 port
 }
 
+/**
+ * Create an array of available menu items
+ * 
+ * @return unsigned char MenuItemCount
+ */
+unsigned char getMenuItems (void) {
+    unsigned char m = 0;
+
+    MenuItems[m++] = MENU_CONFIG;                                               // Configuration (0:Socket / 1:Fixed Cable)
+    MenuItems[m++] = MENU_MODE;                                                 // EVSE mode (0:Normal / 1:Smart)
+    if (Mode == MODE_SOLAR) {                                                   // ? Solar mode?
+        MenuItems[m++] = MENU_START;                                            // - Start Surplus Current (A)
+        MenuItems[m++] = MENU_STOP;                                             // - Stop time (min)
+    }
+    MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
+    if (Mode || (LoadBl == 1)) {                                                // ? Smart or Solar mode and Load Balancing Master?
+        MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
+        MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
+    }
+    MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
+    if (Config) {                                                               // ? Fixed Cable?
+        MenuItems[m++] = MENU_CABLE;                                            // - Fixed Cable Current limit (A)
+    } else {                                                                    // ? Socket?
+        MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
+    }
+    if (Mode) {                                                                 // ? Smart mode?
+        MenuItems[m++] = MENU_CAL;                                              // - Sensorbox calibration
+    }
+    MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
+    MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
+    MenuItems[m++] = MENU_EXIT;
+
+    return m;
+}
 
 // Serial Command line interface
 // Display Menu, and process input.
@@ -803,259 +824,247 @@ void SendRS485(char address, char command, char data, char data2)               
 //
 
 void RS232cli(void) {
+    unsigned char i;
     unsigned int n;
     double Inew, Iold;
+    unsigned char MenuItemsCount = getMenuItems();
 
     printf("\r\n");
     if (menu == 0)                                                              // menu = Main Menu
     {
-        if ((strcmp(U2buffer, (const far char *) "MAINS") == 0) && (Mode || (LoadBl == 1))) menu = 1; // Switch to Set Max Mains Capacity (Smart/Solar mode or Master)
-        if (strcmp(U2buffer, (const far char *) "MAX") == 0) menu = 2;          // Switch to Set Max Current
-        if ((strcmp(U2buffer, (const far char *) "MIN") == 0) && (Mode || (LoadBl == 1))) menu = 3; // Switch to Set Min Current (Smart/Solar mode or Master)
-        if ((strcmp(U2buffer, (const far char *) "CAL") == 0) && Mode) menu = 4; // Switch to Calibrate CT1 (Smart/Solar mode)
-        if (strcmp(U2buffer, (const far char *) "MODE") == 0) menu = 5;         // Switch to Normal, Solar or Smart mode
-        if ((strcmp(U2buffer, (const far char *) "LOCK") == 0) && !Config) menu = 6; // Switch to Enable/Disable Cable Lock (Config=Socket)
-        if (strcmp(U2buffer, (const far char *) "CONFIG") == 0) menu = 7;       // Switch to Fixed cable or Type 2 Socket
-        if ((strcmp(U2buffer, (const far char *) "CABLE") == 0) && Config) menu = 8; // Switch to Set fixed Cable Current limit (Config=Fixed)
-        if (strcmp(U2buffer, (const far char *) "LOADBL") == 0) menu = 9;       // Switch to Set Load Balancing
-        if (strcmp(U2buffer, (const far char *) "ACCESS") == 0) menu = 10;      // External Start/Stop button on I/O 2
-        if (strcmp(U2buffer, (const far char *) "RCMON") == 0) menu = 11;       // Residual Current monitor on I/O 3
-        if ((strcmp(U2buffer, (const far char *) "START") == 0) && Mode == MODE_SOLAR) menu = 12; // Surplus energy start Current
-        if ((strcmp(U2buffer, (const far char *) "STOP") == 0) && Mode == MODE_SOLAR) menu = 13; // Stop solar charging at 6A after this time
+        for(i = 0; i < MenuItemsCount - 1; i++) {
+            if (strcmp(U2buffer, MenuStr[MenuItems[i]].Key) == 0) menu = MenuItems[i];
+        }
     } else if (U2buffer[0] == 0) menu = 0;
-    else // menu = 1,2,3,4 read entered value from cli
+    else                                                                        // menu = 1,2,3,4 read entered value from cli
     {
-        if (menu == 1 || menu == 2 || menu == 3 || menu == 8 || menu == 12 || menu == 13) {
-                n = (unsigned int) atoi(U2buffer);
-            if ((menu == 1) && (n > 9) && (n < 101)) {
-                    MaxMains = n; // Set new MaxMains
+        if (menu == MENU_MAINS || menu == MENU_MAX || menu == MENU_MIN || menu == MENU_CABLE || menu == MENU_START || menu == MENU_STOP) {
+            n = (unsigned int) atoi(U2buffer);
+            if ((menu == MENU_MAINS) && (n > 9) && (n < 101)) {
+                MaxMains = n; // Set new MaxMains
                 write_settings(); // Write to eeprom
-            } else if ((menu == 2) && (n > 9) && (n <= 80)) {
-                    MaxCurrent = n; // Set new MaxCurrent
+            } else if ((menu == MENU_MAX) && (n > 9) && (n <= 80)) {
+                MaxCurrent = n; // Set new MaxCurrent
                 write_settings(); // Write to eeprom
-            } else if ((menu == 3) && (n > 5) && (n <= 16)) {
-                    MinCurrent = n; // Set new MinCurrent
+            } else if ((menu == MENU_MIN) && (n > 5) && (n <= 16)) {
+                MinCurrent = n; // Set new MinCurrent
                 write_settings(); // Write to eeprom
-            } else if ((menu == 8) && (n > 12) && (n <= 80)) {
-                    CableLimit = n; // Set new CableLimit
+            } else if ((menu == MENU_CABLE) && (n > 12) && (n <= 80)) {
+                CableLimit = n; // Set new CableLimit
                 write_settings(); // Write to eeprom
-            } else if ((menu == 12) && (n > 0) && (n <= 16)) {
-                    StartCurrent = n; // Set new Surplus start Current
+            } else if ((menu == MENU_START) && (n > 0) && (n <= 16)) {
+                StartCurrent = n; // Set new Surplus start Current
                 write_settings(); // Write to eeprom
-            } else if ((menu == 13) && (n >= 0) && (n <= 60)) {                 // Max 60 minutes, 0 = continue charging at lowest current
-                    StopTime = n;                                               // Set new Stop time (minutes)
+            } else if ((menu == MENU_STOP) && (n >= 0) && (n <= 60)) {          // Max 60 minutes, 0 = continue charging at lowest current
+                StopTime = n;                                                   // Set new Stop time (minutes)
                 write_settings();                                               // Write to eeprom    
-                } else printf("\r\nError! please check limits\r\n");
-        } else if (menu == 4) {
-                Inew = atof(U2buffer);
-                if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
-                else {
-                    Iold = Irms[0] / ICal;
-                    ICal = (Inew * 10) / Iold;                                  // Calculate new Calibration value
-                write_settings(); // Write to eeprom
-                }
-        } else if (menu == 5) // EVSE Mode
+            } else printf("\r\nError! please check limits\r\n");
+        } else if (menu == MENU_CAL) {
+            Inew = atof(U2buffer);
+            if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
+            else {
+                Iold = Irms[0] / ICal;
+                ICal = (Inew * 10) / Iold;                                      // Calculate new Calibration value
+                write_settings();                                               // Write to eeprom
+            }
+        } else if (menu == MENU_MODE)                                           // EVSE Mode
         {
-                if (strcmp(U2buffer, (const far char *) "SOLAR") == 0) {
-                    Mode = MODE_SOLAR;
+            if (strcmp(U2buffer, (const far char *) "SOLAR") == 0) {
+                Mode = MODE_SOLAR;
                 write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "SMART") == 0) {
-                    Mode = MODE_SMART;
+            } else if (strcmp(U2buffer, (const far char *) "SMART") == 0) {
+                Mode = MODE_SMART;
                 write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "NORMAL") == 0) {
-                    Mode = MODE_NORMAL;
+            } else if (strcmp(U2buffer, (const far char *) "NORMAL") == 0) {
+                Mode = MODE_NORMAL;
                 write_settings(); // Write to eeprom
-                    Error = NO_ERROR; // Clear Errors
-                }
+                Error = NO_ERROR; // Clear Errors
+            }
 
-        } else if (menu == 6) // Cable Lock
+        } else if (menu == MENU_LOCK)                                           // Cable Lock
         {
-                if (strcmp(U2buffer, (const far char *) "SOLENOID") == 0) {
-                    Lock = 1;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "MOTOR") == 0) {
-                    Lock = 2;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    Lock = 0;
-                write_settings(); // Write to eeprom
-                }
-        } else if (menu == 7) // Configuration Mode
+            if (strcmp(U2buffer, (const far char *) "SOLENOID") == 0) {
+                Lock = 1;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "MOTOR") == 0) {
+                Lock = 2;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                Lock = 0;
+                write_settings();                                               // Write to eeprom
+            }
+        } else if (menu == MENU_CONFIG)                                         // Configuration Mode
         {
-                if (strcmp(U2buffer, (const far char *) "FIXED") == 0) {
-                    Config = 1;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "SOCKET") == 0) {
-                    Config = 0;
-                write_settings(); // Write to eeprom
-                }
-        } else if (menu == 9) // Load Balancing Mode
+            if (strcmp(U2buffer, (const far char *) "FIXED") == 0) {
+                Config = 1;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "SOCKET") == 0) {
+                Config = 0;
+                write_settings();                                               // Write to eeprom
+            }
+        } else if (menu == MENU_LOADBL)                                         // Load Balancing Mode
         {
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    LoadBl = 0;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "MASTER") == 0) {
-                    LoadBl = 1;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "SLAVE1") == 0) {
-                    LoadBl = 2;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "SLAVE2") == 0) {
-                    LoadBl = 3;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "SLAVE3") == 0) {
-                    LoadBl = 4;
-                write_settings(); // Write to eeprom
-                }
-        } else if (menu == 10) // Start/Stop button on I/O 2
+            if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                LoadBl = 0;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "MASTER") == 0) {
+                LoadBl = 1;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "SLAVE1") == 0) {
+                LoadBl = 2;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "SLAVE2") == 0) {
+                LoadBl = 3;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "SLAVE3") == 0) {
+                LoadBl = 4;
+                write_settings();                                               // Write to eeprom
+            }
+        } else if (menu == MENU_ACCESS)                                         // Start/Stop button on I/O 2
         {
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    Access = 0;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "SWITCH") == 0) {
-                    Access = 1;
-                write_settings(); // Write to eeprom
-                }
-        } else if (menu == 11) // RCD on I/O 3
+            if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                Access = 0;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "SWITCH") == 0) {
+                Access = 1;
+                write_settings();                                               // Write to eeprom
+            }
+        } else if (menu == MENU_RCMON)                                          // RCD on I/O 3
         {
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    RCmon = 0;
-                write_settings(); // Write to eeprom
-                } else if (strcmp(U2buffer, (const far char *) "ENABLE") == 0) {
-                    RCmon = 1;
-                write_settings(); // Write to eeprom
-                }
+            if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                RCmon = 0;
+                write_settings();                                               // Write to eeprom
+            } else if (strcmp(U2buffer, (const far char *) "ENABLE") == 0) {
+                RCmon = 1;
+                write_settings();                                               // Write to eeprom
+            }
         }
 
         menu = 0;
+        MenuItemsCount = getMenuItems();
     }
-
 
     if (menu == 0) {
         printf("\r\n---------------------- SMART EVSE  ----------------------\r\n v");
-            printf(VERSION);
-            printf(" for detailed instructions, see www.smartevse.org\r\n");
-            printf(" Internal Temperature: %2u C\r\n", TempEVSE);
+        printf(VERSION);
+        printf(" for detailed instructions, see www.smartevse.org\r\n");
+        printf(" Internal Temperature: %2u C\r\n", TempEVSE);
         printf("---------------------------------------------------------\r\n");
-        //printf("CONFIG - Set to Fixed Cable or Type 2 Socket       (");
-        printf(MenuConfig);
-        printf("      - ");
-        if (Config) printf("Fixed Cable\r\n");
-        else printf("Type 2 Socket\r\n");
-        //printf("MODE   - Set to Normal, Smart or Solar EVSE mode");
-        printf(MenuMode);
-        printf("  - ");
-        if (Mode == MODE_SMART) printf("Smart\r\n");
-        else if (Mode == MODE_SOLAR) printf("Solar\r\n");
-        else printf("Normal\r\n");
-        if (Mode == MODE_SOLAR) {
-            printf(MenuStart);
-            printf("             -  -%u A\r\n", StartCurrent);
-            printf(MenuStop);
-            printf("- %3u min\r\n", StopTime);
-                }
-        // Load Balancing menu item
-        printf(MenuLoadBl);
-        printf("                  - ");
-        if (LoadBl == 0) printf("Disabled\r\n");
-        else if (LoadBl == 1) printf("Master\r\n");
-        else if (LoadBl == 2) printf("Slave1\r\n");
-        else if (LoadBl == 3) printf("Slave2\r\n");
-        else printf("Slave3\r\n");
-
-
-        if (Mode || LoadBl == 1) {
-            //printf("MAINS  - Set Max MAINS Current (Smart mode)        (%3u A)\r\n",MaxMains);
-            printf(MenuMains);
-            printf("                    - %3u A\r\n", MaxMains);
+        for(i = 0; i < MenuItemsCount - 1; i++) {
+            printf("%-06s - %-41s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
+            switch (MenuItems[i]) {
+                case MENU_CONFIG:
+                    if (Config) printf("Fixed Cable");
+                    else printf("Type 2 Socket");
+                    break;
+                case MENU_MODE:
+                    if (Mode == MODE_SMART) printf("Smart");
+                    else if (Mode == MODE_SOLAR) printf("Solar");
+                    else printf("Normal");
+                    break;
+                case MENU_START:
+                    printf("%u A", StartCurrent);
+                    break;
+                case MENU_STOP:
+                    printf("%3u min", StopTime);
+                    break;
+                case MENU_LOADBL:
+                    if (LoadBl == 0) printf("Disabled");
+                    else if (LoadBl == 1) printf("Master");
+                    else if (LoadBl == 2) printf("Slave1");
+                    else if (LoadBl == 3) printf("Slave2");
+                    else printf("Slave3");
+                    break;
+                case MENU_MAINS:
+                    printf("%2u A", MaxMains);
+                    break;
+                case MENU_MIN:
+                    printf("%2u A", MinCurrent);
+                    break;
+                case MENU_MAX:
+                    printf("%2u A", MaxCurrent);
+                    break;
+                case MENU_LOCK:
+                    if (Lock == 1) printf("Solenoid");
+                    else if (Lock == 2) printf("Motor");
+                    else printf("Disabled");
+                    break;
+                case MENU_CABLE:
+                    printf("%2u A", CableLimit);
+                    break;
+                case MENU_CAL:
+                    printf("CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)",(unsigned int)Irms[0], (unsigned int)(Irms[0]*10)%10, (unsigned int)Irms[1], (unsigned int)(Irms[1]*10)%10, (unsigned int)Irms[2], (unsigned int)(Irms[2]*10)%10 );
+                    break;
+                case MENU_ACCESS:
+                    if (Access == 0) printf("Disabled");
+                    else printf("Switch");
+                    break;
+                case MENU_RCMON:
+                    if (RCmon == 0) printf("Disabled");
+                    else printf("Enabled");
+                    break;
+                default:
+                    break;
             }
-        //printf("MAX    - Set MAX Charge Current for the EV         ( %2u A)\r\n",MaxCurrent);
-        printf(MenuMax);
-        printf("        -  %2u A\r\n", MaxCurrent);
-        if (Mode || (LoadBl == 1)) {
-            //printf("MIN    - Set MIN Charge Current the EV will accept ( %2u A)\r\n",MinCurrent);
-            printf(MenuMin);
-            printf("-  %2u A\r\n", MinCurrent);
+            printf("\r\n");
         }
-        if (Config) {
-            //printf("CABLE  - Set Fixed Cable Current limit             ( %2u A)\r\n",CableLimit);
-            printf(MenuCable);
-            printf("            -  %2u A\r\n", CableLimit);
-        } else {
-            //printf("LOCK   - Cable lock Enable/Disable                 (");
-            printf(MenuLock);
-            printf("              - ");
-            if (Lock == 1) printf("Solenoid\r\n");
-            else if (Lock == 2) printf("Motor\r\n");
-            else printf("Disabled\r\n");
-        }
-        if (Mode) printf("CAL    - Calibrate CT1  (CT1:%3.1fA CT2:%3.1fA CT3:%3.1fA)\r\n", Irms[0] / 10, Irms[1] / 10, Irms[2] / 10);
 
-        printf(MenuAccess);
-        printf("                    - "); //Access control on IO2
-        if (Access == 0) printf("Disabled\r\n");
-        else printf("Switch\r\n");
-
-        printf(MenuRCmon);
-        printf("          - "); // Residual current monitor on IO3
-        if (RCmon == 0) printf("Disabled\r\n");
-        else printf("Enabled\r\n");
-
-            printf(">");
-    } else if (menu == 1) {
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
+        printf(">");
+    } else if (menu == MENU_MAINS) {
+        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
+        printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
         printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-100): ", MaxMains);
-    } else if (menu == 2) {
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
+    } else if (menu == MENU_MAX) {
+        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
+        printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
         printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (10-80): ", MaxCurrent);
-    } else if (menu == 3) {
+    } else if (menu == MENU_MIN) {
         printf("MIN Charge Current set to: %u A\r\nEnter new MIN Charge Current (6-16): ", MinCurrent);
-    } else if (menu == 4) {
-        printf("CT1 reads: %3.1f A\r\nEnter new Measured Current for CT1: ", Irms[0] / 10);
-    } else if (menu == 5) {
+    } else if (menu == MENU_CAL) {
+        printf("CT1 reads: %3u.%01u A\r\nEnter new Measured Current for CT1: ", (unsigned int)Irms[0], (unsigned int)(Irms[0] * 10) % 10);
+    } else if (menu == MENU_MODE) {
         printf("EVSE set to : ");
         if (Mode == MODE_SMART) printf("Smart mode\r\n");
         else if (Mode == MODE_SOLAR) printf("Solar mode\r\n");
         else printf("Normal mode\r\n");
         printf("Enter new EVSE Mode (NORMAL/SMART/SOLAR): ");
-    } else if (menu == 6) {
+    } else if (menu == MENU_LOCK) {
         printf("Cable lock set to : ");
         if (Lock == 2) printf("Motor\r\n");
         else if (Lock == 1) printf("Solenoid\r\n");
         else printf("Disable\r\n");
         printf("Enter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ");
-    } else if (menu == 7) {
+    } else if (menu == MENU_CONFIG) {
         printf("Configuration : ");
         if (Config) printf("Fixed Cable\r\n");
         else printf("Type 2 Socket\r\n");
         printf("Enter new Configuration (FIXED/SOCKET): ");
-    } else if (menu == 8) {
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE CHARGING CABLE\r\n");
+    } else if (menu == MENU_CABLE) {
+        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
+        printf("OR GREATER THAN THE RATED VALUE OF THE CHARGING CABLE\r\n");
         printf("Fixed Cable Current limit set to: %u A\r\nEnter new limit (13-80): ", CableLimit);
-    } else if (menu == 9) {
+    } else if (menu == MENU_LOADBL) {
         printf("Load Balancing set to : ");
         if (LoadBl == 0) printf("Disabled\r\n");
         else if (LoadBl == 1) printf("Master\r\n");
         else printf("Slave%u\r\n", LoadBl - 1);
         printf("Enter Load Balancing mode (DISABLE/MASTER/SLAVE1/SLAVE2/SLAVE3): ");
-    } else if (menu == 10) {
+    } else if (menu == MENU_ACCESS) {
         printf("Access Control on I/O 2 set to : ");
         if (Access == 0) printf("Disabled\r\n");
         else printf("Switch\r\n");
-            printf("Access Control on IO2 (DISABLE/SWITCH): ");
-    } else if (menu == 11) {
+        printf("Access Control on IO2 (DISABLE/SWITCH): ");
+    } else if (menu == MENU_RCMON) {
         printf("Residual Current Monitor on I/O 3 set to : ");
         if (RCmon == 0) printf("Disabled\r\n");
         else printf("Enabled\r\n");
-            printf("Residual Current Monitor on IO3 (DISABLE/ENABLE): ");
-    } else if (menu == 12) {
+        printf("Residual Current Monitor on IO3 (DISABLE/ENABLE): ");
+    } else if (menu == MENU_START) {
         printf("Surplus energy start Current set to: %u A\r\nEnter new Surplus start Current (1-16): -", StartCurrent);
-    } else if (menu == 13) {
+    } else if (menu == MENU_STOP) {
         printf("Stop solar charging at 6A after %u min.\r\nEnter new time (0-60) min: ", StopTime);
     }
+
     ISR2FLAG = 0;                                                               // clear flag
     idx2 = 0;                                                                   // reset buffer pointer
 }

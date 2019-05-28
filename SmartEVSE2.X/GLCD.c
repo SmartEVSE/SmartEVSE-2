@@ -683,6 +683,8 @@ void GLCDMenu(unsigned char Buttons) {                                          
     static unsigned int CT1, CT1old;
     static double Iold;
 
+    unsigned char EMs[5] = {0, EM_SENSORBOX1, EM_SENSORBOX2, EM_PHOENIX_CONTACT, EM_FINDER};
+    unsigned char EMs2[3] = {0, EM_PHOENIX_CONTACT, EM_FINDER};
     unsigned char MenuItemsCount = getMenuItems();
 
     // Main Menu Navigation
@@ -755,6 +757,21 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     break;
                 case MENU_RCMON:
                     RCmon = MenuNavChar(Buttons, RCmon, 0, 1);
+                    break;
+                case MENU_MAINSMETER:
+                    MainsMeter = MenuNavCharArray(Buttons, MainsMeter, EMs, 5);
+                    break;
+                case MENU_MAINSMETERADDRESS:
+                    MainsMeterAddress = MenuNavChar(Buttons, MainsMeterAddress, 5, 254);
+                    break;
+                case MENU_MAINSMETERMEASURE:
+                    MainsMeterMeasure = MenuNavChar(Buttons, MainsMeterMeasure, 0, 1);
+                    break;
+                case MENU_PVMETER:
+                    PVMeter = MenuNavCharArray(Buttons, PVMeter, EMs2, 3);
+                    break;
+                case MENU_PVMETERADDRESS:
+                    PVMeterAddress = MenuNavChar(Buttons, PVMeterAddress, 5, 254);
                     break;
                 default:
                     break;

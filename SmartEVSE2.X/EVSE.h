@@ -50,6 +50,11 @@
 #define BACKLIGHT 60                                                            // Seconds delay for the LCD backlight to turn off.
 #define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
+#define MAINS_METER 3
+#define MAINS_METER_ADDRESS 10
+#define MAINS_METER_MEASURE 0
+#define PV_METER 0
+#define PV_METER_ADDRESS 11
 
 // Mode settings
 #define MODE_NORMAL 0
@@ -108,8 +113,17 @@
 #define MENU_ACCESS 12
 #define MENU_RCMON 13
 #define MENU_CAL 14
-#define MENU_EXIT 15
+#define MENU_MAINSMETER 15
+#define MENU_MAINSMETERADDRESS 16
+#define MENU_MAINSMETERMEASURE 17
+#define MENU_PVMETER 18
+#define MENU_PVMETERADDRESS 19
+#define MENU_EXIT 20
 
+#define EM_SENSORBOX1 1
+#define EM_SENSORBOX2 3
+#define EM_PHOENIX_CONTACT 10
+#define EM_FINDER 20
 
 #ifdef DEBUG_P
 #define DEBUG_PRINT(x) printf x
@@ -122,6 +136,7 @@
 #define _A0_0 PORTCbits.RC0 = 0;
 #define _A0_1 PORTCbits.RC0 = 1;
 
+#define U1_BUFFER_SIZE 6
 
 
 //#pragma udata GLCData
@@ -140,23 +155,27 @@ extern char Access;                                                             
 extern char RCmon;                                                              // Residual Current monitor
 extern unsigned int StartCurrent;
 extern unsigned int StopTime;
+extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
+extern unsigned char MainsMeterAddress;
+extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
+extern unsigned char PVMeter;                                                   // Type of PV electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
+extern unsigned char PVMeterAddress;
+extern unsigned char EVSEMeter;                                                 // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
+extern unsigned char EVSEMeterAddress;
 
+extern signed double Irms[3];                                                  // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
-
-extern double Irms[3];                                                          // Momentary current per Phase (Amps *10) (23= 2.3A)
-                                                                                // Max 3 phases supported
-extern unsigned int crc16;
 extern unsigned char State;
 extern unsigned char Error;
 extern unsigned char NextState;
 
 extern unsigned int MaxCapacity;                                                // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
-extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps *10)
+extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps * 10) (23 = 2.3A)
 extern int Isum;            
 extern int Balanced[4];                                                         // Amps value per EVSE (max 4)
 
 extern unsigned char RX1byte;
-extern unsigned char idx, idx2, ISRFLAG, ISR2FLAG;
+extern unsigned char idx2, ISR2FLAG;
 extern unsigned char menu;
 extern unsigned int locktimer, unlocktimer;                                     // solenoid timers
 extern unsigned long Timer;                                                     // mS counter
@@ -179,7 +198,7 @@ extern unsigned char MenuItems[18];
 const far struct {
     char Key[7];
     char LCD[9];
-    char Desc[70];
+    char Desc[52];
 } MenuStr[21] = {
     {"",       "",         "Not in menu"},
     {"",       "",         "Hold 2 sec"},
@@ -196,13 +215,18 @@ const far struct {
     {"ACCESS", "ACCESS",   "Access control on IO2"},
     {"RCMON",  "RCMON",    "Residual Current Monitor on IO3"},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)"},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter"},
+    {"MAINAD", "MAINSADR", "Address of mains electric meter"},
+    {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)"},
+    {"PVEM",   "PV METER", "Type of PV electric meter"},
+    {"PVAD",   "PVADDR",   "Address of PV electric meter"},
     {"EXIT",   "EXIT",     "EXIT"}
 };
 
 void delay(unsigned int d);
 void read_settings(void);
 void write_settings(void);
-unsigned char getMenuItems (void);
-const char * getMenuItemOption(unsigned char nav);
+unsigned char getMenuItems(void);
+unsigned char * getMenuItemOption(unsigned char nav);
 
 #endif

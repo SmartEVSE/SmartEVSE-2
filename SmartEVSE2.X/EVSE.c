@@ -98,6 +98,13 @@ const unsigned int EE_Config_LoadBl @ 0xf0000e = CONFIG + (LOADBL << 8);
 const unsigned int EE_Access_RCmon @ 0xf00010 = ACCESS + (RC_MON << 8);
 const unsigned int EE_StartCurrent @ 0xf00012 = START_CURRENT;
 const unsigned int EE_StopTime @ 0xf00014 = STOP_TIME;
+/*
+const unsigned EE_MainsMeter @ 0xf00016 = MAINS_METER
+const unsigned EE_MainsMeterAddress @ 0xf00017 = MAINS_METER_ADDRESS
+const unsigned EE_MainsMeterMeasure @ 0xf00018 = MAINS_METER_MEASURE
+const unsigned EE_PVMeter @ 0xf00019 = PV_METER
+const unsigned EE_PVMeterAddress @ 0xf00020 = PV_METER_ADDRESS
+*/
 
 // Text
 const far char StrFixed[]   = "Fixed";
@@ -115,9 +122,15 @@ const far char StrSlave3[]  = "Slave 3";
 const far char StrSwitch[]  = "Switch";
 const far char StrEnabled[] = "Enabled";
 const far char StrExitMenu[] = "MENU";
+const far char StrSensorbox1[] = "Sensorb.1";
+const far char StrSensorbox2[] = "Sensorb.2";
+const far char StrPhoenix[] = "Phoenix C";
+const far char StrFinder[]  = "Finder";
+const far char StrMainsAll[] = "All"; // Everything
+const far char StrMainsHomeEVSE[] = "Home+EVSE";
 
 // Global data
-char U1buffer[50];                                                              // Uart1 Receive buffer /RS485
+char U1buffer[50],U1packet[50];                                                 // Uart1 Receive buffer /RS485
 char U1TXbuffer[50];                                                            // Uart1 Transmit buffer /RS485
 char U2buffer[50];                                                              // Uart2 buffer /Serial CLI
 char Tbuffer[50];                                                               // temp buffer
@@ -138,13 +151,19 @@ char Access;                                                                    
 char RCmon;                                                                     // Residual Current Monitor on I/O 3
 unsigned int StartCurrent;
 unsigned int StopTime;
+unsigned char MainsMeter;                                                       // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact)
+unsigned char MainsMeterAddress;
+unsigned char MainsMeterMeasure;                                                // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
+unsigned char PVMeter;                                                          // Type of PV electric meter (0: Disabled / 10: Phoenix Contact)
+unsigned char PVMeterAddress;
+unsigned char EVSEMeter;                                                        // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact)
+unsigned char EVSEMeterAddress;
 
 // total 22 bytes
 
 double Irms[3] = {0, 0, 0};                                                     // Momentary current per Phase (Amps *10) (23= 2.3A)
                                                                                 // Max 3 phases supported
 
-unsigned int crc16;
 unsigned char State = STATE_A;
 unsigned char Error = NO_ERROR;
 unsigned char NextState;
@@ -154,7 +173,6 @@ unsigned int ChargeCurrent;                                                     
 unsigned int Imeasured = 0;                                                     // Max of all Phases (Amps *10) of mains power
 signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
 int Isum = 0;                                                                   // Sum of all measured Phases (can be negative)
-unsigned char MainsMeter = 0;                                                   // type of measurement device (sensorbox CT's,P1 meter, kwh meter, etc)
 
 // Load Balance variables
 int IsetBalanced = 0;                                                           // Max calculated current available for all EVSE's
@@ -185,6 +203,7 @@ unsigned char LedTimer = 0;                                                     
 unsigned char LedUpdate = 0;                                                    // Flag that LED PWM data has been updated
 unsigned char LedCount = 0;                                                     // Raw Counter before being converted to PWM value
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
+unsigned char Modbus = 0;                                                       // Flag to request Modbus information
 unsigned char MenuItems[18];
 
 unsigned char Access_bit = 0;
@@ -194,16 +213,18 @@ unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
 
 
-void interrupt high_isr(void) {
+void interrupt high_isr(void)
+{
     // Determine what caused the interrupt
-    while (PIR1bits.RC1IF) // Uart1 receive interrupt? RS485 @9600 bps
+    while (PIR1bits.RC1IF)                                                      // Uart1 receive interrupt? RS485
     {
         RX1byte = RCREG1;                                                       // copy received byte
 
         if (Timer > (ModbusTimer + 3))                                          // last reception more then 3ms ago? 
         {
-            idx = 0;                                                            // also clear idx in RS485 RX handler
-            ISRFLAG = 1;                                                        // it's the start of new data packet
+            memcpy(U1packet, U1buffer, idx);                                    // store received data packet
+            ISRFLAG = idx;                                                      // set flag to length of data packet
+            idx = 0;                                                            // clear idx in RS485 RX handler
         }  
         if (idx == 50) idx--;                                                   // max 50 bytes in buffer
         U1buffer[idx++] = RX1byte;                                              // Store received byte in buffer
@@ -362,11 +383,12 @@ unsigned char ease8InOutQuad(unsigned char i) {
     return jj2;
 }
 
-// Poly used is x^16+x^15+x^2+x
-
-unsigned int CRC16(unsigned char *buf, int len) {
+// calculates 16-bit CRC of given data
+// used for Frame Check Sequence on data frame
+unsigned int crc16(unsigned char *buf, unsigned char len) {
     unsigned int crc = 0xffff;
     
+    // Poly used is x^16+x^15+x^2+x
     for (int pos = 0; pos < len; pos++) {
         crc ^= (unsigned int)buf[pos];                                          // XOR byte into least sig. byte of crc
 
@@ -378,6 +400,26 @@ unsigned int CRC16(unsigned char *buf, int len) {
                 crc >>= 1;                                                      // Just shift right
         }
     }        
+
+    return crc;
+}
+
+unsigned int crc16sensorbox1(unsigned char *buf, unsigned char len) {
+    unsigned int crc = 0xffff;
+    
+    // Poly used is x^16+x^12+x^5+x
+    unsigned int c;
+    int i;
+    while (len--) {
+        c = *buf;
+        for (i = 0; i < 8; i++) {
+            if ((crc ^ c) & 1) crc = (crc >> 1)^0x8408;
+            else crc >>= 1;
+            c >>= 1;
+        }
+        buf++;
+    }
+    crc = (unsigned int) (crc ^ 0xFFFF);
 
     return crc;
 }
@@ -436,6 +478,11 @@ void read_settings(void) {
     eeprom_read_object(&RCmon, sizeof RCmon);
     eeprom_read_object(&StartCurrent, sizeof StartCurrent);
     eeprom_read_object(&StopTime, sizeof StopTime);
+    eeprom_read_object(&MainsMeter, sizeof MainsMeter);
+    eeprom_read_object(&MainsMeterAddress, sizeof MainsMeterAddress);
+    eeprom_read_object(&MainsMeterMeasure, sizeof MainsMeterMeasure);
+    eeprom_read_object(&PVMeter, sizeof PVMeter);
+    eeprom_read_object(&PVMeterAddress, sizeof PVMeterAddress);
 
     INTCON = savint; // Restore interrupts
 }
@@ -443,6 +490,10 @@ void read_settings(void) {
 void write_settings(void) {
     char savint;
 
+    // Validate Settings
+    if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
+    if (MainsMeterMeasure == 0) PVMeter = 0;
+    
     savint = INTCON;                                                            // Save interrupts state
     INTCONbits.GIE = 0;                                                         // Disable interrupts
 
@@ -462,6 +513,11 @@ void write_settings(void) {
     eeprom_write_object(&RCmon, sizeof RCmon);
     eeprom_write_object(&StartCurrent, sizeof StartCurrent);
     eeprom_write_object(&StopTime, sizeof StopTime);
+    eeprom_write_object(&MainsMeter, sizeof MainsMeter);
+    eeprom_write_object(&MainsMeterAddress, sizeof MainsMeterAddress);
+    eeprom_write_object(&MainsMeterMeasure, sizeof MainsMeterMeasure);
+    eeprom_write_object(&PVMeter, sizeof PVMeter);
+    eeprom_write_object(&PVMeterAddress, sizeof PVMeterAddress);
 
     INTCON = savint;                                                            // Restore interrupts
     printf("\r\nsettings saved\r\n");
@@ -477,15 +533,18 @@ void putch(unsigned char byte)                                                  
 
 }
 
-// Create modbus frame from data, and copy to output buffer
+
+// Create HDLC/modbus frame from data, and copy to output buffer
 // Start RS485 transmission, by enabling TX interrupt
 
 void RS485SendBuf(char* buffer, unsigned char len) {
-    char index = 0;
+    char ch, index = 0;
     unsigned long tmr;
 
     while (ISRTXFLAG) {
-    } // wait if we are already transmitting on the RS485 bus
+    }                                                                           // wait if we are still transmitting over RS485
+
+    while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus
     ISRTXLEN = len;                                                             // number of bytes to transfer
 
     while (len--) {
@@ -493,8 +552,7 @@ void RS485SendBuf(char* buffer, unsigned char len) {
     }
 
     tmr = Timer + 1000;	
-    while ((Timer < (ModbusTimer + 4)) && (tmr > Timer)) {
-    } // if there is a RS485 reception, wait for it to finish, with 1000ms timeout
+    while ((Timer < (ModbusTimer + 4)) && (tmr > Timer)) {}                     // if there is a RS485 reception, wait for it to finish, with 1000ms timeout       
     
     LATBbits.LATB5 = 1;                                                         // set RS485 transceiver to transmit
     delay(1);
@@ -745,44 +803,223 @@ void CalcBalancedCurrent(char mod) {
 
 }
 
-void BroadcastCurrent(void) // Broadcast momentary currents to all Slave EVSE's
-{
-    char n, x;
+/**
+ * Send single value over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned char function
+ * @param unsigned int register
+ * @param unsigned int data
+ */
+void ModbusSend(unsigned char address, unsigned char function, unsigned int reg, unsigned int data){
     unsigned int cs;
 
-    Tbuffer[0] = 0x09;                                                          // Broadcast Address
-    Tbuffer[1] = 0x01;                                                          // Command
-
-    n = 2;
-    for (x = 1; x < 4; x++) {
-        Tbuffer[n++] = 0x00;
-        Tbuffer[n++] = Balanced[x];
+    // Device address
+    Tbuffer[0] = address;
+    // Function
+    Tbuffer[1] = function;
+    // Register address
+    Tbuffer[2] = ((unsigned char)(reg>>8));
+    Tbuffer[3] = ((unsigned char)(reg));
+    // Single data
+    Tbuffer[4] = ((unsigned char)(data>>8));
+    Tbuffer[5] = ((unsigned char)(data));
+    // Calculate CRC16 from data
+    cs = crc16(Tbuffer, 6);
+    Tbuffer[6] = ((unsigned char)(cs));
+    Tbuffer[7] = ((unsigned char)(cs>>8));	
+    // Send buffer to RS485 port
+    RS485SendBuf(Tbuffer, 8);
 }
 
-    cs = CRC16(Tbuffer, n);                                                     // calculate CRC16 from data			
-    Tbuffer[n++] = ((unsigned char) (cs));
-    Tbuffer[n++] = ((unsigned char) (cs >> 8));
-
-    RS485SendBuf(Tbuffer, n);                                                   // send buffer to RS485 port
+/**
+ * Read input register (FC=04) from a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned int quantity
+ */
+void ModbusReadInputRegisters(unsigned char address, unsigned int reg, unsigned int quantity) {
+    ModbusSend(address, 0x04, reg, quantity);
 }
 
-void SendRS485(char address, char command, char data, char data2)               // Send command over RS485
-{
-    unsigned int cs;
+/**
+ * Write single register (FC=06) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned int value
+ */
+void ModbusWriteSingleRegister(unsigned char address, unsigned int reg, unsigned int value) {
+    ModbusSend(address, 0x06, reg, value);  
+}
 
-    Tbuffer[0] = address;                                                       // Slave or Broadcast Address
-    Tbuffer[1] = command;                                                       // Command/function
+/**
+ * Write multiple register (FC=16) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param pointer to data
+ * @param unsigned char count
+ */
+void ModbusWriteMultipleRegisters(unsigned char address, unsigned int reg, unsigned char *data, unsigned char count) {
+    unsigned int i, cs;
 
-    Tbuffer[2] = data;                                                          // only used in error command
-    Tbuffer[3] = data2;                                                          // charge current
+    // Device Address
+    Tbuffer[0] = address;
+    // Function Code 16
+    Tbuffer[1] = 0x10;
+    // Data Address of the first register
+    Tbuffer[2] = ((unsigned char)(reg>>8));
+    Tbuffer[3] = ((unsigned char)(reg));
+    // Number of registers to write
     Tbuffer[4] = 0x00;
-    Tbuffer[5] = 0x00;
+    Tbuffer[5] = count / 2;
+    // Number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+    Tbuffer[6] = count;
+    for (i = 0; i < count; i++) {
+        Tbuffer[7 + i] = data[i];
+    }
+    // Calculate CRC16 from data
+    cs = crc16(Tbuffer, 7 + i);
+    Tbuffer[7 + i] = ((unsigned char)(cs));
+    Tbuffer[8 + i] = ((unsigned char)(cs>>8));	
+    // Send buffer to RS485 port
+    RS485SendBuf(Tbuffer, 9 + i);    
+}
 
-    cs = CRC16(Tbuffer, 6);                                                     // calculate CRC16 from data			
-    Tbuffer[6] = ((unsigned char) (cs));
-    Tbuffer[7] = ((unsigned char) (cs >> 8));
+/**
+ * Broadcast momentary currents to all Slave EVSE's
+ */
+void BroadcastCurrent(void) 
+{
+    unsigned char n, x, data[5];
+
+    n = 0;
+    for (x = 1; x < 4; x++) {
+        data[n++] = 0x00;
+        data[n++] = Balanced[x];
+    }
+
+    ModbusWriteMultipleRegisters(0xFF, 0x01, data, 6);
+}
+
+/**
+ * Combine Bytes received over modbus
+ * 
+ * @param pointer to var
+ * @param pointer to buf
+ * @param unsigned char pos
+ * @param unsigned char endianness:\n
+ *        0: low byte first, low word first (little endian)\n
+ *        1: low byte first, high word first\n
+ *        2: high byte first, low word first\n
+ *        3: high byte first, high word first (big endian)
+ */
+void combineBytes(unsigned char *var, unsigned char *buf, unsigned char pos, unsigned char endianness) {
+    char *pBytes;
+
+    pBytes = var;
     
-    RS485SendBuf(Tbuffer, 8);                                                   // send buffer to RS485 port
+    // XC8 is little endian
+    switch(endianness) {
+        case 0: // low byte first, low word first (little endian)
+            *pBytes++ = (unsigned char)buf[pos + 0];
+            *pBytes++ = (unsigned char)buf[pos + 1];
+            *pBytes++ = (unsigned char)buf[pos + 2];
+            *pBytes   = (unsigned char)buf[pos + 3];   
+            break;
+        case 1: // low byte first, high word first
+            *pBytes++ = (unsigned char)buf[pos + 2];
+            *pBytes++ = (unsigned char)buf[pos + 3];
+            *pBytes++ = (unsigned char)buf[pos + 0];
+            *pBytes   = (unsigned char)buf[pos + 1];   
+            break;
+        case 2: // high byte first, low word first
+            *pBytes++ = (unsigned char)buf[pos + 1];
+            *pBytes++ = (unsigned char)buf[pos + 0];
+            *pBytes++ = (unsigned char)buf[pos + 3];
+            *pBytes   = (unsigned char)buf[pos + 2];   
+            break;
+        case 3: // high byte first, high word first (big endian)
+            *pBytes++ = (unsigned char)buf[pos + 3];
+            *pBytes++ = (unsigned char)buf[pos + 2];
+            *pBytes++ = (unsigned char)buf[pos + 1];
+            *pBytes   = (unsigned char)buf[pos + 0];   
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * Send current measurement request over modbus
+ * 
+ * @param unsigned char Meter
+ * @param unsigned char Address
+ */
+void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
+    switch(Meter) {
+        case EM_SENSORBOX2:
+            ModbusReadInputRegisters(Address, 0, 20);
+            break;
+        case EM_PHOENIX_CONTACT:
+            ModbusReadInputRegisters(Address, 12, 6);
+            break;
+        case EM_FINDER:
+            ModbusReadInputRegisters(Address, 0xE, 6);
+            break;
+        default:
+            break;
+    }  
+}
+
+/**
+ * Read current measurement from modbus
+ * 
+ * @param unsigned char Meter
+ * @param pointer to var
+ */
+void receiveCurrentMeasurement(unsigned char Meter, signed double *var) {
+    unsigned char n, x;
+    signed double dCombined;
+    signed long lCombined;
+
+    switch(Meter) {
+        case EM_SENSORBOX2:
+            // offset 19 is Smart meter P1 current
+            n = 31;
+            for (x = 0; x < 3; x++) {
+                // combine big endian
+                combineBytes(&dCombined, U1packet, n, 3);
+                // SmartEVSE works with Amps * 10
+                var[x] = dCombined * 10.0;
+                // When using CT's , adjust the measurements with calibration value
+                var[x] = var[x] * ICal;	
+                n = n + 4;
+            }
+            break;
+        case EM_PHOENIX_CONTACT:
+            // PHOENIX CONTACT EEM-350-D-MCB
+            // I: Register 12 / I = val / 1000
+            // high byte first, low word first
+            for (x = 0; x < 3; x++) {
+                combineBytes(&lCombined, U1packet, 3 + (x * 4), 2);
+                var[x] = (double) lCombined / 100;
+            }
+            break;
+        case EM_FINDER:
+            // Finder 7E.78.8.400.0212
+            // I: Register 0xE / I = val / 1000
+            // high byte first, high word first
+            for (x = 0; x < 3; x++) {
+                combineBytes(&lCombined, U1packet, 3 + (x * 4), 3);
+                var[x] = (double) lCombined / 100;
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 /**
@@ -810,17 +1047,33 @@ unsigned char getMenuItems (void) {
     } else {                                                                    // ? Socket?
         MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
     }
-    if (Mode) {                                                                 // ? Smart mode?
-        MenuItems[m++] = MENU_CAL;                                              // - Sensorbox calibration
-    }
     MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
+    if (Mode) {                                                                 // ? Smart or Solar mode?
+        MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
+        if (MainsMeter == EM_SENSORBOX1 || MainsMeter == EM_SENSORBOX2) {       // - ? Sensorbox?
+            MenuItems[m++] = MENU_CAL;                                          // - - Sensorbox calibration
+        } else if(MainsMeter) {                                                 // - ? Other?
+            MenuItems[m++] = MENU_MAINSMETERADDRESS;                            // - - Address of Mains electric meter (5 - 254)
+            MenuItems[m++] = MENU_MAINSMETERMEASURE;                            // - - What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
+            if (MainsMeterMeasure) {                                            // - - ? PV not measured by Mains electric meter?
+                MenuItems[m++] = MENU_PVMETER;                                  // - - - Type of PV electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
+                MenuItems[m++] = MENU_PVMETERADDRESS;                           // - - - Address of PV electric meter (5 - 254)
+            }
+        }
+    }
     MenuItems[m++] = MENU_EXIT;
 
     return m;
 }
 
-const char * getMenuItemOption(unsigned char nav) {
+/**
+ * Get active option of an menu item
+ * 
+ * @param unsigned char nav
+ * @return unsigned char[] MenuItemOption
+ */
+unsigned char * getMenuItemOption(unsigned char nav) {
     char Str[10];
 
     switch (nav) {
@@ -865,6 +1118,43 @@ const char * getMenuItemOption(unsigned char nav) {
         case MENU_RCMON:
             if (RCmon) return StrEnabled;
             else return StrDisabled;
+        case MENU_MAINSMETER:
+            switch (MainsMeter) {
+                case 0:
+                    return StrDisabled;
+                case EM_SENSORBOX1:
+                    return StrSensorbox1;
+                case EM_SENSORBOX2:
+                    return StrSensorbox2;
+                case EM_PHOENIX_CONTACT:
+                    return StrPhoenix;
+                case EM_FINDER:
+                    return StrFinder;
+                default:
+                    break;
+            }
+            break;
+        case MENU_MAINSMETERADDRESS:
+            sprintf(Str, "%u", MainsMeterAddress);
+            return Str;
+        case MENU_MAINSMETERMEASURE:
+            if (MainsMeterMeasure) return StrMainsHomeEVSE;
+            else return StrMainsAll;
+        case MENU_PVMETER:
+            switch (PVMeter) {
+                case 0:
+                    return StrDisabled;
+                case EM_PHOENIX_CONTACT:
+                    return StrPhoenix;
+                case EM_FINDER:
+                    return StrFinder;
+                default:
+                    break;
+            }
+            break;
+        case MENU_PVMETERADDRESS:
+            sprintf(Str, "%u", PVMeterAddress);
+            return Str;
         case MENU_EXIT:
             return StrExitMenu;
         default:
@@ -905,186 +1195,254 @@ void RS232cli(void) {
             if (strcmp(U2buffer, MenuStr[MenuItems[i]].Key) == 0) menu = MenuItems[i];
         }
     } else if (U2buffer[0] == 0) menu = 0;
-    else                                                                        // menu = 1,2,3,4 read entered value from cli
-    {
-        if (menu == MENU_MAINS || menu == MENU_MAX || menu == MENU_MIN || menu == MENU_CABLE || menu == MENU_START || menu == MENU_STOP) {
-            n = (unsigned int) atoi(U2buffer);
-            if ((menu == MENU_MAINS) && (n > 9) && (n < 101)) {
-                MaxMains = n; // Set new MaxMains
-                write_settings(); // Write to eeprom
-            } else if ((menu == MENU_MAX) && (n > 9) && (n <= 80)) {
-                MaxCurrent = n; // Set new MaxCurrent
-                write_settings(); // Write to eeprom
-            } else if ((menu == MENU_MIN) && (n > 5) && (n <= 16)) {
-                MinCurrent = n; // Set new MinCurrent
-                write_settings(); // Write to eeprom
-            } else if ((menu == MENU_CABLE) && (n > 12) && (n <= 80)) {
-                CableLimit = n; // Set new CableLimit
-                write_settings(); // Write to eeprom
-            } else if ((menu == MENU_START) && (n > 0) && (n <= 16)) {
-                StartCurrent = n; // Set new Surplus start Current
-                write_settings(); // Write to eeprom
-            } else if ((menu == MENU_STOP) && (n >= 0) && (n <= 60)) {          // Max 60 minutes, 0 = continue charging at lowest current
-                StopTime = n;                                                   // Set new Stop time (minutes)
-                write_settings();                                               // Write to eeprom    
-            } else printf("\r\nError! please check limits\r\n");
-        } else if (menu == MENU_CAL) {
-            Inew = atof(U2buffer);
-            if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
-            else {
-                Iold = Irms[0] / ICal;
-                ICal = (Inew * 10) / Iold;                                      // Calculate new Calibration value
-                write_settings();                                               // Write to eeprom
-            }
-        } else if (menu == MENU_MODE)                                           // EVSE Mode
-        {
-            if (strcmp(U2buffer, (const far char *) "SOLAR") == 0) {
-                Mode = MODE_SOLAR;
-                write_settings(); // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "SMART") == 0) {
-                Mode = MODE_SMART;
-                write_settings(); // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "NORMAL") == 0) {
-                Mode = MODE_NORMAL;
-                write_settings(); // Write to eeprom
-                Error = NO_ERROR; // Clear Errors
-            }
-
-        } else if (menu == MENU_LOCK)                                           // Cable Lock
-        {
-            if (strcmp(U2buffer, (const far char *) "SOLENOID") == 0) {
-                Lock = 1;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "MOTOR") == 0) {
-                Lock = 2;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                Lock = 0;
-                write_settings();                                               // Write to eeprom
-            }
-        } else if (menu == MENU_CONFIG)                                         // Configuration Mode
-        {
-            if (strcmp(U2buffer, (const far char *) "FIXED") == 0) {
-                Config = 1;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "SOCKET") == 0) {
-                Config = 0;
-                write_settings();                                               // Write to eeprom
-            }
-        } else if (menu == MENU_LOADBL)                                         // Load Balancing Mode
-        {
-            if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                LoadBl = 0;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "MASTER") == 0) {
-                LoadBl = 1;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "SLAVE1") == 0) {
-                LoadBl = 2;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "SLAVE2") == 0) {
-                LoadBl = 3;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "SLAVE3") == 0) {
-                LoadBl = 4;
-                write_settings();                                               // Write to eeprom
-            }
-        } else if (menu == MENU_ACCESS)                                         // Start/Stop button on I/O 2
-        {
-            if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                Access = 0;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "SWITCH") == 0) {
-                Access = 1;
-                write_settings();                                               // Write to eeprom
-            }
-        } else if (menu == MENU_RCMON)                                          // RCD on I/O 3
-        {
-            if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                RCmon = 0;
-                write_settings();                                               // Write to eeprom
-            } else if (strcmp(U2buffer, (const far char *) "ENABLE") == 0) {
-                RCmon = 1;
-                write_settings();                                               // Write to eeprom
-            }
+    else {
+        switch (menu) {
+            case MENU_MAINS:
+            case MENU_MAX:
+            case MENU_MIN:
+            case MENU_CABLE:
+            case MENU_START:
+            case MENU_STOP:
+            case MENU_MAINSMETERADDRESS:
+            case MENU_PVMETERADDRESS:
+                n = (unsigned int) atoi(U2buffer);
+                if ((menu == MENU_MAINS) && (n > 9) && (n < 101)) {
+                    MaxMains = n; // Set new MaxMains
+                    write_settings();
+                } else if ((menu == MENU_MAX) && (n > 9) && (n <= 80)) {
+                    MaxCurrent = n; // Set new MaxCurrent
+                    write_settings();
+                } else if ((menu == MENU_MIN) && (n > 5) && (n <= 16)) {
+                    MinCurrent = n; // Set new MinCurrent
+                    write_settings();
+                } else if ((menu == MENU_CABLE) && (n > 12) && (n <= 80)) {
+                    CableLimit = n; // Set new CableLimit
+                    write_settings();
+                } else if ((menu == MENU_START) && (n > 0) && (n <= 16)) {
+                    StartCurrent = n; // Set new Surplus start Current
+                    write_settings();
+                } else if ((menu == MENU_STOP) && (n >= 0) && (n <= 60)) {      // Max 60 minutes, 0 = continue charging at lowest current
+                    StopTime = n;                                               // Set new Stop time (minutes)
+                    write_settings();
+                } else if ((menu == MENU_MAINSMETERADDRESS) && (n > 4) && (n <= 254)) {
+                    MainsMeterAddress = n; // Set new Surplus start Current
+                    write_settings();
+                } else if ((menu == MENU_PVMETERADDRESS) && (n > 4) && (n <= 254)) {
+                    PVMeterAddress = n; // Set new Surplus start Current
+                    write_settings();
+                } else printf("\r\nError! please check limits\r\n");
+                break;
+            case MENU_CAL:
+                Inew = atof(U2buffer);
+                if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
+                else {
+                    Iold = Irms[0] / ICal;
+                    ICal = (Inew * 10) / Iold;                                  // Calculate new Calibration value
+                    write_settings();
+                }
+                break;
+            case MENU_MODE:
+                if (strcmp(U2buffer, (const far char *) "SOLAR") == 0) {
+                    Mode = MODE_SOLAR;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SMART") == 0) {
+                    Mode = MODE_SMART;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "NORMAL") == 0) {
+                    Mode = MODE_NORMAL;
+                    write_settings();
+                    Error = NO_ERROR; // Clear Errors
+                }
+                break;
+            case MENU_LOCK:
+                if (strcmp(U2buffer, (const far char *) "SOLENOID") == 0) {
+                    Lock = 1;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "MOTOR") == 0) {
+                    Lock = 2;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                    Lock = 0;
+                    write_settings();
+                }
+                break;
+            case MENU_CONFIG:
+                if (strcmp(U2buffer, (const far char *) "FIXED") == 0) {
+                    Config = 1;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SOCKET") == 0) {
+                    Config = 0;
+                    write_settings();
+                }
+                break;
+            case MENU_LOADBL:
+                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                    LoadBl = 0;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "MASTER") == 0) {
+                    LoadBl = 1;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SLAVE1") == 0) {
+                    LoadBl = 2;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SLAVE2") == 0) {
+                    LoadBl = 3;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SLAVE3") == 0) {
+                    LoadBl = 4;
+                    write_settings();
+                }
+                break;
+            case MENU_ACCESS:
+                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                    Access = 0;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SWITCH") == 0) {
+                    Access = 1;
+                    write_settings();
+                }
+                break;
+            case MENU_RCMON:
+                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                    RCmon = 0;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "ENABLE") == 0) {
+                    RCmon = 1;
+                    write_settings();
+                }
+                break;
+            case MENU_MAINSMETER:
+                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                    MainsMeter = 0;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SENSORBOX1") == 0) {
+                    MainsMeter = EM_SENSORBOX1;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "SENSORBOX2") == 0) {
+                    MainsMeter = EM_SENSORBOX2;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "PHOENIX") == 0) {
+                    MainsMeter = EM_PHOENIX_CONTACT;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "FINDER") == 0) {
+                    MainsMeter = EM_FINDER;
+                    write_settings();
+                }
+                break;
+            case MENU_MAINSMETERMEASURE:
+                if (strcmp(U2buffer, (const far char *) "ALL") == 0) {
+                    MainsMeterMeasure = 0;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "HOME") == 0) {
+                    MainsMeterMeasure = 1;
+                    write_settings();
+                }
+                break;
+            case MENU_PVMETER:
+                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                    PVMeter = 0;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "PHOENIX") == 0) {
+                    PVMeter = EM_PHOENIX_CONTACT;
+                    write_settings();
+                } else if (strcmp(U2buffer, (const far char *) "FINDER") == 0) {
+                    PVMeter = EM_FINDER;
+                    write_settings();
+                }
+                break;
+            default:
+                break;
         }
 
         menu = 0;
         MenuItemsCount = getMenuItems();
     }
 
-    if (menu == 0) {
-        printf("\r\n---------------------- SMART EVSE  ----------------------\r\n v");
-        printf(VERSION);
-        printf(" for detailed instructions, see www.smartevse.org\r\n");
-        printf(" Internal Temperature: %2u C\r\n", TempEVSE);
-        printf("---------------------------------------------------------\r\n");
-        for(i = 0; i < MenuItemsCount - 1; i++) {
-            printf("%-06s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
-            if (MenuItems[i] == MENU_CAL) {
-                printf("CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)",(unsigned int)Irms[0], (unsigned int)(Irms[0]*10)%10, (unsigned int)Irms[1], (unsigned int)(Irms[1]*10)%10, (unsigned int)Irms[2], (unsigned int)(Irms[2]*10)%10 );
-            } else {
-                printf(getMenuItemOption(MenuItems[i]));
+    // Show active item configuration
+    if (menu > 14) printf("%s is set to %s\r\n", MenuStr[menu].Desc, getMenuItemOption(menu));
+
+    switch (menu) {
+        case 0:
+            printf("\r\n----------------------------- SMART EVSE -----------------------------\r\n v");
+            printf(VERSION);
+            printf(" for detailed instructions, see www.smartevse.org\r\n");
+            printf(" Internal Temperature: %2u C\r\n", TempEVSE);
+            printf("----------------------------------------------------------------------\r\n");
+            for(i = 0; i < MenuItemsCount - 1; i++) {
+                printf("%-06s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
+                if (MenuItems[i] == MENU_CAL) {
+                    printf("CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)",(unsigned int)Irms[0], (unsigned int)(Irms[0]*10)%10, (unsigned int)Irms[1], (unsigned int)(Irms[1]*10)%10, (unsigned int)Irms[2], (unsigned int)(Irms[2]*10)%10 );
+                } else {
+                    printf(getMenuItemOption(MenuItems[i]));
+                }
+                printf("\r\n");
             }
-            printf("\r\n");
-        }
 
-        printf(">");
-    } else if (menu == MENU_MAINS) {
-        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-        printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-        printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-100): ", MaxMains);
-    } else if (menu == MENU_MAX) {
-        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-        printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-        printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (10-80): ", MaxCurrent);
-    } else if (menu == MENU_MIN) {
-        printf("MIN Charge Current set to: %u A\r\nEnter new MIN Charge Current (6-16): ", MinCurrent);
-    } else if (menu == MENU_CAL) {
-        printf("CT1 reads: %3u.%01u A\r\nEnter new Measured Current for CT1: ", (unsigned int)Irms[0], (unsigned int)(Irms[0] * 10) % 10);
-    } else if (menu == MENU_MODE) {
-        printf("EVSE set to : ");
-        if (Mode == MODE_SMART) printf("Smart mode\r\n");
-        else if (Mode == MODE_SOLAR) printf("Solar mode\r\n");
-        else printf("Normal mode\r\n");
-        printf("Enter new EVSE Mode (NORMAL/SMART/SOLAR): ");
-    } else if (menu == MENU_LOCK) {
-        printf("Cable lock set to : ");
-        if (Lock == 2) printf("Motor\r\n");
-        else if (Lock == 1) printf("Solenoid\r\n");
-        else printf("Disable\r\n");
-        printf("Enter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ");
-    } else if (menu == MENU_CONFIG) {
-        printf("Configuration : ");
-        if (Config) printf("Fixed Cable\r\n");
-        else printf("Type 2 Socket\r\n");
-        printf("Enter new Configuration (FIXED/SOCKET): ");
-    } else if (menu == MENU_CABLE) {
-        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-        printf("OR GREATER THAN THE RATED VALUE OF THE CHARGING CABLE\r\n");
-        printf("Fixed Cable Current limit set to: %u A\r\nEnter new limit (13-80): ", CableLimit);
-    } else if (menu == MENU_LOADBL) {
-        printf("Load Balancing set to : ");
-        if (LoadBl == 0) printf("Disabled\r\n");
-        else if (LoadBl == 1) printf("Master\r\n");
-        else printf("Slave%u\r\n", LoadBl - 1);
-        printf("Enter Load Balancing mode (DISABLE/MASTER/SLAVE1/SLAVE2/SLAVE3): ");
-    } else if (menu == MENU_ACCESS) {
-        printf("Access Control on I/O 2 set to : ");
-        if (Access == 0) printf("Disabled\r\n");
-        else printf("Switch\r\n");
-        printf("Access Control on IO2 (DISABLE/SWITCH): ");
-    } else if (menu == MENU_RCMON) {
-        printf("Residual Current Monitor on I/O 3 set to : ");
-        if (RCmon == 0) printf("Disabled\r\n");
-        else printf("Enabled\r\n");
-        printf("Residual Current Monitor on IO3 (DISABLE/ENABLE): ");
-    } else if (menu == MENU_START) {
-        printf("Surplus energy start Current set to: %u A\r\nEnter new Surplus start Current (1-16): -", StartCurrent);
-    } else if (menu == MENU_STOP) {
-        printf("Stop solar charging at 6A after %u min.\r\nEnter new time (0-60) min: ", StopTime);
+            printf(">");
+            break;
+        case MENU_CONFIG:
+            printf("Configuration : %s\r\nEnter new Configuration (FIXED/SOCKET): ");
+            break;
+        case MENU_MODE:
+            printf("EVSE set to : %s\r\nEnter new EVSE Mode (NORMAL/SMART/SOLAR): ", getMenuItemOption(menu));
+            break;
+        case MENU_START:
+            printf("Surplus energy start Current set to: %u A\r\nEnter new Surplus start Current (1-16): -", StartCurrent);
+            break;
+        case MENU_STOP:
+            printf("Stop solar charging at 6A after %u min.\r\nEnter new time (0-60) min: ", StopTime);
+            break;
+        case MENU_LOADBL:
+            printf("Load Balancing set to : %s\r\nEnter Load Balancing mode (DISABLE/MASTER/SLAVE1/SLAVE2/SLAVE3): ", getMenuItemOption(menu));
+            break;
+        case MENU_MAINS:
+            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
+            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
+            printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-100): ", MaxMains);
+            break;
+        case MENU_MIN:
+            printf("MIN Charge Current set to: %u A\r\nEnter new MIN Charge Current (6-16): ", MinCurrent);
+            break;
+        case MENU_MAX:
+            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
+            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
+            printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (10-80): ", MaxCurrent);
+            break;
+        case MENU_CABLE:
+            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
+            printf("OR GREATER THAN THE RATED VALUE OF THE CHARGING CABLE\r\n");
+            printf("Fixed Cable Current limit set to: %u A\r\nEnter new limit (13-80): ", CableLimit);
+            break;
+        case MENU_LOCK:
+            printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
+            break;
+        case MENU_ACCESS:
+            printf("Access Control on I/O 2 set to : %s\r\nAccess Control on IO2 (DISABLE/SWITCH): ", getMenuItemOption(menu));
+            break;
+        case MENU_RCMON:
+            printf("Residual Current Monitor on I/O 3 set to : %s\r\nResidual Current Monitor on IO3 (DISABLE/ENABLE): ", getMenuItemOption(menu));
+            break;
+        case MENU_CAL:
+            printf("CT1 reads: %3u.%01u A\r\nEnter new Measured Current for CT1: ", (unsigned int)Irms[0], (unsigned int)(Irms[0] * 10) % 10);
+            break;
+        case MENU_MAINSMETER:
+            printf("Enter new type of mains electric meter (DISABLE/SENSORBOX1/SENSORBOX2/PHOENIX/FINDER): ");
+            break;
+        case MENU_MAINSMETERADDRESS:
+            printf("Enter new address of mains electric meter (5-254): ");
+            break;
+        case MENU_MAINSMETERMEASURE:
+            printf("Enter what mains electric meter measure (ALL/HOME): ");
+            break;
+        case MENU_PVMETER:
+            printf("Enter new type of PV electric meter (DISABLE/PHOENIX/FINDER): ");
+            break;
+        case MENU_PVMETERADDRESS:
+            printf("Enter new address of PV electric meter (5-254): ");
+            break;
+        default:
+            break;
     }
-
     ISR2FLAG = 0;                                                               // clear flag
     idx2 = 0;                                                                   // reset buffer pointer
 }
@@ -1188,15 +1546,19 @@ void init(void) {
     ANSELC = 0;                                                                 // All digital IO
     TRISC = 0b10000010;                                                         // RC1 and RC7 input (RX1), all other output
 
+    if (MainsMeter == EM_SENSORBOX1) {
+        SPBRGH1 = 13;                                                           // Initialize UART 1 (RS485)
+        SPBRG1 = 4;                                                             // Baudrate 1200 
+    } else {
     	SPBRGH1 = 0x01;                                                         // Initialize UART 1 (RS485)
-    SPBRG1 = 0xa0; // Baudrate 9600 
+        SPBRG1 = 0xA0;                                                          // Baudrate 9600 
+    }
     BAUDCON1 = 0b00001000;                                                      // 16 bit Baudrate register is used
     TXSTA1 = 0b00100100;                                                        // Enable TX, 8 bit, Asynchronous mode
     RCSTA1 = 0b10010000;                                                        // Enable serial port TX and RX, 8 bit. 
 
     SPBRGH2 = 0;                                                                // Initialize UART 2
     SPBRG2 = 34;                                                                // Baudrate 115k2 (114285)
-    //	SPBRG2 = 207;                                                           // Baudrate 19k2
     BAUDCON2 = 0b00001000;                                                      // 16 bit Baudrate register is used
     TXSTA2 = 0b00100100;                                                        // Enable TX, 8 bit, Asynchronous mode
     RCSTA2 = 0b10010000;                                                        // Enable serial port TX and RX, 8 bit. 
@@ -1241,12 +1603,14 @@ void init(void) {
 }
 
 void main(void) {
-    char *pBytes;
     char x, n;
-    unsigned char pilot, count = 0, timeout = 5;
+    unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, address, function, datacount;
     char DiodeCheck = 0;
     char SlaveAdr, Command, Broadcast = 0, Switch_count = 0, Sens2s = 1;
-    unsigned int Current;
+    unsigned int Current, crc;
+    int BalancedReceived;
+    signed double dCombined;
+    signed double PV[3]={0, 0, 0};
 
     init();                                                                     // initialize ports, ADC, UARTs etc
 
@@ -1324,7 +1688,8 @@ void main(void) {
 
         if ((State == STATE_COMM_A) && (Timer > ACK_TIMEOUT))                   // Wait for response from Master
         {
-            SendRS485(LoadBl - 1, 0x01, 0x00, 0x00); // Send command to Master
+            // Send command to Master
+            ModbusWriteSingleRegister(LoadBl - 1, 0x01, 0x00);
             printf("01 sent to Master, charging stopped\r\n");
             Timer = 0;                                                          // Clear the Timer
         }
@@ -1360,7 +1725,8 @@ void main(void) {
 
                             if (LoadBl > 1)                                     // Load Balancing : Slave 
                             {
-                                SendRS485(LoadBl - 1, 0x02, 0x00, ChargeCurrent); // Send command to Master, followed by Max Charge Current
+                                // Send command to Master, followed by Max Charge Current
+                                ModbusWriteSingleRegister(LoadBl - 1, 0x02, ChargeCurrent);
                                 printf("02 sent to Master, requested %uA\r\n", ChargeCurrent);
                                 State = STATE_COMM_B;
                                 Timer = 0;                                      // Clear the Timer
@@ -1418,7 +1784,8 @@ void main(void) {
                             if ((Error == NO_ERROR) && (ChargeDelay == 0)) {
                                 if (LoadBl > 1)                                 // Load Balancing : Slave 
                                 {
-                                    SendRS485(LoadBl - 1, 0x03, 0x00, ChargeCurrent); // Send command to Master, followed by Charge Current
+                                    // Send command to Master, followed by Charge Current
+                                    ModbusWriteSingleRegister(LoadBl - 1, 0x03, ChargeCurrent);
                                     printf("03 sent to Master, requested %uA\r\n", ChargeCurrent);
                                     State = STATE_COMM_C;
                                     Timer = 0;                                  // Clear the Timer
@@ -1531,7 +1898,8 @@ void main(void) {
         } // end of State C code
 
         if ((State == STATE_COMM_CB) && (Timer > ACK_TIMEOUT)) {
-            SendRS485(LoadBl - 1, 0x04, 0x00, 0x00); // Send command to Master
+            // Send command to Master
+            ModbusWriteSingleRegister(LoadBl - 1, 0x04, 0x00);
             printf("04 sent to Master, charging stopped\r\n");
             Timer = 0;                                                          // Clear the Timer
         }
@@ -1618,34 +1986,9 @@ void main(void) {
             // Request measurement data data from Sensorbox2
             if ((Mode || (LoadBl == 1)) && (!Sens2s--))                         // Smart/Solar mode or Loadbalancing set to Master
             {
-                Tbuffer[0] = 0x0A; // Sensorbox2 address
-                Tbuffer[1] = 0x04; // function
-                Tbuffer[2] = 0;
-                Tbuffer[3] = 0;
-                Tbuffer[4] = 0;
-                Tbuffer[5] = 0x14; // 20 words of data
-                unsigned int cs = CRC16(Tbuffer, 6); // calculate CRC16 from data			
-                Tbuffer[6] = ((unsigned char) (cs));
-                Tbuffer[7] = ((unsigned char) (cs >> 8));
-                RS485SendBuf(Tbuffer, 8); // send buffer to RS485 port
+                Modbus = 1;
                 Sens2s = 1; // reset to 2 sec
             }
-            /*       
-                   if (!Sens2s--)
-                   {
-                       Tbuffer[0]= 0x65;                           // Eastron kWh meter adr 101
-                       Tbuffer[1]= 0x04;                           // function
-                       Tbuffer[2]= 0x01;                           // address total kWh
-                       Tbuffer[3]= 0x56;
-                       Tbuffer[4]= 0;			
-                       Tbuffer[5]= 0x02;                           // 2 words (32 bit) of data
-                       unsigned int cs = CRC16(Tbuffer, 6);        // calculate CRC16 from data			
-                       Tbuffer[6] = ((unsigned char)(cs));
-                       Tbuffer[7] =((unsigned char)(cs>>8));	
-                       RS485SendBuf(Tbuffer,8);                    // send buffer to RS485 port
-                Sens2s = 1; // reset to 2 sec
-            }
-             */
             
             if (!Mode)                                                          // Normal mode
             {
@@ -1666,6 +2009,19 @@ void main(void) {
         } // end 1 second timer
 
         
+        // Send modbus request
+        if (Modbus) {
+            switch (Modbus) {
+                case 1:
+                    requestCurrentMeasurement(MainsMeter, MainsMeterAddress);
+                    break;
+                case 2:
+                    requestCurrentMeasurement(PVMeter, PVMeterAddress);
+                    break;
+            }
+            Modbus = 0;
+        }
+
 
         /*  RS485 serial data is received by the ISR routine, and processed here..
             Reads serial packet with Raw Current values, measured from 1-N CT's, over a RS485 serial line
@@ -1684,7 +2040,7 @@ void main(void) {
             protocol  0x5002		= load balancing commands
             version 	0x01
             adress		0x01		= slave 1 (communication always to/from master)
-                                    = broadcast from master = 0x09 
+                                    = broadcast from master = 0xFF (modbus)
             command		0x02		= request to charge
             data	  0x0020		= @ 32A
             data	  0x0000		= unused data bytes
@@ -1707,62 +2063,134 @@ void main(void) {
                         0x02		= Error occurred, switch to State A. Error code in next databyte.
          */
 
-        if ((ISRFLAG == 1) && (Timer > (ModbusTimer + 3))) // last reception more then 3ms ago? ) 	// complete packet detected?
-        {
-            crc16 = CRC16(U1buffer, idx); // calculate checksum over all data (including crc16)
+        
+        // Receive data from modbus
+        // last reception more then 3ms ago? // complete packet detected?
+        if (ISRFLAG) {
+            // Device address
+            address = U1packet[0];
+            // Function
+            function = U1packet[1];
+            // calculate checksum over all data (including crc16)
             // when checksum == 0 data is ok.
-            //for (x=0; x<idx; x++) printf("%02x ",U1buffer[x]);
-            /*            if (U1buffer[0]==0x65 && U1buffer[1]==0x04 && !crc16)   // check CRC (Eastron kWh meter)
-                    {
-                            n=3;
-                            pBytes = (char*)&Irms[0];
-             *pBytes++=(unsigned char)U1buffer[n+3];
-             *pBytes++=(unsigned char)U1buffer[n+2];
-             *pBytes++=(unsigned char)U1buffer[n+1];
-             *pBytes=(unsigned char)U1buffer[n];
-                             printf("kwh %5d \r\n",(int)(Irms[0]) );
-            }
-             */
-            if (U1buffer[0] == 0x0a && U1buffer[1] == 0x04 && !crc16)           // check CRC
-            {                                                                   // We have received a data packet from the sensorbox v2
+            crc = crc16(U1packet, ISRFLAG);
 
+//            printf("\nReceived packet (%i bytes / crc %04x) ",len,crc);
+//            for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
+            if (!crc) {
+                // CRC OK
+//                printf("\n  valid Modbus packet: Address %02x Function %02x", address, function);
+                switch (function) {
+                    case 0x04:
+                        // (Read input register)
+                        if (ISRFLAG == 8) {
+                            // request packet
+                            printf("\n    Request packet");
+                        } else {
+                            // receive packet
+                            datacount = U1packet[2];
+                            if (datacount == ISRFLAG - 5) {
+                                printf("\n    Receive packet");
+                                // packet length OK
+                                if (MainsMeter && address == MainsMeterAddress) {
+                                    // packet from Mains electric meter
+                                    receiveCurrentMeasurement(MainsMeter, Irms);
+                                    if (PVMeter) Modbus = 2;
+                                    else {
+                                        Modbus = 0;
+                                        DataReceived = 1;
+                                    }
+                                } else if (PVMeter && address == PVMeterAddress) {
+                                    // packet from PV electric meter
+                                    receiveCurrentMeasurement(PVMeter, PV);
+                                    Modbus = 0;
+                                    for (x = 0; x < 3; x++) {
+                                        Irms[x] = Irms[x] - PV[x];
+                                    }
+                                    DataReceived = 1;
+                                }
+                            } else {
+                                printf("\n    Invalid packet");
+                            }
+                        }
+                        break;
+                    case 0x06:
+                        // (Write single register)
+                        // received command always from SmartEVSE
+                        SlaveAdr = address;
+                        Command = U1packet[3]; // & U1packet[2];
+                        Current = (U1packet[4] <<8) | U1packet[5];
+                        DataReceived = 2;
+                        break;
+                    case 0x10:
+                        // (Write multiple register))
+                        // Broadcast message from Master->Slaves, Set Charge current
+                        SlaveAdr = address;
+                        Command = U1packet[3]; // & U1packet[2];
+                        if (SlaveAdr == 0xFF && Command == 0x01 && LoadBl > 1) {
+                            BalancedReceived = U1packet[3 + (LoadBl * 2)];
+                            printf("\n  BalancedReceived %i", BalancedReceived);//BOB
+                            DataReceived = 2;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            } else if (MainsMeter == EM_SENSORBOX1) {
+                // Try sensorbox v1
+                crc = crc16sensorbox1(U1packet, ISRFLAG);
+
+                if (ISRFLAG > 10 && U1packet[2] == 0x50 && U1packet[3] == 0x01 && crc == 0x0f47) // check CRC
+                {                                                               // We have received a data packet from the sensorbox
+                    // received measurement packet from sensorbox v1
+                    n = 6;
+                    if (U1packet[5] > 3) U1packet[5] = 3;                       // protect against buffer overflow
+                    for (x = 0; x < U1packet[5]; x++)                           // Nr of CTs    
+                    {
+                        // combine little endian
+                        combineBytes(&dCombined, U1packet, n, 0);
+                        Irms[x] = dCombined * ICal;                             // adjust CT values with Calibration value
+                        n = n + 4;
+                    }
+                    // if (U1buffer[U1int][4] == 0xA5 && !TestState) TestState = 1;    // TestIO command received, perform selfcheck (test interface required)
+
+                    DataReceived = 1;
+                }
+            } else {
+                printf("\n  CRC invalid");
+            }
+
+            if (Error == CT_NOCOMM && timeout==10) Error=NO_ERROR;              // Clear communication error, if present
+            if (Error == LESS_6A && ChargeDelay==0 && LoadBl>1) Error=NO_ERROR; // Clear Error after delay (Slave)
+
+            // Clear receive flag            
+            ISRFLAG = 0;
+        } // (ISRFLAG > 1) 	 complete packet detected?
+
+
+        // Process received data    
+        if (DataReceived == 1) {
             Imeasured = 0;                                                      // reset Imeasured value (grid power used)
             ImeasuredNegative = 0;                                              // reset ImeasuredNegative (surplus power generated)
             Isum = 0;
-                MainsMeter = U1buffer[6];                                       // type of measurement stored
-                if ((MainsMeter & 0x80) == 0x80) n = 19;                        // 0x80 = P1 data was received and valid (version 5.0 or higher)
-                else n = 31;                                                    // offset 19 is Smart meter P1 current
-                                                                                // at offset 31 starts the Sensorbox CT current
-                for (x = 0; x < 3; x++)                                         // Nr of measurements
-                {
-                    pBytes = (char*) &Irms[x];
-                    *pBytes++ = (unsigned char) U1buffer[n + 3];
-                    *pBytes++ = (unsigned char) U1buffer[n + 2];
-                    *pBytes++ = (unsigned char) U1buffer[n + 1];
-                    *pBytes = (unsigned char) U1buffer[n];
-                    Irms[x] = Irms[x] * 10.0;                                   // SmartEVSE works with Amps*10
-                                                                                // When using CT's , adjust the measurements with calibration value
-                    if (MainsMeter <= 3) Irms[x] = Irms[x] * ICal;
-
-                    Isum = Isum + (int) Irms[x];                                // sum up current on all phases (can also be negative)
-
-
+            for (x=0; x<3; x++) {
                 if (Irms[x] > Imeasured) Imeasured = (unsigned int) Irms[x];    // Imeasured holds highest Irms of all channels
                 if (Irms[x] < ImeasuredNegative) ImeasuredNegative = (signed int) Irms[x];
-                    n = n + 4;
+                Isum = Isum + (int) Irms[x];
             }
-                //if (U1buffer[4]==0xA5 && !TestState) TestState=1;	// TestIO command received, perform selfcheck (test interface required)
 
-                if (Mode && LoadBl < 2)                                         // Load Balancing mode: Smart/Solar Load Balance:Master or Disabled
+            if (Mode && LoadBl < 2)                                             // Load Balancing mode: Smart/Master or Disabled
             {
                 CalcBalancedCurrent(0);                                         // Calculate dynamic charge current for connected EVSE's
 
                 if (NoCurrent > 2 || (Imeasured > (MaxMains * 20)))             // No current left, or Overload (2x Maxmains)?
                 {                                                               // STOP charging for all EVSE's
-                    Error |= NOCURRENT;                                         // Display error message
+                    Error |= NOCURRENT;                                          // Display error message
                     for (x = 0; x < 4; x++) BalancedState[x] = 0;               // Set all EVSE's to State A
 
-                        SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // Broadcast Error code over RS485
+                    // Broadcast Error code over RS485
+                    // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
+                    ModbusWriteSingleRegister(0x00, 0x02, LESS_6A);
                     NoCurrent = 0;
                 } else if (LoadBl) BroadcastCurrent();                          // Master sends current to all connected EVSE's
 
@@ -1770,29 +2198,22 @@ void main(void) {
                     SetCurrent(Balanced[0]);                                    // Set current for Master EVSE in Smart Mode
                 }
                 DEBUG_PRINT(("STATE:%c Error:%u StartCurrent: %i ImeasuredNegative: %i ChargeDelay:%u SolarStopTimer:%u NoCurrent:%u Imeas:%3u.%01uA IsetBalanced:%u.%01uA ",State-1+'A', Error, (unsigned int)StartCurrent*-10, ImeasuredNegative, ChargeDelay, SolarStopTimer,  NoCurrent,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)IsetBalanced/10,(unsigned int)IsetBalanced%10));
-
                 DEBUG_PRINT(("L1: %3.1f A L2: %3.1f A L3: %3.1f A Isum: %3.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
 
                 timeout = 10;                                                   // reset 10 second timeout
             } else Imeasured = 0;                                               // In case Sensorbox is connected in Normal mode. Clear measurement.
-
-            } else if (ISRFLAG > 6 && U1buffer[2] == 0x50 && U1buffer[3] == 0x02 && !crc16) // We received a command
+        } else if (DataReceived == 2) {
+            if (SlaveAdr == 0xFF && Command == 0x01 && LoadBl > 1)              // Broadcast message from Master->Slaves, Set Charge current
             {
-                SlaveAdr = U1buffer[5]; //EVSE 0x01 - 0x03 (slaves) 
-                Command = U1buffer[6];
-                Current = U1buffer[8];
-
-                timeout = 10; // reset 10 second timeout
-
-                if (SlaveAdr == 0x00 && Command == 0x01 && LoadBl > 1) // Broadcast message from Master->Slaves, Set Charge current
-                {
-                    Balanced[0] = U1buffer[4 + (LoadBl * 2)];
+                Balanced[0] = BalancedReceived;
                 if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
                 DEBUG_PRINT(("Broadcast received, Slave %uA \r\n", Balanced[0]));
-                } else if (SlaveAdr == 0x00 && Command == 0x02 && LoadBl > 1) // Broadcast message from Master->Slaves, Error Occured!
+            }
+            else if (SlaveAdr == 0x00 && Command == 0x02 && LoadBl > 1)         // Broadcast message from Master->Slaves, Error Occured!
             {
                 State = STATE_A;
-                    Error = U1buffer[7];
+                // Error stored in variable Current
+                Error = Current;
                 ChargeDelay = CHARGEDELAY;
                 DEBUG_PRINT(("Broadcast Error message received!\r\n"));
             }
@@ -1850,7 +2271,8 @@ void main(void) {
                     BalancedState[SlaveAdr] = 0;                                // Keep track of the state and store it.		
                     CalcBalancedCurrent(0);                                     // Calculate dynamic charge current for connected EVSE's
                     printf("01 Slave %u State A\r\n", SlaveAdr);
-                        SendRS485(SlaveAdr, 0x81, 0x00, 0x00); // Send ACK to Slave, followed by two dummy bytes
+                    // Send ACK to Slave, followed by two dummy byte
+                    ModbusWriteSingleRegister(SlaveAdr, 0x81, 0x00);
                 } else if (Command == 0x02)                                     // Request to charge , next two bytes = requested charge current
                 {
                     if (IsCurrentAvailable() == 0)                              // check if we have enough current
@@ -1860,7 +2282,8 @@ void main(void) {
                         Balanced[SlaveAdr] = MinCurrent * 10;                   // Initially set current to lowest setting
                     } else Balanced[SlaveAdr] = 0;                              // Make sure the Slave does not start charging by setting current to 0
                     printf("02 Slave %u requested:%uA\r\n", SlaveAdr, Current);
-                        SendRS485(SlaveAdr, 0x82, 0x00, Balanced[SlaveAdr]); // Send ACK to Slave, followed by assigned current
+                    // Send ACK to Slave, followed by assigned current
+                    ModbusWriteSingleRegister(SlaveAdr, 0x82, Balanced[SlaveAdr]);
                 } else if (Command == 0x03)                                     // Charging, next two bytes = requested charge current
                 {
                     if (IsCurrentAvailable() == 0)                              // check if we have enough current
@@ -1871,28 +2294,27 @@ void main(void) {
                         CalcBalancedCurrent(1);                                 // Calculate charge current for all connected EVSE's
                     } else Balanced[SlaveAdr] = 0;                              // Make sure the Slave does not start charging by setting current to 0
                     printf("03 Slave %u charging: %uA\r\n", SlaveAdr, Balanced[SlaveAdr]);
-                        SendRS485(SlaveAdr, 0x83, 0x00, Balanced[SlaveAdr]);    // Send ACK to Slave, followed by assigned current
+                    // Send ACK to Slave, followed by assigned current
+                    ModbusWriteSingleRegister(SlaveAdr, 0x83, Balanced[SlaveAdr]);
                 } else if (Command == 0x04)                                     // charging stopped (state C->B), followed by two empty bytes
                 {
                     BalancedState[SlaveAdr] = 0;                                // Mark Slave EVSE as inactive (still State B)
                     CalcBalancedCurrent(0);                                     // Calculate dynamic charge current for connected EVSE's
                     printf("04 C->B Slave %u inactive\r\n", SlaveAdr);
-                        SendRS485(SlaveAdr, 0x84, 0x00, 0x00);                  // Send ACK to Slave
+                    // Send ACK to Slave
+                    ModbusWriteSingleRegister(SlaveAdr, 0x84, 0x00);
                 }
 
             } // commands for Master
 
         }
-            ISRFLAG = 0; // ready to receive new data
-            idx = 0; // reset buffer pointer for RS485 data
-            if ((Error & CT_NOCOMM) && timeout == 10) Error &= ~CT_NOCOMM;      // Clear communication error, if present
-            
-            if ( (Error & (LESS_6A|NO_SUN)) && ChargeDelay == 0 && LoadBl > 1) {
-                Error &= ~LESS_6A;                                              // Clear Error after delay (Slave)
-                Error &= ~NO_SUN;
-            } 
-        } // (ISRFLAG > 1)
-
         
+        if ((Error & CT_NOCOMM) && timeout == 10) Error &= ~CT_NOCOMM;          // Clear communication error, if present
+        if ((Error & (LESS_6A|NO_SUN)) && ChargeDelay == 0 && LoadBl > 1) {
+            Error &= ~LESS_6A;                                                  // Clear Error after delay (Slave)
+            Error &= ~NO_SUN;
+        }
+
+        DataReceived = 0;
     } // end of while(1) loop
 }

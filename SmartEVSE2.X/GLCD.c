@@ -324,44 +324,42 @@ const unsigned char LCD_Flow [] = {
 unsigned int GLCDx, GLCDy;
 
 // uses buffer
-
-void GLCD_print_row(const far char *data) // write 10 characters to LCD
+void GLCD_print_row(const far char *data)                                       // write 10 characters to LCD
 {
     unsigned char x = 0;
     GLCDx = 4;
 
-    GLCD_buffer_clr(); // Clear buffer
+    GLCD_buffer_clr();                                                          // Clear buffer
     do {
         GLCD_write_buf2(*data++);
     } while (x++ < 9);
-    GLCD_sendbuf(2); // copy buffer to LCD
+    GLCD_sendbuf(2);                                                            // copy buffer to LCD
 }
 
 void GLCD_print_arrows(void) {
     GLCDx = 0;
     GLCD_write_buf2('<');
-    GLCDx = 9 * 12 + 8; // last character of line
+    GLCDx = 9 * 12 + 8;                                                         // last character of line
     GLCD_write_buf2('>');
 }
 
 
 // uses buffer
-
-void GLCD_print_menu(const far char *data, char RowAdr) // write string of data to LCD, with navigation arrows
+void GLCD_print_menu(const far char *data, char RowAdr)                         // write string of data to LCD, with navigation arrows
 {
-    GLCD_buffer_clr(); // Clear buffer
+    GLCD_buffer_clr();                                                          // Clear buffer
 
-    if ((SubMenu && RowAdr == 4) || (!SubMenu && RowAdr == 2)) // navigation arrows
+    if ((SubMenu && RowAdr == 4) || (!SubMenu && RowAdr == 2))                  // navigation arrows
     {
         GLCD_print_arrows();
     }
 
-    GLCDx = 64 - (strlen(data)*6); // calculate offset for centering text
+    GLCDx = 64 - (strlen(data)*6);                                              // calculate offset for centering text
     do {
         GLCD_write_buf2(*data);
     } while (*++data);
 
-    GLCD_sendbuf(RowAdr); // copy buffer to LCD
+    GLCD_sendbuf(RowAdr);                                                       // copy buffer to LCD
 }
 
 /**
@@ -453,14 +451,13 @@ void GLCD(void) {
 
     if (LCDNav) {
         if (LCDTimer++ == 120) {
-            LCDNav = 0; // Exit Setup menu after 120 seconds.
-            read_settings(); // don't save, but restore settings
-        } else return; // disable LCD status messages when navigating LCD Menu	
+            LCDNav = 0;                                                         // Exit Setup menu after 120 seconds.
+            read_settings();                                                    // don't save, but restore settings
+        } else return;                                                          // disable LCD status messages when navigating LCD Menu	
     }
 
     if (LCDTimer == 10) LCDTimer = 0;
 
-   
     if (Error) {
         BACKLIGHT_ON; // LCD backlight on
         BacklightTimer = BACKLIGHT; // reset backlight timer
@@ -471,7 +468,6 @@ void GLCD(void) {
             GLCD_print2(4, (const far char *) "CHECK");
             GLCD_print2(6, (const far char *) "WIRING");
             return;
-   
         } else if (Error & TEMP_HIGH) {
             GLCD_print2(2, (const far char *) "ERROR");
             GLCD_print2(4, (const far char *) "HIGH TEMP");
@@ -497,13 +493,10 @@ void GLCD(void) {
             GLCD_write_buf2((TestState % 10) + 0x30);
             GLCD_sendbuf(4); // copy buffer to LCD
             return;
-   
         }
     }
 
-    
-    
-    if (TestState == 80) // Only used when testing the module
+    if (TestState == 80)                                                        // Only used when testing the module
     {
         GLCD_print2(2, (const far char *) "IO Test");
         GLCD_print2(4, (const far char *) "Passed");
@@ -696,15 +689,15 @@ void GLCDMenu(unsigned char Buttons) {                                          
         Error &= ~RCD_TRIPPED;                                                  // Clear RCD error bit, by pressing any button
     }
 
-    if ((LCDNav == 0) && (Buttons == 0x5) && (ButtonRelease == 0)) // Button 2 pressed ?
+    if ((LCDNav == 0) && (Buttons == 0x5) && (ButtonRelease == 0))              // Button 2 pressed ?
     {
-        LCDNav = MENU_ENTER; // about to enter menu
+        LCDNav = MENU_ENTER;                                                    // about to enter menu
         ButtonTimer = Timer;
-    } else if (LCDNav == MENU_ENTER && ((ButtonTimer + 2000) < Timer)) // <CONFIG>
+    } else if (LCDNav == MENU_ENTER && ((ButtonTimer + 2000) < Timer))          // <CONFIG>
     {
-        LCDNav = MENU_CONFIG; // Main Menu entered
+        LCDNav = MENU_CONFIG;                                                   // Main Menu entered
         ButtonRelease = 1;
-    } else if ((LCDNav == MENU_ENTER) && (Buttons == 0x7)) // Button 2 released before entering menu?
+    } else if ((LCDNav == MENU_ENTER) && (Buttons == 0x7))                      // Button 2 released before entering menu?
     {
         LCDNav = 0;
         ButtonRelease = 0;
@@ -868,21 +861,21 @@ void GLCDMenu(unsigned char Buttons) {                                          
 
 void st7565_command(unsigned char data) {
     _A0_0;
-    PIR1bits.SSP1IF = 0; // clear flag
-    SSP1BUF = data; // and send SPI data
-    while (!PIR1bits.SSP1IF); // wait for bit to become set
+    PIR1bits.SSP1IF = 0;                                                        // clear flag
+    SSP1BUF = data;                                                             // and send SPI data
+    while (!PIR1bits.SSP1IF);                                                   // wait for bit to become set
 }
 
 void st7565_data(unsigned char data) {
     _A0_1;
-    PIR1bits.SSP1IF = 0; // clear flag
-    SSP1BUF = data; // and send SPI data
-    while (!PIR1bits.SSP1IF); // wait for bit to become set
+    PIR1bits.SSP1IF = 0;                                                        // clear flag
+    SSP1BUF = data;                                                             // and send SPI data
+    while (!PIR1bits.SSP1IF);                                                   // wait for bit to become set
 }
 
 void goto_row(unsigned char y) {
     unsigned char pattern;
-    pattern = 0xB0 | (y & 0xBF); //put row address on data port set command     
+    pattern = 0xB0 | (y & 0xBF);                                                //put row address on data port set command     
     st7565_command(pattern);
 }
 //--------------------
@@ -890,9 +883,9 @@ void goto_row(unsigned char y) {
 void goto_col(unsigned char x) {
     unsigned char pattern;
     pattern = ((0xF0 & x) >> 4) | 0x10;
-    st7565_command(pattern); //set high byte column command
+    st7565_command(pattern);                                                    //set high byte column command
     pattern = ((0x0F & x)) | 0x00;
-    st7565_command(pattern); //set low byte column command;
+    st7565_command(pattern);                                                    //set low byte column command;
 }
 //--------------------
 
@@ -905,7 +898,7 @@ void glcd_clrln(unsigned char ln, unsigned char data) {
     unsigned char i;
     goto_xy(0, ln);
     for (i = 0; i < 128; i++) {
-        st7565_data(data); //put data on data port  
+        st7565_data(data);                                                      //put data on data port  
     }
 }
 
@@ -913,26 +906,26 @@ void GLCD_sendbuf(unsigned char RowAdr) {
     unsigned char i, x = 0;
 
     goto_xy(0, RowAdr);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]); //put data on data port  
+    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port  
 
     goto_xy(0, RowAdr + 1);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]); //put data on data port  
+    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port  
 }
 
 void GLCD_sendbuf4(unsigned char RowAdr) {
     unsigned int i, x = 0;
 
     goto_xy(0, RowAdr);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]); //put data on data port
+    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
 
     goto_xy(0, RowAdr + 1);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]); //put data on data port
+    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
 
     goto_xy(0, RowAdr + 2);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]); //put data on data port
+    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
 
     goto_xy(0, RowAdr + 3);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]); //put data on data port
+    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
 
 }
 
@@ -955,7 +948,7 @@ void GLCD_write(unsigned int c) {
 void GLCD_buffer_clr(void) {
     unsigned char x = 0;
     do {
-        GLCDbuf[x++] = 0; // clear GLCD buffer
+        GLCDbuf[x++] = 0;                                                       // clear GLCD buffer
     } while (x != 0);
 }
 
@@ -1087,14 +1080,14 @@ void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
 }
 
 void GLCD_print2(unsigned char y, const far char* data) {
-    GLCD_buffer_clr(); // Clear buffer
+    GLCD_buffer_clr();                                                          // Clear buffer
 
-    GLCDx = 64 - (strlen(data)*6); // calculate offset for centering text
+    GLCDx = 64 - (strlen(data)*6);                                              // calculate offset for centering text
     do {
         GLCD_write_buf2(*data);
     } while (*++data);
 
-    GLCD_sendbuf(y); // copy buffer to LCD
+    GLCD_sendbuf(y);                                                            // copy buffer to LCD
 }
 
 void delayus(int us) {
@@ -1103,31 +1096,31 @@ void delayus(int us) {
 }
 
 void GLCD_init(void) {
-    _A0_0; // A0=0
-    _RSTB_0; // Reset GLCD module
+    _A0_0;                                                                      // A0=0
+    _RSTB_0;                                                                    // Reset GLCD module
     delayus(4);
-    _RSTB_1; // Reset line high
+    _RSTB_1;                                                                    // Reset line high
     delayus(4);
 
-    st7565_command(0xA2); // set bias at duty cycle 1.65 (0xA2=1.9 0xA3=1.6)
-    st7565_command(0xC8); // comm direction normal =0xC0 comm reverse= 0xC8
-    st7565_command(0xA0); // seg dir (0xA0 or 0xA1)
-    st7565_command(0xA6); // set inverse (0xA7=inverse 0xA6=normal)
+    st7565_command(0xA2);                                                       // set bias at duty cycle 1.65 (0xA2=1.9 0xA3=1.6)
+    st7565_command(0xC8);                                                       // comm direction normal =0xC0 comm reverse= 0xC8
+    st7565_command(0xA0);                                                       // seg dir (0xA0 or 0xA1)
+    st7565_command(0xA6);                                                       // set inverse (0xA7=inverse 0xA6=normal)
 
-    st7565_command(0x20 | 0x04); // set Regulation Ratio (0-7)
+    st7565_command(0x20 | 0x04);                                                // set Regulation Ratio (0-7)
 
-    st7565_command(0xF8); // send Booster command
-    st7565_command(0x01); // set Booster value 00=4x 01=5x
+    st7565_command(0xF8);                                                       // send Booster command
+    st7565_command(0x01);                                                       // set Booster value 00=4x 01=5x
 
-    st7565_command(0x81); // send Electronic Volume command 0x81
-    st7565_command(0x24); // set Electronic volume (0x00-0x3f)
+    st7565_command(0x81);                                                       // send Electronic Volume command 0x81
+    st7565_command(0x24);                                                       // set Electronic volume (0x00-0x3f)
 
-    st7565_command(0x28 | 0x07); // ALL Power Control ON
-    st7565_command(0x40); // Set display start line
+    st7565_command(0x28 | 0x07);                                                // ALL Power Control ON
+    st7565_command(0x40);                                                       // Set display start line
 
-    goto_row(0x00); // Set page address
-    goto_col(0x00); // Set column addr LSB
-    st7565_command(0xAF); // ON command  
+    goto_row(0x00);                                                             // Set page address
+    goto_col(0x00);                                                             // Set column addr LSB
+    st7565_command(0xAF);                                                       // ON command  
 
 }
 
@@ -1136,10 +1129,10 @@ void GLCD_version(void) {
     GLCD_print2(2, (const far char *) "Smart EVSE");
     GLCD_print2(4, (const far char *) "Ver "VERSION);
 
-    delay(2000); // show version for 2 seconds
+    delay(2000);                                                                // show version for 2 seconds
 }
 
 void GLCD_Flow_buf(void) {
     unsigned int x;
-    for (x = 0; x < 512; x++) GLCDbuf[x] = LCD_Flow[x]; //copy picture data to LCD buffer
+    for (x = 0; x < 512; x++) GLCDbuf[x] = LCD_Flow[x];                         //copy picture data to LCD buffer
 }

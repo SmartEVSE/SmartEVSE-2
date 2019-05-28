@@ -138,17 +138,17 @@ char GLCDbuf[512];                                                              
 
 
 // The following data will be updated by eeprom data at powerup:
-unsigned int MaxMains;                                                          // Max Mains Amps (hard limit, limited by the MAINS connection)
-unsigned int MaxCurrent;                                                        // Max Charge current
-unsigned int MinCurrent;                                                        // Minimal current the EV is happy with
+unsigned int MaxMains;                                                          // Max Mains Amps (hard limit, limited by the MAINS connection) (A)
+unsigned int MaxCurrent;                                                        // Max Charge current (A)
+unsigned int MinCurrent;                                                        // Minimal current the EV is happy with (A)
 double ICal;                                                                    // CT calibration value
-char Mode;                                                                      // EVSE mode
-char Lock;                                                                      // Cable lock enable/disable
-unsigned int CableLimit;                                                        // Fixed Cable Current limit (only used when config is set to Fixed Cable)
-char Config;                                                                    // Configuration (Fixed Cable or Type 2 Socket)
-char LoadBl;                                                                    // Load Balance Setting (Disable, Master or Slave1-3)
-char Access;                                                                    // External Start/Stop button on I/O 2
-char RCmon;                                                                     // Residual Current Monitor on I/O 3
+char Mode;                                                                      // EVSE mode (0:Normal / 1:Smart)
+char Lock;                                                                      // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
+unsigned int CableLimit;                                                        // Fixed Cable Current limit (only used when config is set to Fixed Cable) (A)
+char Config;                                                                    // Configuration (0:Socket / 1:Fixed Cable)
+char LoadBl;                                                                    // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
+char Access;                                                                    // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
+char RCmon;                                                                     // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
 unsigned int StartCurrent;
 unsigned int StopTime;
 unsigned char MainsMeter;                                                       // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact)
@@ -159,9 +159,7 @@ unsigned char PVMeterAddress;
 unsigned char EVSEMeter;                                                        // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact)
 unsigned char EVSEMeterAddress;
 
-// total 22 bytes
-
-double Irms[3] = {0, 0, 0};                                                     // Momentary current per Phase (Amps *10) (23= 2.3A)
+signed double Irms[3]={0, 0, 0};                                                // Momentary current per Phase (Amps *10) (23 = 2.3A)
                                                                                 // Max 3 phases supported
 
 unsigned char State = STATE_A;
@@ -239,10 +237,11 @@ void interrupt high_isr(void)
         {
             PIE1bits.TX1IE = 0;                                                 // clear transmit Interrupt for RS485 after sending last character
             ISRTXFLAG = 0;                                                      // end of transmission.
-            // we switch off the transmitter in the main loop, after the final character has been sent..
+        }                                                                       // we switch off the transmitter in the main loop, after the final character has been sent..
     }
-    }
-    while (PIR3bits.RC2IF) // Uart2 receive interrupt?
+
+    // Uart2 receive interrupt?
+    while (PIR3bits.RC2IF)                                                      
     {
         // Check for BREAK character, then Reset
 
@@ -267,7 +266,8 @@ void interrupt high_isr(void)
         }
     }
 
-    while (PIR5bits.TMR4IF) // Timer 4 interrupt, called 1000 times/sec
+    // Timer 4 interrupt, called 1000 times/sec
+    while (PIR5bits.TMR4IF)                                                     
     {
         if (Lock == 1)                                                          // Cable lock type Solenoid?
         {
@@ -615,8 +615,7 @@ void BlinkLed(void) {
                 LedCount += 20;                                                 // Very rapid flashing, RCD tripped or no Serial Communication.
                 if (LedCount > 128) LedPwm = 255;                               // LED 50% of time on, full brightness    
                 else LedPwm = 0;
-            }   
-            else {                                                              // Waiting for Solar power or enough current to start charging
+            } else {                                                            // Waiting for Solar power or enough current to start charging
                 LedCount += 2;                                                  // Slow blinking.
                 if (LedCount > 230) LedPwm = 255;                               // LED 10% of time on, full brightness
                 else LedPwm = 0;
@@ -719,6 +718,7 @@ void CalcBalancedCurrent(char mod) {
         if (Idifference > 0) IsetBalanced += (Idifference / 4);                 // increase with 1/4th of difference (slowly increase current)
         else IsetBalanced += Idifference;                                       // last PWM setting + difference (immediately decrease current)
         if (IsetBalanced < 0) IsetBalanced = 0;
+        if (IsetBalanced > 800) IsetBalanced = 800;                             // hard limit 80A (added 11-11-2017)
     }
 
     if (!mod && Mode == MODE_SOLAR)                                             // Solar version

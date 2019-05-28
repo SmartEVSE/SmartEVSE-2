@@ -136,11 +136,8 @@
 #define _A0_0 PORTCbits.RC0 = 0;
 #define _A0_1 PORTCbits.RC0 = 1;
 
-#define U1_BUFFER_SIZE 6
 
-
-//#pragma udata GLCData
-extern char GLCDbuf[512];                                                       // GLCD buffer (one row double height text only)
+extern char GLCDbuf[512];                                                       // GLCD buffer (half of the display)
 
 extern unsigned int MaxMains;                                                   // Max Mains Amps (hard limit, limited by the MAINS connection)
 extern unsigned int MaxCurrent;                                                 // Max Charge current

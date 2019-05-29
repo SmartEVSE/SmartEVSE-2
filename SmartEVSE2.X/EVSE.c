@@ -220,8 +220,6 @@ void interrupt high_isr(void)
 
         if (Timer > (ModbusTimer + 3))                                          // last reception more then 3ms ago? 
         {
-            memcpy(U1packet, U1buffer, idx);                                    // store received data packet
-            ISRFLAG = idx;                                                      // set flag to length of data packet
             idx = 0;                                                            // clear idx in RS485 RX handler
         }  
         if (idx == 50) idx--;                                                   // max 50 bytes in buffer
@@ -897,8 +895,8 @@ void BroadcastCurrent(void)
 
     n = 0;
     for (x = 1; x < 4; x++) {
-        data[n++] = 0x00;
-        data[n++] = Balanced[x];
+        data[n++] = ((unsigned char)(Balanced[x]>>8));
+        data[n++] = ((unsigned char)(Balanced[x]));
     }
 
     ModbusWriteMultipleRegisters(0xFF, 0x01, data, 6);
@@ -980,7 +978,7 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
  * @param unsigned char Meter
  * @param pointer to var
  */
-void receiveCurrentMeasurement(unsigned char Meter, signed double *var) {
+void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var) {
     unsigned char n, x;
     signed double dCombined;
     signed long lCombined;
@@ -991,7 +989,7 @@ void receiveCurrentMeasurement(unsigned char Meter, signed double *var) {
             n = 31;
             for (x = 0; x < 3; x++) {
                 // combine big endian
-                combineBytes(&dCombined, U1packet, n, 3);
+                combineBytes(&dCombined, buf, n, 3);
                 // SmartEVSE works with Amps * 10
                 var[x] = dCombined * 10.0;
                 // When using CT's , adjust the measurements with calibration value
@@ -1004,7 +1002,7 @@ void receiveCurrentMeasurement(unsigned char Meter, signed double *var) {
             // I: Register 12 / I = val / 1000
             // high byte first, low word first
             for (x = 0; x < 3; x++) {
-                combineBytes(&lCombined, U1packet, 3 + (x * 4), 2);
+                combineBytes(&lCombined, buf, 3 + (x * 4), 2);
                 var[x] = (double) lCombined / 100;
             }
             break;
@@ -1013,7 +1011,7 @@ void receiveCurrentMeasurement(unsigned char Meter, signed double *var) {
             // I: Register 0xE / I = val / 1000
             // high byte first, high word first
             for (x = 0; x < 3; x++) {
-                combineBytes(&lCombined, U1packet, 3 + (x * 4), 3);
+                combineBytes(&lCombined, buf, 3 + (x * 4), 3);
                 var[x] = (double) lCombined / 100;
             }
             break;
@@ -1607,7 +1605,7 @@ void main(void) {
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, address, function, datacount;
     char DiodeCheck = 0;
     char SlaveAdr, Command, Broadcast = 0, Switch_count = 0, Sens2s = 1;
-    unsigned int Current, crc;
+    unsigned int Current, crc, reg;
     int BalancedReceived;
     signed double dCombined;
     signed double PV[3]={0, 0, 0};
@@ -2066,75 +2064,101 @@ void main(void) {
         
         // Receive data from modbus
         // last reception more then 3ms ago? // complete packet detected?
-        if (ISRFLAG) {
-            // Device address
-            address = U1packet[0];
-            // Function
-            function = U1packet[1];
-            // calculate checksum over all data (including crc16)
-            // when checksum == 0 data is ok.
-            crc = crc16(U1packet, ISRFLAG);
-
-//            printf("\nReceived packet (%i bytes / crc %04x) ",len,crc);
+        if (idx && Timer > (ModbusTimer + 3)) {
+            // store received data packet
+            memcpy(U1packet, U1buffer, idx);
+            // set flag to length of data packet
+            ISRFLAG = idx;
+            idx = 0;
+//            printf("\nReceived packet (%i bytes) ",ISRFLAG);
 //            for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
-            if (!crc) {
-                // CRC OK
-//                printf("\n  valid Modbus packet: Address %02x Function %02x", address, function);
-                switch (function) {
-                    case 0x04:
-                        // (Read input register)
-                        if (ISRFLAG == 8) {
-                            // request packet
-                            printf("\n    Request packet");
-                        } else {
-                            // receive packet
-                            datacount = U1packet[2];
-                            if (datacount == ISRFLAG - 5) {
-                                printf("\n    Receive packet");
-                                // packet length OK
-                                if (MainsMeter && address == MainsMeterAddress) {
-                                    // packet from Mains electric meter
-                                    receiveCurrentMeasurement(MainsMeter, Irms);
-                                    if (PVMeter) Modbus = 2;
-                                    else {
+            // Modbus packets minimum length is 8 bytes
+            if (ISRFLAG > 7) {
+                // Modbus device address
+                address = U1packet[0];
+                // Modbus function
+                function = U1packet[1];
+                // calculate checksum over all data (including crc16)
+                // when checksum == 0 data is ok.
+                crc = crc16(U1packet, ISRFLAG);
+
+                if (!crc) {
+                    // CRC OK
+//                    printf("\n  valid Modbus packet: Address %02x Function %02x", address, function);
+                    switch (function) {
+                        case 0x04:
+                            // (Read input register)
+                            if (ISRFLAG == 8) {
+                                // request packet
+                            } else {
+                                // Modbus datacount
+                                datacount = U1packet[2];
+                                if (datacount == ISRFLAG - 5) {
+                                    // response packet
+                                    // packet length OK
+                                    if (MainsMeter && address == MainsMeterAddress) {
+                                        // packet from Mains electric meter
+                                        receiveCurrentMeasurement(U1packet, MainsMeter, Irms);
+                                        if (PVMeter) Modbus = 2;
+                                        else {
+                                            Modbus = 0;
+                                            DataReceived = 1;
+                                        }
+                                    } else if (PVMeter && address == PVMeterAddress) {
+                                        // packet from PV electric meter
+                                        receiveCurrentMeasurement(U1packet, PVMeter, PV);
                                         Modbus = 0;
+                                        for (x = 0; x < 3; x++) {
+                                            Irms[x] = Irms[x] - PV[x];
+                                        }
                                         DataReceived = 1;
                                     }
-                                } else if (PVMeter && address == PVMeterAddress) {
-                                    // packet from PV electric meter
-                                    receiveCurrentMeasurement(PVMeter, PV);
-                                    Modbus = 0;
-                                    for (x = 0; x < 3; x++) {
-                                        Irms[x] = Irms[x] - PV[x];
-                                    }
-                                    DataReceived = 1;
+                                } else {
+                                    printf("\n    Invalid packet");
                                 }
-                            } else {
-                                printf("\n    Invalid packet");
                             }
-                        }
-                        break;
-                    case 0x06:
-                        // (Write single register)
-                        // received command always from SmartEVSE
-                        SlaveAdr = address;
-                        Command = U1packet[3]; // & U1packet[2];
-                        Current = (U1packet[4] <<8) | U1packet[5];
-                        DataReceived = 2;
-                        break;
-                    case 0x10:
-                        // (Write multiple register))
-                        // Broadcast message from Master->Slaves, Set Charge current
-                        SlaveAdr = address;
-                        Command = U1packet[3]; // & U1packet[2];
-                        if (SlaveAdr == 0xFF && Command == 0x01 && LoadBl > 1) {
-                            BalancedReceived = U1packet[3 + (LoadBl * 2)];
-                            printf("\n  BalancedReceived %i", BalancedReceived);//BOB
-                            DataReceived = 2;
-                        }
-                        break;
-                    default:
-                        break;
+                            break;
+                        case 0x06:
+                            // (Write single register)
+                            if (ISRFLAG == 8) {
+                                // request and response packet are the same
+                                // Modbus register
+                                reg = (U1packet[2] <<8) | U1packet[3];
+
+                                // received command always from SmartEVSE
+                                SlaveAdr = address;
+                                Command = reg;
+                                Current = (U1packet[4] <<8) | U1packet[5];
+                                DataReceived = 2;
+                            }
+                            break;
+                        case 0x10:
+                            // (Write multiple register))
+                            // Modbus register
+                            reg = (U1packet[2] <<8) | U1packet[3];
+                            if (ISRFLAG == 8) {
+                                // respone packet
+                            } else {
+                                // request packet
+                                // Modbus datacount
+                                datacount = U1packet[6];
+                                if (datacount == ISRFLAG - 9) {
+                                    // packet length OK
+                                    // Broadcast message from Master->Slaves, Set Charge current
+                                    printf("\n  Broadcast address %02x register %i",address,reg);
+                                    if (address == 0xFF && reg == 0x01 && LoadBl > 1) {
+                                        SlaveAdr = address;
+                                        Command = reg;
+                                        BalancedReceived = U1packet[3 + (LoadBl * 2)];
+                                        printf("\n  SlaveAdr %02x Command %02x BalancedReceived %i", SlaveAdr,Command,BalancedReceived);
+                                        DataReceived = 2;
+                                    }
+                                }
+                            }
+                            break;
+                        default:
+                            break;
+                    }
                 }
             } else if (MainsMeter == EM_SENSORBOX1) {
                 // Try sensorbox v1
@@ -2152,19 +2176,13 @@ void main(void) {
                         Irms[x] = dCombined * ICal;                             // adjust CT values with Calibration value
                         n = n + 4;
                     }
-                    // if (U1buffer[U1int][4] == 0xA5 && !TestState) TestState = 1;    // TestIO command received, perform selfcheck (test interface required)
+                    // if (U1packet[4] == 0xA5 && !TestState) TestState = 1;    // TestIO command received, perform selfcheck (test interface required)
 
                     DataReceived = 1;
                 }
             } else {
                 printf("\n  CRC invalid");
             }
-
-            if (Error == CT_NOCOMM && timeout==10) Error=NO_ERROR;              // Clear communication error, if present
-            if (Error == LESS_6A && ChargeDelay==0 && LoadBl>1) Error=NO_ERROR; // Clear Error after delay (Slave)
-
-            // Clear receive flag            
-            ISRFLAG = 0;
         } // (ISRFLAG > 1) 	 complete packet detected?
 
 
@@ -2203,6 +2221,8 @@ void main(void) {
                 timeout = 10;                                                   // reset 10 second timeout
             } else Imeasured = 0;                                               // In case Sensorbox is connected in Normal mode. Clear measurement.
         } else if (DataReceived == 2) {
+            timeout = 10;                                                       // reset 10 second timeout
+
             if (SlaveAdr == 0xFF && Command == 0x01 && LoadBl > 1)              // Broadcast message from Master->Slaves, Set Charge current
             {
                 Balanced[0] = BalancedReceived;

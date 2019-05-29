@@ -125,6 +125,11 @@
 #define EM_PHOENIX_CONTACT 10
 #define EM_FINDER 20
 
+#define MODBUS_INVALID 0
+#define MODBUS_OK 1
+#define MODBUS_REQUEST 2
+#define MODBUS_RESPONSE 3
+
 #ifdef DEBUG_P
 #define DEBUG_PRINT(x) printf x
 #else

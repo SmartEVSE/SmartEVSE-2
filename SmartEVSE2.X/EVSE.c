@@ -973,14 +973,14 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                 default:
                     break;
             }
-        }
-    }
 
-    if (Modbus.Type && Modbus.DataLength) {
-        // Set pointer to Data
-        Modbus.Data = buf;
-        // Modbus data is always at the end ahead the checksum
-        Modbus.Data = Modbus.Data + (len - Modbus.DataLength - 2);
+            if (Modbus.Type && Modbus.DataLength) {
+                // Set pointer to Data
+                Modbus.Data = buf;
+                // Modbus data is always at the end ahead the checksum
+                Modbus.Data = Modbus.Data + (len - Modbus.DataLength - 2);
+            }
+        }
     }
 }
 
@@ -1698,7 +1698,7 @@ void init(void) {
 
 void main(void) {
     char x, n;
-    unsigned char pilot, count = 0, timeout = 5, DataReceived = 0;
+    unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
     char DiodeCheck = 0;
     char SlaveAdr, Command, Broadcast = 0, Switch_count = 0, Sens2s = 1;
     unsigned int Current, crc;
@@ -2078,7 +2078,7 @@ void main(void) {
             //			printf("STATE:%c Pilot:%u ChargeDelay:%u CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA Imeas:%3u.%01uA Iset:%u.%01uA\r\n",State-1+'A',pilottest, ChargeDelay, (unsigned int)Irms[0]/10, (unsigned int)Irms[0]%10, (unsigned int)Irms[1]/10, (unsigned int)Irms[1]%10, (unsigned int)Irms[2]/10, (unsigned int)Irms[2]%10,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)Iset/10,(unsigned int)Iset%10);
 
             // Request measurement data data from Sensorbox2
-            if ((Mode || (LoadBl == 1)) && (!Sens2s--))                         // Smart/Solar mode or Loadbalancing set to Master
+            if (Mode && !Sens2s--)                                              // Smart/Solar mode or Loadbalancing set to Master
             {
                 ModbusRequest = 1;
                 Sens2s = 1; // reset to 2 sec
@@ -2104,7 +2104,7 @@ void main(void) {
 
         
         // Send modbus request
-        if (ModbusRequest) {
+        if (ModbusRequest && LoadBl <=1) {
             switch (ModbusRequest) {
                 case 1:
                     requestCurrentMeasurement(MainsMeter, MainsMeterAddress);
@@ -2176,18 +2176,20 @@ void main(void) {
                         if (MainsMeter && Modbus.Address == MainsMeterAddress) {
                             // packet from Mains electric meter
                             receiveCurrentMeasurement(Modbus.Data, MainsMeter, Irms);
-                            if (PVMeter) ModbusRequest = 2;
+                            if (PVMeter) {
+                                ModbusRequest = 2;
+                                MainsReceived = 1;
+                            }
                             else {
-                                ModbusRequest = 0;
                                 DataReceived = 1;
                             }
-                        } else if (PVMeter && Modbus.Address == PVMeterAddress) {
+                        } else if (MainsReceived && PVMeter && Modbus.Address == PVMeterAddress) {
                             // packet from PV electric meter
                             receiveCurrentMeasurement(Modbus.Data, PVMeter, PV);
-                            ModbusRequest = 0;
                             for (x = 0; x < 3; x++) {
                                 Irms[x] = Irms[x] - PV[x];
                             }
+                            MainsReceived = 0;
                             DataReceived = 1;
                         }
                         break;

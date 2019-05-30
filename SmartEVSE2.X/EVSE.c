@@ -997,7 +997,7 @@ void BroadcastCurrent(void)
         data[n++] = ((unsigned char)(Balanced[x]));
     }
 
-    ModbusWriteMultipleRegisters(0xFF, 0x01, data, 6);
+    ModbusWriteMultipleRegisters(0x00, 0x01, data, 6);
 }
 
 /**
@@ -1318,10 +1318,10 @@ void RS232cli(void) {
                 } else if ((menu == MENU_STOP) && (n >= 0) && (n <= 60)) {      // Max 60 minutes, 0 = continue charging at lowest current
                     StopTime = n;                                               // Set new Stop time (minutes)
                     write_settings();
-                } else if ((menu == MENU_MAINSMETERADDRESS) && (n > 4) && (n <= 254)) {
+                } else if ((menu == MENU_MAINSMETERADDRESS) && (n > 4) && (n <= 255)) {
                     MainsMeterAddress = n; // Set new Surplus start Current
                     write_settings();
-                } else if ((menu == MENU_PVMETERADDRESS) && (n > 4) && (n <= 254)) {
+                } else if ((menu == MENU_PVMETERADDRESS) && (n > 4) && (n <= 255)) {
                     PVMeterAddress = n; // Set new Surplus start Current
                     write_settings();
                 } else printf("\r\nError! please check limits\r\n");
@@ -1523,7 +1523,7 @@ void RS232cli(void) {
             printf("Enter new type of mains electric meter (DISABLE/SENSORBOX1/SENSORBOX2/PHOENIX/FINDER): ");
             break;
         case MENU_MAINSMETERADDRESS:
-            printf("Enter new address of mains electric meter (5-254): ");
+            printf("Enter new address of mains electric meter (5-255): ");
             break;
         case MENU_MAINSMETERMEASURE:
             printf("Enter what mains electric meter measure (ALL/HOME): ");
@@ -1532,7 +1532,7 @@ void RS232cli(void) {
             printf("Enter new type of PV electric meter (DISABLE/PHOENIX/FINDER): ");
             break;
         case MENU_PVMETERADDRESS:
-            printf("Enter new address of PV electric meter (5-254): ");
+            printf("Enter new address of PV electric meter (5-255): ");
             break;
         default:
             break;
@@ -2209,7 +2209,7 @@ void main(void) {
                         break;
                     case 0x10:
                         // (Write multiple register))
-                        if (Modbus.Address == 0xFF && Modbus.Register == 0x01 && LoadBl > 1) {
+                        if (Modbus.Address == 0x00 && Modbus.Register == 0x01 && LoadBl > 1) {
                             SlaveAdr = Modbus.Address;
                             Command = Modbus.Register;
                             BalancedReceived = Modbus.Data[(LoadBl - 2) * 2];
@@ -2283,7 +2283,7 @@ void main(void) {
         } else if (DataReceived == 2) {
             timeout = 10;                                                       // reset 10 second timeout
 
-            if (SlaveAdr == 0xFF && Command == 0x01 && LoadBl > 1)              // Broadcast message from Master->Slaves, Set Charge current
+            if (SlaveAdr == 0x00 && Command == 0x01 && LoadBl > 1)              // Broadcast message from Master->Slaves, Set Charge current
             {
                 Balanced[0] = BalancedReceived;
                 if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output

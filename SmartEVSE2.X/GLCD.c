@@ -755,7 +755,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     MainsMeter = MenuNavCharArray(Buttons, MainsMeter, EMs, 5);
                     break;
                 case MENU_MAINSMETERADDRESS:
-                    MainsMeterAddress = MenuNavChar(Buttons, MainsMeterAddress, 5, 254);
+                    MainsMeterAddress = MenuNavChar(Buttons, MainsMeterAddress, 5, 255);
                     break;
                 case MENU_MAINSMETERMEASURE:
                     MainsMeterMeasure = MenuNavChar(Buttons, MainsMeterMeasure, 0, 1);
@@ -764,7 +764,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     PVMeter = MenuNavCharArray(Buttons, PVMeter, EMs2, 3);
                     break;
                 case MENU_PVMETERADDRESS:
-                    PVMeterAddress = MenuNavChar(Buttons, PVMeterAddress, 5, 254);
+                    PVMeterAddress = MenuNavChar(Buttons, PVMeterAddress, 5, 255);
                     break;
                 default:
                     break;

@@ -1783,7 +1783,7 @@ void main(void) {
         if ((State == STATE_COMM_A) && (Timer > ACK_TIMEOUT))                   // Wait for response from Master
         {
             // Send command to Master
-            ModbusWriteSingleRegister(LoadBl - 1, 0x01, 0x00);
+            ModbusWriteSingleRegister(LoadBl, 0x01, 0x00);
             printf("01 sent to Master, charging stopped\r\n");
             Timer = 0;                                                          // Clear the Timer
         }
@@ -1820,7 +1820,7 @@ void main(void) {
                             if (LoadBl > 1)                                     // Load Balancing : Slave 
                             {
                                 // Send command to Master, followed by Max Charge Current
-                                ModbusWriteSingleRegister(LoadBl - 1, 0x02, ChargeCurrent);
+                                ModbusWriteSingleRegister(LoadBl, 0x02, ChargeCurrent);
                                 printf("02 sent to Master, requested %uA\r\n", ChargeCurrent);
                                 State = STATE_COMM_B;
                                 Timer = 0;                                      // Clear the Timer
@@ -1879,7 +1879,7 @@ void main(void) {
                                 if (LoadBl > 1)                                 // Load Balancing : Slave 
                                 {
                                     // Send command to Master, followed by Charge Current
-                                    ModbusWriteSingleRegister(LoadBl - 1, 0x03, ChargeCurrent);
+                                    ModbusWriteSingleRegister(LoadBl, 0x03, ChargeCurrent);
                                     printf("03 sent to Master, requested %uA\r\n", ChargeCurrent);
                                     State = STATE_COMM_C;
                                     Timer = 0;                                  // Clear the Timer
@@ -1993,7 +1993,7 @@ void main(void) {
 
         if ((State == STATE_COMM_CB) && (Timer > ACK_TIMEOUT)) {
             // Send command to Master
-            ModbusWriteSingleRegister(LoadBl - 1, 0x04, 0x00);
+            ModbusWriteSingleRegister(LoadBl, 0x04, 0x00);
             printf("04 sent to Master, charging stopped\r\n");
             Timer = 0;                                                          // Clear the Timer
         }
@@ -2170,6 +2170,9 @@ void main(void) {
 //            for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
             ModbusDecode(U1packet, ISRFLAG);
             if (Modbus.Type == MODBUS_RESPONSE) {
+//                printf("\nModbus Response Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
+                // reset 10 second timeout
+                timeout = 10;
                 switch (Modbus.Function) {
                     case 0x04:
                         // (Read input register)
@@ -2198,22 +2201,28 @@ void main(void) {
                 }
             } else if (Modbus.Type == MODBUS_OK || Modbus.Type == MODBUS_REQUEST) {
                 switch (Modbus.Function) {
+//                printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
+                // reset 10 second timeout
+                timeout = 10;
                     case 0x06:
                         // (Write single register)
-
-                        // received command always from SmartEVSE
-                        SlaveAdr = Modbus.Address;
-                        Command = Modbus.Register;
-                        Current = Modbus.Value;
-                        DataReceived = 2;
+                        // Request from Slave - ToDo: Master should request slave and this a response
+                        if (Modbus.Address >= 2 && Modbus.Address <=4) {
+                            // Register 0x0*: Slave -> Master
+                            if (Modbus.Register >= 0x01 && Modbus.Register <=0x04) {
+                                DataReceived = 3;
+                            }
+                            // Register 0x8*: Master -> Slave
+                            else if (Modbus.Register >= 0x81 && Modbus.Register <=0x84) {
+                                DataReceived = 2;
+                            }
+                        }
                         break;
                     case 0x10:
                         // (Write multiple register))
                         if (Modbus.Address == 0x00 && Modbus.Register == 0x01 && LoadBl > 1) {
-                            SlaveAdr = Modbus.Address;
-                            Command = Modbus.Register;
-                            BalancedReceived = Modbus.Data[(LoadBl - 2) * 2];
-                            printf("\n  SlaveAdr %02x Command %02x BalancedReceived %i", SlaveAdr,Command,BalancedReceived);
+                            BalancedReceived = (Modbus.Data[(LoadBl - 2) * 2] <<8) | Modbus.Data[(LoadBl - 2) * 2 + 1];
+                            printf("\n  Address %02x Register %02x BalancedReceived %i", Modbus.Address, Modbus.Register, BalancedReceived);
                             DataReceived = 2;
                         }
                         break;
@@ -2246,147 +2255,160 @@ void main(void) {
         } // (ISRFLAG > 1) 	 complete packet detected?
 
 
-        // Process received data    
-        if (DataReceived == 1) {
-            Imeasured = 0;                                                      // reset Imeasured value (grid power used)
-            ImeasuredNegative = 0;                                              // reset ImeasuredNegative (surplus power generated)
-            Isum = 0;
-            for (x=0; x<3; x++) {
-                if (Irms[x] > Imeasured) Imeasured = (unsigned int) Irms[x];    // Imeasured holds highest Irms of all channels
-                if (Irms[x] < ImeasuredNegative) ImeasuredNegative = (signed int) Irms[x];
-                Isum = Isum + (int) Irms[x];
-            }
-
-            if (Mode && LoadBl < 2)                                             // Load Balancing mode: Smart/Master or Disabled
-            {
-                CalcBalancedCurrent(0);                                         // Calculate dynamic charge current for connected EVSE's
-
-                if (NoCurrent > 2 || (Imeasured > (MaxMains * 20)))             // No current left, or Overload (2x Maxmains)?
-                {                                                               // STOP charging for all EVSE's
-                    Error |= NOCURRENT;                                          // Display error message
-                    for (x = 0; x < 4; x++) BalancedState[x] = 0;               // Set all EVSE's to State A
-
-                    // Broadcast Error code over RS485
-                    // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
-                    ModbusWriteSingleRegister(0x00, 0x02, LESS_6A);
-                    NoCurrent = 0;
-                } else if (LoadBl) BroadcastCurrent();                          // Master sends current to all connected EVSE's
-
-                if ((State == STATE_B) || (State == STATE_C)) {
-                    SetCurrent(Balanced[0]);                                    // Set current for Master EVSE in Smart Mode
-                }
-                DEBUG_PRINT(("STATE:%c Error:%u StartCurrent: %i ImeasuredNegative: %i ChargeDelay:%u SolarStopTimer:%u NoCurrent:%u Imeas:%3u.%01uA IsetBalanced:%u.%01uA ",State-1+'A', Error, (unsigned int)StartCurrent*-10, ImeasuredNegative, ChargeDelay, SolarStopTimer,  NoCurrent,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)IsetBalanced/10,(unsigned int)IsetBalanced%10));
-                DEBUG_PRINT(("L1: %3.1f A L2: %3.1f A L3: %3.1f A Isum: %3.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
-
-                timeout = 10;                                                   // reset 10 second timeout
-            } else Imeasured = 0;                                               // In case Sensorbox is connected in Normal mode. Clear measurement.
-        } else if (DataReceived == 2) {
-            timeout = 10;                                                       // reset 10 second timeout
-
-            if (SlaveAdr == 0x00 && Command == 0x01 && LoadBl > 1)              // Broadcast message from Master->Slaves, Set Charge current
-            {
-                Balanced[0] = BalancedReceived;
-                if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
-                DEBUG_PRINT(("Broadcast received, Slave %uA \r\n", Balanced[0]));
-            }
-            else if (SlaveAdr == 0x00 && Command == 0x02 && LoadBl > 1)         // Broadcast message from Master->Slaves, Error Occured!
-            {
-                State = STATE_A;
-                // Error stored in variable Current
-                Error = Current;
-                ChargeDelay = CHARGEDELAY;
-                DEBUG_PRINT(("Broadcast Error message received!\r\n"));
-            }
-
-            if (SlaveAdr == (LoadBl - 1))                                       // We are a Slave, Direct commands from the Master are handled here
-            {
-                if (Command == 0x81)                                            // SLAVE: ACK State A
-                {
-                    State = STATE_A;
-                    DEBUG_PRINT(("81 ACK State A\r\n"));
-                } else if (Command == 0x82)                                     // ACK received, followed by assigned charge current
-                {
-                    if (Current == 0)                                           // If charge current is zero, No current is available.
-                    {
-                        Error |= NOCURRENT;
-                        DEBUG_PRINT(("82 ACK "));                               // No current available
-                    } else {
-                        SetCurrent(Current);
-                        State = STATE_B;
-                        DEBUG_PRINT(("82 ACK State A->B, charge current: %uA\r\n", Current));
-                    }
-                } else if (Command == 0x83)                                     // ACK received, state C followed by charge current
-                {
-                    if (Current == 0)                                           // If chargecurrent is zero, No current is available.
-                    {
-                        Error |= NOCURRENT;
-                        DEBUG_PRINT(("83 ACK "));                               // No current available
-                    } else {
-                        SetCurrent(Current);
-                        CONTACTOR_ON;                                           // Contactor ON
-                        DiodeCheck = 0;
-                        State = STATE_C;                                        // switch to STATE_C
-                        LCDTimer = 0;
-                        Timer = 0;                                              // reset msTimer and ChargeTimer
-                        if (!LCDNav)                                            // Don't update the LCD if we are navigating the menu
-                        {
-                            GLCD();                                             // immediately update LCD
-                        }
-                        DEBUG_PRINT(("83 ACK State C charge current: %uA\r\n", Current));
-                        printf("STATE B->C\r\n");
-                    }
-                } else if (Command == 0x84)                                     // Charging Stopped, State B
-                {
-                    State = STATE_B;
-                    DEBUG_PRINT(("84 ACK State C->B, charging stopped\r\n"));
+        // Process received data
+        switch (DataReceived) {
+            case 1: // Measurement received
+                Imeasured = 0;                                                  // reset Imeasured value (grid power used)
+                ImeasuredNegative = 0;                                          // reset ImeasuredNegative (surplus power generated)
+                Isum = 0;
+                for (x=0; x<3; x++) {
+                    if (Irms[x] > Imeasured) Imeasured = (unsigned int) Irms[x]; // Imeasured holds highest Irms of all channels
+                    if (Irms[x] < ImeasuredNegative) ImeasuredNegative = (signed int) Irms[x];
+                    Isum = Isum + (int) Irms[x];
                 }
 
-            }
-
-
-            if (LoadBl == 1)                                                    // We are the Master, commands received from the Slaves are handled here
-            {
-                if (Command == 0x01)                                            // Slave state changed to State A
+                if (Mode && LoadBl < 2)                                         // Load Balancing mode: Smart/Master or Disabled
                 {
-                    BalancedState[SlaveAdr] = 0;                                // Keep track of the state and store it.		
                     CalcBalancedCurrent(0);                                     // Calculate dynamic charge current for connected EVSE's
-                    printf("01 Slave %u State A\r\n", SlaveAdr);
-                    // Send ACK to Slave, followed by two dummy byte
-                    ModbusWriteSingleRegister(SlaveAdr, 0x81, 0x00);
-                } else if (Command == 0x02)                                     // Request to charge , next two bytes = requested charge current
+
+                    if (NoCurrent > 2 || (Imeasured > (MaxMains * 20)))         // No current left, or Overload (2x Maxmains)?
+                    {                                                           // STOP charging for all EVSE's
+                        Error |= NOCURRENT;                                     // Display error message
+                        for (x = 0; x < 4; x++) BalancedState[x] = 0;           // Set all EVSE's to State A
+
+                        // Broadcast Error code over RS485
+                        // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
+                        ModbusWriteSingleRegister(0x00, 0x02, LESS_6A);
+                        NoCurrent = 0;
+                    } else if (LoadBl) BroadcastCurrent();                       // Master sends current to all connected EVSE's
+
+                    if ((State == STATE_B) || (State == STATE_C)) {
+                        SetCurrent(Balanced[0]);                                // Set current for Master EVSE in Smart Mode
+                    }
+                    DEBUG_PRINT(("STATE:%c Error:%u StartCurrent: %i ImeasuredNegative: %i ChargeDelay:%u SolarStopTimer:%u NoCurrent:%u Imeas:%3u.%01uA IsetBalanced:%u.%01uA ",State-1+'A', Error, (unsigned int)StartCurrent*-10, ImeasuredNegative, ChargeDelay, SolarStopTimer,  NoCurrent,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)IsetBalanced/10,(unsigned int)IsetBalanced%10));
+                    DEBUG_PRINT(("L1: %3.1f A L2: %3.1f A L3: %3.1f A Isum: %3.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
+                } else Imeasured = 0;                                           // In case Sensorbox is connected in Normal mode. Clear measurement.
+                break;
+
+            case 2: // Master -> Slave
+                if (Modbus.Address == 0x00 && LoadBl > 1)                       // Broadcast message from Master->Slaves, Set Charge current
                 {
-                    if (IsCurrentAvailable() == 0)                              // check if we have enough current
-                    {                                                           // Yes enough current..
-                        BalancedState[SlaveAdr] = 1;                            // Mark Slave EVSE as active (State B)
-                        BalancedMax[SlaveAdr] = Current;                        // Set requested charge current.
-                        Balanced[SlaveAdr] = MinCurrent * 10;                   // Initially set current to lowest setting
-                    } else Balanced[SlaveAdr] = 0;                              // Make sure the Slave does not start charging by setting current to 0
-                    printf("02 Slave %u requested:%uA\r\n", SlaveAdr, Current);
-                    // Send ACK to Slave, followed by assigned current
-                    ModbusWriteSingleRegister(SlaveAdr, 0x82, Balanced[SlaveAdr]);
-                } else if (Command == 0x03)                                     // Charging, next two bytes = requested charge current
-                {
-                    if (IsCurrentAvailable() == 0)                              // check if we have enough current
-                    {                                                           // Yes
-                        BalancedState[SlaveAdr] = 2;                            // Mark Slave EVSE as Charging (State C)
-                        BalancedMax[SlaveAdr] = Current;                        // Set requested charge current.
-                        Balanced[SlaveAdr] = 0;                                 // For correct baseload calculation set current to zero
-                        CalcBalancedCurrent(1);                                 // Calculate charge current for all connected EVSE's
-                    } else Balanced[SlaveAdr] = 0;                              // Make sure the Slave does not start charging by setting current to 0
-                    printf("03 Slave %u charging: %uA\r\n", SlaveAdr, Balanced[SlaveAdr]);
-                    // Send ACK to Slave, followed by assigned current
-                    ModbusWriteSingleRegister(SlaveAdr, 0x83, Balanced[SlaveAdr]);
-                } else if (Command == 0x04)                                     // charging stopped (state C->B), followed by two empty bytes
-                {
-                    BalancedState[SlaveAdr] = 0;                                // Mark Slave EVSE as inactive (still State B)
-                    CalcBalancedCurrent(0);                                     // Calculate dynamic charge current for connected EVSE's
-                    printf("04 C->B Slave %u inactive\r\n", SlaveAdr);
-                    // Send ACK to Slave
-                    ModbusWriteSingleRegister(SlaveAdr, 0x84, 0x00);
+                    switch (Modbus.Register) {
+                        case 0x01:
+                            Balanced[0] = BalancedReceived;
+                            if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
+                            DEBUG_PRINT(("Broadcast received, Slave %uA \r\n", Balanced[0]));
+                            break;
+                        case 0x02:                                              // Broadcast message from Master->Slaves, Error Occured!
+                            State = STATE_A;
+                            // Error stored in variable Current
+                            Error = Modbus.Value;
+                            ChargeDelay = CHARGEDELAY;
+                            DEBUG_PRINT(("Broadcast Error message received!\r\n"));
+                            break;
+                        default:
+                            break;
+                    }
                 }
 
-            } // commands for Master
+                if (Modbus.Address == LoadBl)                                   // We are a Slave, Direct commands from the Master are handled here
+                {
+                    switch (Modbus.Register) {
+                        case 0x81:                                              // SLAVE: ACK State A
+                            State = STATE_A;
+                            DEBUG_PRINT(("81 ACK State A\r\n"));
+                            break;
+                        case 0x82:                                              // ACK received, followed by assigned charge current
+                            if (Modbus.Value == 0)                              // If charge current is zero, No current is available.
+                            {
+                                Error |= NOCURRENT;
+                                DEBUG_PRINT(("82 ACK "));                       // No current available
+                            } else {
+                                SetCurrent(Modbus.Value);
+                                State = STATE_B;
+                                DEBUG_PRINT(("82 ACK State A->B, charge current: %uA\r\n", Modbus.Value));
+                            }
+                            break;
+                        case 0x83:                                              // ACK received, state C followed by charge current
+                            if (Modbus.Value == 0)                              // If chargecurrent is zero, No current is available.
+                            {
+                                Error |= NOCURRENT;
+                                DEBUG_PRINT(("83 ACK "));                       // No current available
+                            } else {
+                                SetCurrent(Modbus.Value);
+                                CONTACTOR_ON;                                   // Contactor ON
+                                DiodeCheck = 0;
+                                State = STATE_C;                                // switch to STATE_C
+                                LCDTimer = 0;
+                                Timer = 0;                                      // reset msTimer and ChargeTimer
+                                if (!LCDNav)                                    // Don't update the LCD if we are navigating the menu
+                                {
+                                    GLCD();                                     // immediately update LCD
+                                }
+                                DEBUG_PRINT(("83 ACK State C charge current: %uA\r\n", Modbus.Value));
+                                printf("STATE B->C\r\n");
+                            }
+                            break;
+                        case 0x84:                                              // Charging Stopped, State B
+                            State = STATE_B;
+                            DEBUG_PRINT(("84 ACK State C->B, charging stopped\r\n"));
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
 
+            case 3: // Slave -> Master
+                if (LoadBl == 1)                                                // We are the Master, commands received from the Slaves are handled here
+                {
+                    SlaveAdr = Modbus.Address - 1;
+                    switch (Modbus.Register) {
+                        case 0x01:                                              // Slave state changed to State A
+                            BalancedState[SlaveAdr] = 0;                        // Keep track of the state and store it.		
+                            CalcBalancedCurrent(0);                             // Calculate dynamic charge current for connected EVSE's
+                            printf("01 Slave %u State A\r\n", SlaveAdr);
+                            // Send ACK to Slave, followed by two dummy byte
+                            ModbusWriteSingleRegister(Modbus.Address, 0x81, 0x00);
+                            break;
+                        case 0x02:                                              // Request to charge , next two bytes = requested charge current
+                            if (IsCurrentAvailable() == 0)                      // check if we have enough current
+                            {                                                   // Yes enough current..
+                                BalancedState[SlaveAdr] = 1;                    // Mark Slave EVSE as active (State B)
+                                BalancedMax[SlaveAdr] = Modbus.Value;           // Set requested charge current.
+                                Balanced[SlaveAdr] = MinCurrent * 10;           // Initially set current to lowest setting
+                            } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
+                            printf("02 Slave %u requested:%uA\r\n", SlaveAdr, Modbus.Value);
+                            // Send ACK to Slave, followed by assigned current
+                            ModbusWriteSingleRegister(Modbus.Address, 0x82, Balanced[SlaveAdr]);
+                            break;
+                        case 0x03:                                              // Charging, next two bytes = requested charge current
+                            if (IsCurrentAvailable() == 0)                      // check if we have enough current
+                            {                                                   // Yes
+                                BalancedState[SlaveAdr] = 2;                    // Mark Slave EVSE as Charging (State C)
+                                BalancedMax[SlaveAdr] = Modbus.Value;           // Set requested charge current.
+                                Balanced[SlaveAdr] = 0;                         // For correct baseload calculation set current to zero
+                                CalcBalancedCurrent(1);                         // Calculate charge current for all connected EVSE's
+                            } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
+                            printf("03 Slave %u charging: %uA\r\n", SlaveAdr, Balanced[SlaveAdr]);
+                            // Send ACK to Slave, followed by assigned current
+                            ModbusWriteSingleRegister(Modbus.Address, 0x83, Balanced[SlaveAdr]);
+                            break;
+                        case 0x04:                                              // charging stopped (state C->B), followed by two empty bytes
+                            BalancedState[SlaveAdr] = 0;                        // Mark Slave EVSE as inactive (still State B)
+                            CalcBalancedCurrent(0);                             // Calculate dynamic charge current for connected EVSE's
+                            printf("04 C->B Slave %u inactive\r\n", SlaveAdr);
+                            // Send ACK to Slave
+                            ModbusWriteSingleRegister(Modbus.Address, 0x84, 0x00);
+                            break;
+                        default:
+                            break;
+                    }
+                } // commands for Master
+                break;
+
+            default:
+                break;
         }
         
         if ((Error & CT_NOCOMM) && timeout == 10) Error &= ~CT_NOCOMM;          // Clear communication error, if present

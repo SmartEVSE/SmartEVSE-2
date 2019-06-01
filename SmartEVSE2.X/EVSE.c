@@ -166,8 +166,8 @@ unsigned char State = STATE_A;
 unsigned char Error = NO_ERROR;
 unsigned char NextState;
 
-unsigned int MaxCapacity;                                                       // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
-unsigned int ChargeCurrent;                                                     // Calculated Charge Current
+unsigned int MaxCapacity;                                                       // Cable limit (A) (limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
+unsigned int ChargeCurrent;                                                     // Calculated Charge Current (Amps *10)
 unsigned int Imeasured = 0;                                                     // Max of all Phases (Amps *10) of mains power
 signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
 int Isum = 0;                                                                   // Sum of all measured Phases (can be negative)
@@ -668,7 +668,7 @@ char IsCurrentAvailable(void) {
         TotalCurrent += Balanced[n];                                            // Calculate total max charge current for all active EVSE's
     }
     if (ActiveEVSE == 0) {
-        if (Imeasured > ((MaxMains - MinCurrent)*10)) {
+        if (Imeasured > ((MaxMains - MinCurrent) * 10)) {
             return 1;                                                           // Not enough current available!, return with error
         }
     } else {
@@ -752,7 +752,7 @@ void CalcBalancedCurrent(char mod) {
     if (Mode == MODE_NORMAL)                                                    // Normal Mode
     {
         if (LoadBl) IsetBalanced = MaxMains * 10;                               // Load Balancing active? MAINS is max current for all active EVSE's
-        else IsetBalanced = ChargeCurrent * 10;                                 // No Load Balancing in Normal Mode. Set current to ChargeCurrent (fix: v2.05)
+        else IsetBalanced = ChargeCurrent;                                      // No Load Balancing in Normal Mode. Set current to ChargeCurrent (fix: v2.05)
     }
 
     if (BalancedLeft)                                                           // Only if we have active EVSE's
@@ -1012,7 +1012,7 @@ void BroadcastCurrent(void)
  *        2: high byte first, low word first\n
  *        3: high byte first, high word first (big endian)
  */
-void combineBytes(unsigned char *var, unsigned char *buf, unsigned char pos, unsigned char endianness) {
+void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned char endianness) {
     char *pBytes;
 
     pBytes = var;
@@ -1167,7 +1167,7 @@ unsigned char getMenuItems (void) {
  * @param unsigned char nav
  * @return unsigned char[] MenuItemOption
  */
-unsigned char * getMenuItemOption(unsigned char nav) {
+char * getMenuItemOption(unsigned char nav) {
     char Str[10];
 
     switch (nav) {
@@ -1475,7 +1475,7 @@ void RS232cli(void) {
             printf(">");
             break;
         case MENU_CONFIG:
-            printf("Configuration : %s\r\nEnter new Configuration (FIXED/SOCKET): ");
+            printf("Configuration : %s\r\nEnter new Configuration (FIXED/SOCKET): ", getMenuItemOption(menu));
             break;
         case MENU_MODE:
             printf("EVSE set to : %s\r\nEnter new EVSE Mode (NORMAL/SMART/SOLAR): ", getMenuItemOption(menu));
@@ -1814,8 +1814,8 @@ void main(void) {
                             DiodeCheck = 0;
                             ProximityPin();                                     // Sample Proximity Pin
                             printf("Cable limit: %uA  Max: %uA \r\n", MaxCapacity, MaxCurrent);
-                            if (MaxCurrent > MaxCapacity) ChargeCurrent = MaxCapacity; // Do not modify Max Cable Capacity or MaxCurrent (fix 2.05)
-                            else ChargeCurrent = MaxCurrent;                    // Instead use new variable ChargeCurrent
+                            if (MaxCurrent > MaxCapacity) ChargeCurrent = MaxCapacity * 10; // Do not modify Max Cable Capacity or MaxCurrent (fix 2.05)
+                            else ChargeCurrent = MaxCurrent * 10;               // Instead use new variable ChargeCurrent
 
                             if (LoadBl > 1)                                     // Load Balancing : Slave 
                             {

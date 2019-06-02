@@ -105,13 +105,13 @@
 #define MENU_START 4
 #define MENU_STOP 5
 #define MENU_LOADBL 6
-#define MENU_MAINS 7
-#define MENU_MIN 8
-#define MENU_MAX 9
-#define MENU_CABLE 10
-#define MENU_LOCK 11
-#define MENU_ACCESS 12
-#define MENU_RCMON 13
+#define MENU_MIN 7
+#define MENU_CABLE 8
+#define MENU_LOCK 9
+#define MENU_ACCESS 10
+#define MENU_RCMON 11
+#define MENU_MAX 12
+#define MENU_MAINS 13
 #define MENU_CAL 14
 #define MENU_MAINSMETER 15
 #define MENU_MAINSMETERADDRESS 16
@@ -129,6 +129,8 @@
 #define MODBUS_OK 1
 #define MODBUS_REQUEST 2
 #define MODBUS_RESPONSE 3
+
+#define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
 #ifdef DEBUG_P
 #define DEBUG_PRINT(x) printf x
@@ -201,28 +203,30 @@ const far struct {
     char Key[7];
     char LCD[9];
     char Desc[52];
+    unsigned int Min;
+    unsigned int Max;
 } MenuStr[21] = {
-    {"",       "",         "Not in menu"},
-    {"",       "",         "Hold 2 sec"},
-    {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket"},
-    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode"},
-    {"START",  "START",    "Surplus energy start Current"},
-    {"STOP",   "STOP",     "Stop solar charging at 6A after this time"},
-    {"LOADBL", "LOAD BAL", "Set Load Balancing mode"},
-    {"MAINS",  "MAINS",    "Set Max MAINS Current"},
-    {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept"},
-    {"MAX",    "MAX",      "Set MAX Charge Current for the EV"},
-    {"CABLE",  "CABLE",    "Set Fixed Cable Current limit"},
-    {"LOCK",   "LOCK",     "Cable locking actuator type"},
-    {"ACCESS", "ACCESS",   "Access control on IO2"},
-    {"RCMON",  "RCMON",    "Residual Current Monitor on IO3"},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)"},
-    {"MAINEM", "MAINSMET", "Type of mains electric meter"},
-    {"MAINAD", "MAINSADR", "Address of mains electric meter"},
-    {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)"},
-    {"PVEM",   "PV METER", "Type of PV electric meter"},
-    {"PVAD",   "PVADDR",   "Address of PV electric meter"},
-    {"EXIT",   "EXIT",     "EXIT"}
+    {"",       "",         "Not in menu", 0, 0},
+    {"",       "",         "Hold 2 sec", 0, 0},
+    {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1},
+    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2},
+    {"START",  "START",    "Surplus energy start Current", 1, 16},
+    {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60},
+    {"LOADBL", "LOAD BAL", "Set Load Balancing mode", 0, 4},
+    {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16},
+    {"CABLE",  "CABLE",    "Set Fixed Cable Current limit", 13, 80},
+    {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2},
+    {"ACCESS", "ACCESS",   "Access control on IO2", 0, 1},
+    {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1},
+    {"MAX",    "MAX",      "Set MAX Charge Current for the EV", 10, 80},
+    {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100},
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 60, 1000},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter", 0, 20},
+    {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255},
+    {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 0, 20},
+    {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255},
+    {"EXIT",   "EXIT",     "EXIT", 0, 0}
 };
 
 void delay(unsigned int d);

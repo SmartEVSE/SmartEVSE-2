@@ -214,10 +214,14 @@ struct  {
     unsigned char Address;
     unsigned char Function;
     unsigned int Register;
+    unsigned int RegisterCount;
     unsigned int Value;
     unsigned char *Data;
     unsigned char DataLength;
     unsigned char Type;
+    unsigned char RequestAddress;
+    unsigned char RequestFunction;
+    unsigned char Requested;
 } Modbus;
 
 void interrupt high_isr(void)
@@ -431,6 +435,323 @@ unsigned int crc16sensorbox1(unsigned char *buf, unsigned char len) {
     return crc;
 }
 
+// Create HDLC/modbus frame from data, and copy to output buffer
+// Start RS485 transmission, by enabling TX interrupt
+void RS485SendBuf(char *buffer, unsigned char len) {
+    char ch, index = 0;
+    unsigned long tmr;
+
+    while (ISRTXFLAG) {
+    }                                                                           // wait if we are still transmitting over RS485
+
+    while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus
+    ISRTXLEN = len;                                                             // number of bytes to transfer
+
+    while (len--) {
+        U1TXbuffer[index++] = *buffer++;                                        // load next byte
+    }
+
+    tmr = Timer + 1000;
+    while ((Timer < (ModbusTimer + 4)) && (tmr > Timer)) {}                     // if there is a RS485 reception, wait for it to finish, with 1000ms timeout       
+
+    LATBbits.LATB5 = 1;                                                         // set RS485 transceiver to transmit
+    delay(1);
+    PIE1bits.TX1IE = 1;                                                         // enable transmit Interrupt for RS485
+}
+
+/**
+ * Send data over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned char function
+ * @param unsigned char byte
+ * @param unsigned int pointer to values
+ * @param unsigned char count of values
+ */
+void ModbusSend(unsigned char address, unsigned char function, unsigned char byte, unsigned int *values, unsigned char count) {
+    unsigned int cs, i, n = 0;
+
+    // Device address
+    Tbuffer[n++] = address;
+    // Function
+    Tbuffer[n++] = function;
+    // The number of data bytes to follow
+    if (byte) Tbuffer[n++] = byte;
+    // Values
+    for (i = 0; i < count; i++) {
+        Tbuffer[n++] = ((unsigned char)(values[i]>>8));
+        Tbuffer[n++] = ((unsigned char)(values[i]));
+    }
+    // Calculate CRC16 from data
+    cs = crc16(Tbuffer, n);
+    Tbuffer[n++] = ((unsigned char)(cs));
+    Tbuffer[n++] = ((unsigned char)(cs>>8));	
+    // Send buffer to RS485 port
+    RS485SendBuf(Tbuffer, n);
+}
+
+/**
+ * Send single value over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned char function
+ * @param unsigned int register
+ * @param unsigned int data
+ */
+void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg, unsigned int data) {
+    unsigned int values[2];
+    
+    values[0] = reg;
+    values[1] = data;
+    
+    ModbusSend(address, function, 0, values, 2);
+}
+
+/**
+ * Request read input register (FC=04) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned int quantity
+ */
+void ModbusReadInputRequest(unsigned char address, unsigned int reg, unsigned int quantity) {
+    Modbus.RequestAddress = address;
+    Modbus.RequestFunction = 0x04;
+    ModbusSend8(address, 0x04, reg, quantity);
+}
+
+/**
+ * Response read input register (FC=04) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int pointer to values
+ * @param unsigned char count of values
+ */
+void ModbusReadInputResponse(unsigned char address, unsigned int *values, unsigned char count) {
+    ModbusSend(address, 0x04, count * 2, values, count);
+}
+
+/**
+ * Request write single register (FC=06) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned int value
+ */
+void ModbusWriteSingleRequest(unsigned char address, unsigned int reg, unsigned int value) {
+    Modbus.RequestAddress = address;
+    Modbus.RequestFunction = 0x06;
+    ModbusSend8(address, 0x06, reg, value);  
+}
+
+/**
+ * Response write single register (FC=06) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned int value
+ */
+void ModbusWriteSingleResponse(unsigned char address, unsigned int reg, unsigned int value) {
+    ModbusSend8(address, 0x06, reg, value);  
+}
+
+
+/**
+ * Request write multiple register (FC=16) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned char pointer to data
+ * @param unsigned char count of data
+ */
+void ModbusWriteMultipleRequest(unsigned char address, unsigned int reg, unsigned int *values, unsigned char count) {
+    unsigned int i, n = 0, cs;
+
+    Modbus.RequestAddress = address;
+    Modbus.RequestFunction = 0x10;
+
+    // Device Address
+    Tbuffer[n++] = address;
+    // Function Code 16
+    Tbuffer[n++] = 0x10;
+    // Data Address of the first register
+    Tbuffer[n++] = ((unsigned char)(reg>>8));
+    Tbuffer[n++] = ((unsigned char)(reg));
+    // Number of registers to write
+    Tbuffer[n++] = 0x00;
+    Tbuffer[n++] = count;
+    // Number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+    Tbuffer[n++] = count * 2;
+    // Values
+    for (i = 0; i < count; i++) {
+        Tbuffer[n++] = ((unsigned char)(values[i]>>8));
+        Tbuffer[n++] = ((unsigned char)(values[i]));
+    }
+    // Calculate CRC16 from data
+    cs = crc16(Tbuffer, n);
+    Tbuffer[n++] = ((unsigned char)(cs));
+    Tbuffer[n++] = ((unsigned char)(cs>>8));	
+    // Send buffer to RS485 port
+    RS485SendBuf(Tbuffer, n);    
+}
+
+/**
+ * Response write multiple register (FC=16) to a device over modbus
+ * 
+ * @param unsigned char address
+ * @param unsigned int register
+ * @param unsigned int count
+ */
+void ModbusWriteMultipleResponse(unsigned char address, unsigned int reg, unsigned int count) {
+    ModbusSend8(address, 0x10, reg, count);
+}
+
+/**
+ * Response an exception
+ * 
+ * @param unsigned char address
+ * @param unsigned char function
+ * @param unsigned char exeption
+ */
+void ModbusException(unsigned char address, unsigned char function, unsigned char exception) {
+    unsigned int temp[1];
+    ModbusSend(address, function, exception, temp, 0);
+}
+
+/**
+ * Decode received modbus packet
+ * 
+ * @param unsigned char pointer to buffer
+ * @param unsigned char length of buffer
+ */
+void ModbusDecode(unsigned char *buf, unsigned char len) {
+    // Clear old values
+    Modbus.Address = 0;
+    Modbus.Function = 0;
+    Modbus.Register = 0;
+    Modbus.RegisterCount = 0;
+    Modbus.Value = 0;
+    Modbus.DataLength = 0;
+    Modbus.Type = MODBUS_INVALID;
+
+    // Modbus error packets length is 5 bytes
+    
+    // Modbus data packets minimum length is 8 bytes
+    if (len >= 8) {
+        // Modbus device address
+        Modbus.Address = buf[0];
+        // Modbus function
+        Modbus.Function = buf[1];
+        // calculate checksum over all data (including crc16)
+        // when checksum == 0 data is ok.
+        if (!crc16(buf, len)) {
+            // CRC OK
+//            printf("\n  valid Modbus packet: Address %02x Function %02x", Modbus.Address, Modbus.Function);
+            switch (Modbus.Function) {
+                case 0x04:
+                    // (Read input register)
+                    if (len == 8) {
+                        // request packet
+                        Modbus.Type = MODBUS_REQUEST;
+                        // Modbus register
+                        Modbus.Register = (buf[2] <<8) | buf[3];
+                        // Modbus register count
+                        Modbus.RegisterCount = (buf[4] <<8) | buf[5];
+                    } else {
+                        // Modbus datacount
+                        Modbus.DataLength = buf[2];
+                        if (Modbus.DataLength == len - 5) {
+                            // packet length OK
+                            // response packet
+                            Modbus.Type = MODBUS_RESPONSE;
+                        } else {
+                            printf("\nInvalid modbus packet");
+                        }
+                    }
+                    break;
+                case 0x06:
+                    // (Write single register)
+                    if (len == 8) {
+                        // request and response packet are the same
+                        Modbus.Type = MODBUS_OK;
+                        // Modbus register
+                        Modbus.Register = (buf[2] <<8) | buf[3];
+                        Modbus.Value = (buf[4] <<8) | buf[5];
+                    } else {
+                        printf("\nInvalid modbus packet");
+                    }
+                    break;
+                case 0x10:
+                    // (Write multiple register))
+                    // Modbus register
+                    Modbus.Register = (buf[2] <<8) | buf[3];
+                    // Modbus register count
+                    Modbus.RegisterCount = (buf[4] <<8) | buf[5];
+                    if (len == 8) {
+                        // respone packet
+                        Modbus.Type = MODBUS_RESPONSE;
+                    } else {
+                        // Modbus datacount
+                        Modbus.DataLength = buf[6];
+                        if (Modbus.DataLength == len - 9) {
+                            // packet length OK
+                            // request packet
+                            Modbus.Type = MODBUS_REQUEST;
+                        } else {
+                            printf("\nInvalid modbus packet");
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            // Modbus.Data
+            if (Modbus.Type && Modbus.DataLength) {
+                // Set pointer to Data
+                Modbus.Data = buf;
+                // Modbus data is always at the end ahead the checksum
+                Modbus.Data = Modbus.Data + (len - Modbus.DataLength - 2);
+            }
+            
+            // Request - Response check
+            switch (Modbus.Type) {
+                case MODBUS_REQUEST:
+                    Modbus.Requested = 0;
+                    Modbus.RequestAddress = Modbus.Address;
+                    Modbus.RequestFunction = Modbus.Function;
+                    break;
+                case MODBUS_RESPONSE:
+                    // If address and function identical with last send or received request, it is a valid response
+                    if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
+                        Modbus.Requested = 1;
+                    } else {
+                        Modbus.Requested = 0;
+                    }
+                    Modbus.RequestAddress = 0;
+                    Modbus.RequestFunction = 0;
+                    break;
+                case MODBUS_OK:
+                    // If address and function identical with last send or received request, it is a valid response
+                    if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
+                        Modbus.Requested = 1;
+                        Modbus.Type = MODBUS_RESPONSE;
+                    } else {
+                        Modbus.Requested = 0;
+                        Modbus.RequestAddress = Modbus.Address;
+                        Modbus.RequestFunction = Modbus.Function;
+                        Modbus.Type = MODBUS_REQUEST;
+                    }
+                    // ToDo: Workaround to disable response detection on communication with slaves
+                    if ((Modbus.Register >= 0x01 && Modbus.Register <=0x04) || (Modbus.Register >= 0x81 && Modbus.Register <=0x84)) Modbus.Type = MODBUS_REQUEST;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
 void eeprom_read_object(void *obj_p, size_t obj_size) {
     unsigned char *p = obj_p;
 
@@ -529,6 +850,17 @@ void write_settings(void) {
     INTCON = savint;                                                            // Restore interrupts
     printf("\r\nsettings saved\r\n");
 
+    if (LoadBl == 1) {
+        unsigned int values[7];
+        values[0] = MaxMains;
+        values[1] = ICal;
+        values[2] = MainsMeter;
+        values[3] = MainsMeterAddress;
+        values[4] = MainsMeterMeasure;
+        values[5] = PVMeter;
+        values[6] = PVMeterAddress;
+        ModbusWriteMultipleRequest(0x00, 0xE1, values, 7);
+    }
 }
 
 void putch(unsigned char byte)                                                  // user defined printf support on uart2
@@ -538,32 +870,6 @@ void putch(unsigned char byte)                                                  
         continue;
     TXREG2 = byte;
 
-}
-
-
-// Create HDLC/modbus frame from data, and copy to output buffer
-// Start RS485 transmission, by enabling TX interrupt
-
-void RS485SendBuf(char* buffer, unsigned char len) {
-    char ch, index = 0;
-    unsigned long tmr;
-
-    while (ISRTXFLAG) {
-    }                                                                           // wait if we are still transmitting over RS485
-
-    while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus
-    ISRTXLEN = len;                                                             // number of bytes to transfer
-
-    while (len--) {
-        U1TXbuffer[index++] = *buffer++;                                        // load next byte
-    }
-
-    tmr = Timer + 1000;	
-    while ((Timer < (ModbusTimer + 4)) && (tmr > Timer)) {}                     // if there is a RS485 reception, wait for it to finish, with 1000ms timeout       
-    
-    LATBbits.LATB5 = 1;                                                         // set RS485 transceiver to transmit
-    delay(1);
-    PIE1bits.TX1IE = 1;                                                         // enable transmit Interrupt for RS485
 }
 
 unsigned char ReadPilot(void)                                                   // Read Pilot Signal 
@@ -811,193 +1117,10 @@ void CalcBalancedCurrent(char mod) {
 }
 
 /**
- * Send single value over modbus
- * 
- * @param unsigned char address
- * @param unsigned char function
- * @param unsigned int register
- * @param unsigned int data
- */
-void ModbusSend(unsigned char address, unsigned char function, unsigned int reg, unsigned int data){
-    unsigned int cs;
-
-    // Device address
-    Tbuffer[0] = address;
-    // Function
-    Tbuffer[1] = function;
-    // Register address
-    Tbuffer[2] = ((unsigned char)(reg>>8));
-    Tbuffer[3] = ((unsigned char)(reg));
-    // Single data
-    Tbuffer[4] = ((unsigned char)(data>>8));
-    Tbuffer[5] = ((unsigned char)(data));
-    // Calculate CRC16 from data
-    cs = crc16(Tbuffer, 6);
-    Tbuffer[6] = ((unsigned char)(cs));
-    Tbuffer[7] = ((unsigned char)(cs>>8));	
-    // Send buffer to RS485 port
-    RS485SendBuf(Tbuffer, 8);
-}
-
-/**
- * Read input register (FC=04) from a device over modbus
- * 
- * @param unsigned char address
- * @param unsigned int register
- * @param unsigned int quantity
- */
-void ModbusReadInputRegisters(unsigned char address, unsigned int reg, unsigned int quantity) {
-    ModbusSend(address, 0x04, reg, quantity);
-}
-
-/**
- * Write single register (FC=06) to a device over modbus
- * 
- * @param unsigned char address
- * @param unsigned int register
- * @param unsigned int value
- */
-void ModbusWriteSingleRegister(unsigned char address, unsigned int reg, unsigned int value) {
-    ModbusSend(address, 0x06, reg, value);  
-}
-
-/**
- * Write multiple register (FC=16) to a device over modbus
- * 
- * @param unsigned char address
- * @param unsigned int register
- * @param pointer to data
- * @param unsigned char count
- */
-void ModbusWriteMultipleRegisters(unsigned char address, unsigned int reg, unsigned char *data, unsigned char count) {
-    unsigned int i, cs;
-
-    // Device Address
-    Tbuffer[0] = address;
-    // Function Code 16
-    Tbuffer[1] = 0x10;
-    // Data Address of the first register
-    Tbuffer[2] = ((unsigned char)(reg>>8));
-    Tbuffer[3] = ((unsigned char)(reg));
-    // Number of registers to write
-    Tbuffer[4] = 0x00;
-    Tbuffer[5] = count / 2;
-    // Number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
-    Tbuffer[6] = count;
-    for (i = 0; i < count; i++) {
-        Tbuffer[7 + i] = data[i];
-    }
-    // Calculate CRC16 from data
-    cs = crc16(Tbuffer, 7 + i);
-    Tbuffer[7 + i] = ((unsigned char)(cs));
-    Tbuffer[8 + i] = ((unsigned char)(cs>>8));	
-    // Send buffer to RS485 port
-    RS485SendBuf(Tbuffer, 9 + i);    
-}
-
-/**
- * Decode received modbus packet
- * 
- * @param pointer to buffer
- * @param unsigned char length
- */
-void ModbusDecode(unsigned char *buf, unsigned char len) {
-    // Clear old values
-    Modbus.Address = 0;
-    Modbus.Function = 0;
-    Modbus.Register = 0;
-    Modbus.Value = 0;
-    Modbus.DataLength = 0;
-    Modbus.Type = MODBUS_INVALID;
-
-    // Modbus packets minimum length is 8 bytes
-    if (len > 7) {
-        // Modbus device address
-        Modbus.Address = buf[0];
-        // Modbus function
-        Modbus.Function = buf[1];
-        // calculate checksum over all data (including crc16)
-        // when checksum == 0 data is ok.
-        if (!crc16(buf, len)) {
-            // CRC OK
-//            printf("\n  valid Modbus packet: Address %02x Function %02x", Modbus.Address, Modbus.Function);
-            switch (Modbus.Function) {
-                case 0x04:
-                    // (Read input register)
-                    if (len == 8) {
-                        // request packet
-                        Modbus.Type = MODBUS_REQUEST;
-                    } else {
-                        // Modbus datacount
-                        Modbus.DataLength = buf[2];
-                        if (Modbus.DataLength == len - 5) {
-                            // packet length OK
-                            // response packet
-                            Modbus.Type = MODBUS_RESPONSE;
-                        } else {
-                            printf("\nInvalid modbus packet");
-                        }
-                    }
-                    break;
-                case 0x06:
-                    // (Write single register)
-                    if (len == 8) {
-                        // request and response packet are the same
-                        Modbus.Type = MODBUS_OK;
-                        // Modbus register
-                        Modbus.Register = (buf[2] <<8) | buf[3];
-                        Modbus.Value = (buf[4] <<8) | buf[5];
-                    } else {
-                        printf("\nInvalid modbus packet");
-                    }
-                    break;
-                case 0x10:
-                    // (Write multiple register))
-                    // Modbus register
-                    Modbus.Register = (buf[2] <<8) | buf[3];
-                    if (len == 8) {
-                        // respone packet
-                        Modbus.Type = MODBUS_RESPONSE;
-                    } else {
-                        // Modbus datacount
-                        Modbus.DataLength = buf[6];
-                        if (Modbus.DataLength == len - 9) {
-                            // packet length OK
-                            // request packet
-                            Modbus.Type = MODBUS_REQUEST;
-                        } else {
-                            printf("\nInvalid modbus packet");
-                        }
-                    }
-                    break;
-                default:
-                    break;
-            }
-
-            if (Modbus.Type && Modbus.DataLength) {
-                // Set pointer to Data
-                Modbus.Data = buf;
-                // Modbus data is always at the end ahead the checksum
-                Modbus.Data = Modbus.Data + (len - Modbus.DataLength - 2);
-            }
-        }
-    }
-}
-
-/**
  * Broadcast momentary currents to all Slave EVSE's
  */
-void BroadcastCurrent(void) 
-{
-    unsigned char n, x, data[5];
-
-    n = 0;
-    for (x = 1; x < 4; x++) {
-        data[n++] = ((unsigned char)(Balanced[x]>>8));
-        data[n++] = ((unsigned char)(Balanced[x]));
-    }
-
-    ModbusWriteMultipleRegisters(0x00, 0x01, data, 6);
+void BroadcastCurrent(void) {
+    ModbusWriteMultipleRequest(0x00, 0x01, Balanced, 4);
 }
 
 /**
@@ -1057,13 +1180,13 @@ void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned cha
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
     switch(Meter) {
         case EM_SENSORBOX2:
-            ModbusReadInputRegisters(Address, 0, 20);
+            ModbusReadInputRequest(Address, 0, 20);
             break;
         case EM_PHOENIX_CONTACT:
-            ModbusReadInputRegisters(Address, 12, 6);
+            ModbusReadInputRequest(Address, 12, 6);
             break;
         case EM_FINDER:
-            ModbusReadInputRegisters(Address, 0xE, 6);
+            ModbusReadInputRequest(Address, 0xE, 6);
             break;
         default:
             break;
@@ -1131,7 +1254,7 @@ unsigned char getMenuItems (void) {
         MenuItems[m++] = MENU_STOP;                                             // - Stop time (min)
     }
     MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-    if (Mode || (LoadBl == 1)) {                                                // ? Smart or Solar mode and Load Balancing Master?
+    if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode and Load Balancing Disabled or Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
     }
@@ -1143,7 +1266,7 @@ unsigned char getMenuItems (void) {
     }
     MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
-    if (Mode) {                                                                 // ? Smart or Solar mode?
+    if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?
         MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
         if (MainsMeter == EM_SENSORBOX1 || MainsMeter == EM_SENSORBOX2) {       // - ? Sensorbox?
             MenuItems[m++] = MENU_CAL;                                          // - - Sensorbox calibration
@@ -1162,6 +1285,126 @@ unsigned char getMenuItems (void) {
 }
 
 /**
+ * Check minimum and maximum of a value and set the variable
+ * 
+ * @param unsigned char MENU_xxx
+ * @param unsigned int value
+ * @param unsinged char write
+ * @return unsigned char success
+ */
+unsigned char setMenuItemValue(unsigned char nav, unsigned int val, unsigned char write) {
+    if (val >= MenuStr[nav].Min && val <= MenuStr[nav].Max) {
+        switch (nav) {
+            case MENU_CONFIG:
+                Config = val;
+                break;
+            case MENU_MODE:
+                Mode = val;
+                break;
+            case MENU_START:
+                StartCurrent = val;
+                break;
+            case MENU_STOP:
+                StopTime = val;
+                break;
+            case MENU_LOADBL:
+                LoadBl = val;
+                break;
+            case MENU_MAINS:
+                MaxMains = val;
+                break;
+            case MENU_MIN:
+                MinCurrent = val;
+                break;
+            case MENU_MAX:
+                MaxCurrent = val;
+                break;
+            case MENU_CABLE:
+                CableLimit = val;
+                break;
+            case MENU_LOCK:
+                Lock = val;
+                break;
+            case MENU_ACCESS:
+                Access = val;
+                break;
+            case MENU_RCMON:
+                RCmon = val;
+                break;
+            case MENU_MAINSMETER:
+                MainsMeter = val;
+                break;
+            case MENU_MAINSMETERADDRESS:
+                MainsMeterAddress = val;
+                break;
+            case MENU_MAINSMETERMEASURE:
+                MainsMeterMeasure = val;
+                break;
+            case MENU_PVMETER:
+                PVMeter = val;
+                break;
+            case MENU_PVMETERADDRESS:
+                PVMeterAddress = val;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (write) write_settings();
+        return 1;
+    }
+    
+    return 0;
+}
+
+/**
+ * Get the variable
+ * 
+ * @param unsigned char MENU_xxx
+ * @return unsigned int value
+ */
+unsigned int getMenuItemValue(unsigned char nav) {
+    switch (nav) {
+        case MENU_CONFIG:
+            return Config;
+        case MENU_MODE:
+            return Mode;
+        case MENU_START:
+            return StartCurrent;
+        case MENU_STOP:
+            return StopTime;
+        case MENU_LOADBL:
+            return LoadBl;
+        case MENU_MAINS:
+            return MaxMains;
+        case MENU_MIN:
+            return MinCurrent;
+        case MENU_MAX:
+            return MaxCurrent;
+        case MENU_CABLE:
+            return CableLimit;
+        case MENU_LOCK:
+            return Lock;
+        case MENU_ACCESS:
+            return Access;
+        case MENU_RCMON:
+            return RCmon;
+        case MENU_MAINSMETER:
+            return MainsMeter;
+        case MENU_MAINSMETERADDRESS:
+            return MainsMeterAddress;
+        case MENU_MAINSMETERMEASURE:
+            return MainsMeterMeasure;
+        case MENU_PVMETER:
+            return PVMeter;
+        case MENU_PVMETERADDRESS:
+            return PVMeterAddress;
+        default:
+            return 0;
+    }
+}
+
+/**
  * Get active option of an menu item
  * 
  * @param unsigned char nav
@@ -1169,6 +1412,9 @@ unsigned char getMenuItems (void) {
  */
 char * getMenuItemOption(unsigned char nav) {
     char Str[10];
+    unsigned int value;
+    
+    value = getMenuItemValue(nav); 
 
     switch (nav) {
         case MENU_CONFIG:
@@ -1191,21 +1437,15 @@ char * getMenuItemOption(unsigned char nav) {
             else if (LoadBl == 3) return StrSlave2;
             else return StrSlave3;
         case MENU_MAINS:
-            sprintf(Str, "%2u A", MaxMains);
-            return Str;
         case MENU_MIN:
-            sprintf(Str, "%2u A", MinCurrent);
-            return Str;
         case MENU_MAX:
-            sprintf(Str, "%2u A", MaxCurrent);
+        case MENU_CABLE:
+            sprintf(Str, "%2u A", value);
             return Str;
         case MENU_LOCK:
             if (Lock == 1) return StrSolenoid;
             else if (Lock == 2) return StrMotor;
             else return StrDisabled;
-        case MENU_CABLE:
-            sprintf(Str, "%2u A", CableLimit);
-            return Str;
         case MENU_ACCESS:
             if (Access) return StrSwitch;
             else return StrDisabled;
@@ -1213,7 +1453,8 @@ char * getMenuItemOption(unsigned char nav) {
             if (RCmon) return StrEnabled;
             else return StrDisabled;
         case MENU_MAINSMETER:
-            switch (MainsMeter) {
+        case MENU_PVMETER:
+            switch (value) {
                 case 0:
                     return StrDisabled;
                 case EM_SENSORBOX1:
@@ -1229,30 +1470,83 @@ char * getMenuItemOption(unsigned char nav) {
             }
             break;
         case MENU_MAINSMETERADDRESS:
-            sprintf(Str, "%u", MainsMeterAddress);
+        case MENU_PVMETERADDRESS:
+            sprintf(Str, "%u", value);
             return Str;
         case MENU_MAINSMETERMEASURE:
             if (MainsMeterMeasure) return StrMainsHomeEVSE;
             else return StrMainsAll;
-        case MENU_PVMETER:
-            switch (PVMeter) {
-                case 0:
-                    return StrDisabled;
-                case EM_PHOENIX_CONTACT:
-                    return StrPhoenix;
-                case EM_FINDER:
-                    return StrFinder;
-                default:
-                    break;
-            }
-            break;
-        case MENU_PVMETERADDRESS:
-            sprintf(Str, "%u", PVMeterAddress);
-            return Str;
         case MENU_EXIT:
             return StrExitMenu;
         default:
             break;
+    }
+}
+
+/**
+ * Read menu item values and send modbus response
+ * 
+ * @param unsigned int reg: Start register
+ * @param unsigned int nav: Start MENU_xxx number
+ * @param unsigned int count: Count of MENU_xxx items
+ */
+void ReadMenuItemValueResponse(unsigned int reg, unsigned int nav, unsigned int count) {
+    unsigned char i;
+    unsigned int values[10];
+
+    if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
+        for (i = 0; i < Modbus.RegisterCount; i++) {
+            values[i] = getMenuItemValue((Modbus.Register - reg) + nav + i);
+        }
+        ModbusReadInputResponse(Modbus.Address, values, Modbus.RegisterCount);
+    }
+}
+
+/**
+ * Write menu item values and send modbus response
+ * 
+ * @param unsigned int reg: Start register
+ * @param unsigned int nav: Start MENU_xxx number
+ */
+void WriteMenuItemValueResponse(unsigned int reg, unsigned int nav) {
+    unsigned char OK = 0;
+
+    OK = setMenuItemValue((Modbus.Register - reg) + nav, Modbus.Value, 1);
+
+    if (Modbus.Address > 0 || LoadBl == 0) {
+        if (OK == 0) {
+            ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE);
+        }
+        else if (OK == 1) {
+            ModbusWriteSingleResponse(Modbus.Address, Modbus.Register, Modbus.Value);
+        }
+    }
+}
+
+/**
+ * Write multiple menu item values and send modbus response
+ * 
+ * @param unsigned int reg: Start register
+ * @param unsigned int nav: Start MENU_xxx number
+ * @param unsigned int count: Count of MENU_xxx items
+ */
+void WriteMultipleMenuItemValueResponse(unsigned int reg, unsigned int nav, unsigned int count) {
+    unsigned int i, OK = 0, value;
+
+    if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
+        for (i = 0; i < Modbus.RegisterCount; i++) {
+            value = (Modbus.Data[i * 2] <<8) | Modbus.Data[(i * 2) + 1];
+            OK += setMenuItemValue((Modbus.Register - reg) + nav + i, value, 0);
+        }
+        write_settings();
+    }
+    
+    if (Modbus.Address > 0 || LoadBl == 0) {
+        if (OK == 0) {
+            ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE);
+        } else  {
+            ModbusWriteMultipleResponse(Modbus.Address, Modbus.Register, OK);
+        }
     }
 }
 
@@ -1277,7 +1571,7 @@ char * getMenuItemOption(unsigned char nav) {
 //
 
 void RS232cli(void) {
-    unsigned char i;
+    unsigned char i, OK;
     unsigned int n;
     double Inew, Iold;
     unsigned char MenuItemsCount = getMenuItems();
@@ -1291,41 +1585,6 @@ void RS232cli(void) {
     } else if (U2buffer[0] == 0) menu = 0;
     else {
         switch (menu) {
-            case MENU_MAINS:
-            case MENU_MAX:
-            case MENU_MIN:
-            case MENU_CABLE:
-            case MENU_START:
-            case MENU_STOP:
-            case MENU_MAINSMETERADDRESS:
-            case MENU_PVMETERADDRESS:
-                n = (unsigned int) atoi(U2buffer);
-                if ((menu == MENU_MAINS) && (n > 9) && (n < 101)) {
-                    MaxMains = n; // Set new MaxMains
-                    write_settings();
-                } else if ((menu == MENU_MAX) && (n > 9) && (n <= 80)) {
-                    MaxCurrent = n; // Set new MaxCurrent
-                    write_settings();
-                } else if ((menu == MENU_MIN) && (n > 5) && (n <= 16)) {
-                    MinCurrent = n; // Set new MinCurrent
-                    write_settings();
-                } else if ((menu == MENU_CABLE) && (n > 12) && (n <= 80)) {
-                    CableLimit = n; // Set new CableLimit
-                    write_settings();
-                } else if ((menu == MENU_START) && (n > 0) && (n <= 16)) {
-                    StartCurrent = n; // Set new Surplus start Current
-                    write_settings();
-                } else if ((menu == MENU_STOP) && (n >= 0) && (n <= 60)) {      // Max 60 minutes, 0 = continue charging at lowest current
-                    StopTime = n;                                               // Set new Stop time (minutes)
-                    write_settings();
-                } else if ((menu == MENU_MAINSMETERADDRESS) && (n > 4) && (n <= 255)) {
-                    MainsMeterAddress = n; // Set new Surplus start Current
-                    write_settings();
-                } else if ((menu == MENU_PVMETERADDRESS) && (n > 4) && (n <= 255)) {
-                    PVMeterAddress = n; // Set new Surplus start Current
-                    write_settings();
-                } else printf("\r\nError! please check limits\r\n");
-                break;
             case MENU_CAL:
                 Inew = atof(U2buffer);
                 if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
@@ -1445,6 +1704,9 @@ void RS232cli(void) {
                 }
                 break;
             default:
+                n = (unsigned int) atoi(U2buffer);
+                OK = setMenuItemValue(menu, n, 1);
+                if(!OK) printf("\r\nError! please check limits\r\n");
                 break;
         }
 
@@ -1700,8 +1962,8 @@ void main(void) {
     char x, n;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
     char DiodeCheck = 0;
-    char SlaveAdr, Command, Broadcast = 0, Switch_count = 0, Sens2s = 1;
-    unsigned int Current, crc;
+    char SlaveAdr, Broadcast = 0, Switch_count = 0, Sens2s = 1;
+    unsigned int crc;
     int BalancedReceived;
     signed double dCombined;
     signed double PV[3]={0, 0, 0};
@@ -1783,7 +2045,7 @@ void main(void) {
         if ((State == STATE_COMM_A) && (Timer > ACK_TIMEOUT))                   // Wait for response from Master
         {
             // Send command to Master
-            ModbusWriteSingleRegister(LoadBl, 0x01, 0x00);
+            ModbusWriteSingleRequest(LoadBl, 0x01, 0x00);
             printf("01 sent to Master, charging stopped\r\n");
             Timer = 0;                                                          // Clear the Timer
         }
@@ -1820,7 +2082,7 @@ void main(void) {
                             if (LoadBl > 1)                                     // Load Balancing : Slave 
                             {
                                 // Send command to Master, followed by Max Charge Current
-                                ModbusWriteSingleRegister(LoadBl, 0x02, ChargeCurrent);
+                                ModbusWriteSingleRequest(LoadBl, 0x02, ChargeCurrent);
                                 printf("02 sent to Master, requested %uA\r\n", ChargeCurrent);
                                 State = STATE_COMM_B;
                                 Timer = 0;                                      // Clear the Timer
@@ -1879,7 +2141,7 @@ void main(void) {
                                 if (LoadBl > 1)                                 // Load Balancing : Slave 
                                 {
                                     // Send command to Master, followed by Charge Current
-                                    ModbusWriteSingleRegister(LoadBl, 0x03, ChargeCurrent);
+                                    ModbusWriteSingleRequest(LoadBl, 0x03, ChargeCurrent);
                                     printf("03 sent to Master, requested %uA\r\n", ChargeCurrent);
                                     State = STATE_COMM_C;
                                     Timer = 0;                                  // Clear the Timer
@@ -1993,7 +2255,7 @@ void main(void) {
 
         if ((State == STATE_COMM_CB) && (Timer > ACK_TIMEOUT)) {
             // Send command to Master
-            ModbusWriteSingleRegister(LoadBl, 0x04, 0x00);
+            ModbusWriteSingleRequest(LoadBl, 0x04, 0x00);
             printf("04 sent to Master, charging stopped\r\n");
             Timer = 0;                                                          // Clear the Timer
         }
@@ -2174,8 +2436,7 @@ void main(void) {
                 // reset 10 second timeout
                 timeout = 10;
                 switch (Modbus.Function) {
-                    case 0x04:
-                        // (Read input register)
+                    case 0x04: // (Read input register)
                         if (MainsMeter && Modbus.Address == MainsMeterAddress) {
                             // packet from Mains electric meter
                             receiveCurrentMeasurement(Modbus.Data, MainsMeter, Irms);
@@ -2199,31 +2460,82 @@ void main(void) {
                     default:
                         break;
                 }
-            } else if (Modbus.Type == MODBUS_OK || Modbus.Type == MODBUS_REQUEST) {
-                switch (Modbus.Function) {
+            } else if (Modbus.Type == MODBUS_REQUEST) {
 //                printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
                 // reset 10 second timeout
                 timeout = 10;
-                    case 0x06:
-                        // (Write single register)
-                        // Request from Slave - ToDo: Master should request slave and this a response
-                        if (Modbus.Address >= 2 && Modbus.Address <=4) {
-                            // Register 0x0*: Slave -> Master
-                            if (Modbus.Register >= 0x01 && Modbus.Register <=0x04) {
-                                DataReceived = 3;
+                switch (Modbus.Function) {
+                    case 0x04: // (Read input register)
+                        // Addressed to this device
+                        if (Modbus.Address == LoadBl) {
+                            // Register 0xA*: Current status
+                            // 0xA0: State
+                            // 0xA1: Error
+                            // 0xA2: Charging current
+                            // Register 0xC*: Configuration
+                            // 0xC0: MENU_CONFIG  2
+                            // 0xC9: MENU_RCMON  11
+                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
+                                ReadMenuItemValueResponse(0xC0, 2, 10);
                             }
-                            // Register 0x8*: Master -> Slave
-                            else if (Modbus.Register >= 0x81 && Modbus.Register <=0x84) {
-                                DataReceived = 2;
+                            // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
+                            // 0xE0: MENU_MAX            12
+                            // 0xE7: MENU_PVMETERADDRESS 19
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
+                                ReadMenuItemValueResponse(0xE0, 12, 8);
                             }
                         }
                         break;
-                    case 0x10:
-                        // (Write multiple register))
-                        if (Modbus.Address == 0x00 && Modbus.Register == 0x01 && LoadBl > 1) {
-                            BalancedReceived = (Modbus.Data[(LoadBl - 2) * 2] <<8) | Modbus.Data[(LoadBl - 2) * 2 + 1];
-                            printf("\n  Address %02x Register %02x BalancedReceived %i", Modbus.Address, Modbus.Register, BalancedReceived);
-                            DataReceived = 2;
+                    case 0x06: // (Write single register)
+                        // Request from Slave - ToDo: Master should request slave and this a response
+                        if (Modbus.Address >= 2 && Modbus.Address <= 4) {
+                            // Register 0x0*: Slave -> Master
+                            if (Modbus.Register >= 0x01 && Modbus.Register <= 0x04) {
+                                DataReceived = 3;
+                            }
+                            // Register 0x8*: Master -> Slave
+                            else if (Modbus.Register >= 0x81 && Modbus.Register <= 0x84) {
+                                DataReceived = 2;
+                            }
+                        }
+
+                        // Broadcast or addressed to this device
+                        if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
+                            // Register 0xC*: Configuration
+                            // 0xC0: MENU_CONFIG  2
+                            // 0xC9: MENU_RCMON  11
+                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
+                                WriteMenuItemValueResponse(0xC0, 2);
+                            }
+                            // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
+                            // 0xE0: MENU_MAX            12
+                            // 0xE7: MENU_PVMETERADDRESS 19
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
+                                WriteMenuItemValueResponse(0xE0, 12);
+                            }
+                        }
+                        break;
+                    case 0x10: // (Write multiple register))
+                        // Broadcast or addressed to this device
+                        if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
+                            // 0x01: Balance currents
+                            if (Modbus.Register == 0x01 && LoadBl > 1) {
+                                BalancedReceived = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
+                                printf("\n  Address %02x Register %02x BalancedReceived %i", Modbus.Address, Modbus.Register, BalancedReceived);
+                                DataReceived = 2;
+                            }
+                            // Register 0xC*: Configuration
+                            // 0xC0: MENU_CONFIG  2
+                            // 0xC9: MENU_RCMON  11
+                            else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
+                                WriteMultipleMenuItemValueResponse(0xC0, 2, 10);
+                            }
+                            // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
+                            // 0xE0: MENU_MAX            12
+                            // 0xE7: MENU_PVMETERADDRESS 19
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
+                                WriteMultipleMenuItemValueResponse(0xE0, 12, 8);
+                            }
                         }
                         break;
                     default:
@@ -2278,7 +2590,7 @@ void main(void) {
 
                         // Broadcast Error code over RS485
                         // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
-                        ModbusWriteSingleRegister(0x00, 0x02, LESS_6A);
+                        ModbusWriteSingleRequest(0x00, 0x02, LESS_6A);
                         NoCurrent = 0;
                     } else if (LoadBl) BroadcastCurrent();                       // Master sends current to all connected EVSE's
 
@@ -2369,7 +2681,7 @@ void main(void) {
                             CalcBalancedCurrent(0);                             // Calculate dynamic charge current for connected EVSE's
                             printf("01 Slave %u State A\r\n", SlaveAdr);
                             // Send ACK to Slave, followed by two dummy byte
-                            ModbusWriteSingleRegister(Modbus.Address, 0x81, 0x00);
+                            ModbusWriteSingleRequest(Modbus.Address, 0x81, 0x00);
                             break;
                         case 0x02:                                              // Request to charge , next two bytes = requested charge current
                             if (IsCurrentAvailable() == 0)                      // check if we have enough current
@@ -2380,7 +2692,7 @@ void main(void) {
                             } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
                             printf("02 Slave %u requested:%uA\r\n", SlaveAdr, Modbus.Value);
                             // Send ACK to Slave, followed by assigned current
-                            ModbusWriteSingleRegister(Modbus.Address, 0x82, Balanced[SlaveAdr]);
+                            ModbusWriteSingleRequest(Modbus.Address, 0x82, Balanced[SlaveAdr]);
                             break;
                         case 0x03:                                              // Charging, next two bytes = requested charge current
                             if (IsCurrentAvailable() == 0)                      // check if we have enough current
@@ -2392,14 +2704,14 @@ void main(void) {
                             } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
                             printf("03 Slave %u charging: %uA\r\n", SlaveAdr, Balanced[SlaveAdr]);
                             // Send ACK to Slave, followed by assigned current
-                            ModbusWriteSingleRegister(Modbus.Address, 0x83, Balanced[SlaveAdr]);
+                            ModbusWriteSingleRequest(Modbus.Address, 0x83, Balanced[SlaveAdr]);
                             break;
                         case 0x04:                                              // charging stopped (state C->B), followed by two empty bytes
                             BalancedState[SlaveAdr] = 0;                        // Mark Slave EVSE as inactive (still State B)
                             CalcBalancedCurrent(0);                             // Calculate dynamic charge current for connected EVSE's
                             printf("04 C->B Slave %u inactive\r\n", SlaveAdr);
                             // Send ACK to Slave
-                            ModbusWriteSingleRegister(Modbus.Address, 0x84, 0x00);
+                            ModbusWriteSingleRequest(Modbus.Address, 0x84, 0x00);
                             break;
                         default:
                             break;

@@ -673,7 +673,7 @@ void GLCD(void) {
 void GLCDMenu(unsigned char Buttons) {                                          // Called when one of the SmartEVSE buttons is pressed
     static unsigned long ButtonTimer = 0;
     static unsigned char ButtonRelease = 0;                                     // keeps track of LCD Menu Navigation
-    static unsigned int CT1, CT1old;
+    static unsigned int CT1, CT1old, value;
     static double Iold;
 
     unsigned char EMs[5] = {0, EM_SENSORBOX1, EM_SENSORBOX2, EM_PHOENIX_CONTACT, EM_FINDER};
@@ -712,61 +712,16 @@ void GLCDMenu(unsigned char Buttons) {                                          
     {
         if (SubMenu) {
             switch (LCDNav) {
-                case MENU_CONFIG:
-                    Config = MenuNavChar(Buttons, Config, 0, 1);
-                    break;
-                case MENU_MODE:
-                    Mode = MenuNavChar(Buttons, Mode, 0, 2);
-                    break;
-                case MENU_START:
-                    StartCurrent = MenuNavInt(Buttons, StartCurrent, 1, 16);
-                    break;
-                case MENU_STOP:
-                    StopTime = MenuNavInt(Buttons, StopTime, 0, 60);
-                    break;
-                case MENU_LOADBL:
-                    LoadBl = MenuNavChar(Buttons, LoadBl, 0, 4);
-                    break;
-                case MENU_MAINS:
-                    MaxMains = MenuNavInt(Buttons, MaxMains, 10, 100);
-                    break;
-                case MENU_MIN:
-                    MinCurrent = MenuNavInt(Buttons, MinCurrent, 6, 16);
-                    break;
-                case MENU_MAX:
-                    MaxCurrent = MenuNavInt(Buttons, MaxCurrent, 10, 80);
-                    break;
-                case MENU_LOCK:
-                    Lock = MenuNavChar(Buttons, Lock, 0, 2);
-                    break;
-                case MENU_CABLE:
-                    CableLimit = MenuNavChar(Buttons, CableLimit, 13, 80);
-                    break;
-                case MENU_CAL:
-                    CT1 = MenuNavInt(Buttons, CT1, 60, 1000);
-                    break;
-                case MENU_ACCESS:
-                    Access = MenuNavChar(Buttons, Access, 0, 1);
-                    break;
-                case MENU_RCMON:
-                    RCmon = MenuNavChar(Buttons, RCmon, 0, 1);
-                    break;
                 case MENU_MAINSMETER:
                     MainsMeter = MenuNavCharArray(Buttons, MainsMeter, EMs, 5);
-                    break;
-                case MENU_MAINSMETERADDRESS:
-                    MainsMeterAddress = MenuNavChar(Buttons, MainsMeterAddress, 5, 255);
-                    break;
-                case MENU_MAINSMETERMEASURE:
-                    MainsMeterMeasure = MenuNavChar(Buttons, MainsMeterMeasure, 0, 1);
                     break;
                 case MENU_PVMETER:
                     PVMeter = MenuNavCharArray(Buttons, PVMeter, EMs2, 3);
                     break;
-                case MENU_PVMETERADDRESS:
-                    PVMeterAddress = MenuNavChar(Buttons, PVMeterAddress, 5, 255);
-                    break;
                 default:
+                    value = getMenuItemValue(LCDNav);
+                    value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
+                    setMenuItemValue(LCDNav, value, 0);
                     break;
             }
         } else {

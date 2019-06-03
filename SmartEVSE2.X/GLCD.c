@@ -363,47 +363,6 @@ void GLCD_print_menu(const far char *data, char RowAdr)                         
 }
 
 /**
- * Increase or decrease char value
- * 
- * @param unsigned char Buttons
- * @param unsigned char Value
- * @param unsigned char Min
- * @param unsigned char Max
- * @return unsigned char Value
- */
-unsigned char MenuNavChar(unsigned char Buttons, unsigned char Value, unsigned char Min, unsigned char Max) {
-    if (Buttons == 0x3) {
-        if (Value >= Max) Value = Min;
-        else Value++;
-    } else if (Buttons == 0x6) {
-        if (Value <= Min) Value = Max;
-        else Value--;
-    }
-    
-    return Value;
-}
-
-/**
- * Get to next or previous value of an char array
- * 
- * @param unsigned char Buttons
- * @param unsigned char Value
- * @param unsigned char Count
- * @param unsigned char array Values
- * @return unsigned char Value
- */
-unsigned char MenuNavCharArray(unsigned char Buttons, unsigned char Value, unsigned char Values[], unsigned char Count) {
-    unsigned char i;
-
-    for (i = 0; i < Count; i++) {
-        if (Value == Values[i]) break;
-    }
-    i = MenuNavChar(Buttons, i, 0, Count - 1);
-
-    return Values[i];
-}
-
-/**
  * Increase or decrease int value
  * 
  * @param unsigned int Buttons
@@ -422,6 +381,26 @@ unsigned int MenuNavInt(unsigned char Buttons, unsigned int Value, unsigned int 
     }
    
     return Value;
+}
+
+/**
+ * Get to next or previous value of an char array
+ * 
+ * @param unsigned char Buttons
+ * @param unsigned char Value
+ * @param unsigned char Count
+ * @param unsigned char array Values
+ * @return unsigned char Value
+ */
+unsigned char MenuNavCharArray(unsigned char Buttons, unsigned char Value, unsigned char Values[], unsigned char Count) {
+    unsigned int i;
+
+    for (i = 0; i < Count; i++) {
+        if (Value == Values[i]) break;
+    }
+    i = MenuNavInt(Buttons, i, 0, Count - 1);
+
+    return Values[i];
 }
 
 // uses buffer

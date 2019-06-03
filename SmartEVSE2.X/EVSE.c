@@ -1484,6 +1484,25 @@ char * getMenuItemOption(unsigned char nav) {
 }
 
 /**
+ * Get the variable
+ * 
+ * @param unsigned char status
+ * @return unsigned int value
+ */
+unsigned int getStatusValue(unsigned char status) {
+    switch (status) {
+        case STATUS_STATE:
+            return State + 64;
+        case STATUS_ERROR:
+            return Error;
+        case STATUS_CURRENT:
+            return Balanced[0];
+        default:
+            break;
+    }
+}
+
+/**
  * Read menu item values and send modbus response
  * 
  * @param unsigned int reg: Start register
@@ -1547,6 +1566,25 @@ void WriteMultipleMenuItemValueResponse(unsigned int reg, unsigned int nav, unsi
         } else  {
             ModbusWriteMultipleResponse(Modbus.Address, Modbus.Register, OK);
         }
+    }
+}
+
+/**
+ * Read status values and send modbus response
+ * 
+ * @param unsigned int reg: Start register
+ * @param unsigned int nav: Start STATUS_xxx number
+ * @param unsigned int count: Count of STATUS_xxx items
+ */
+void ReadStatusValueResponse(unsigned int reg, unsigned int nav, unsigned int count) {
+    unsigned char i;
+    unsigned int values[3];
+
+    if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
+        for (i = 0; i < Modbus.RegisterCount; i++) {
+            values[i] = getStatusValue((Modbus.Register - reg) + nav + i);
+        }
+        ModbusReadInputResponse(Modbus.Address, values, Modbus.RegisterCount);
     }
 }
 
@@ -2468,21 +2506,24 @@ void main(void) {
                     case 0x04: // (Read input register)
                         // Addressed to this device
                         if (Modbus.Address == LoadBl) {
-                            // Register 0xA*: Current status
+                            // Register 0xA*: Status
                             // 0xA0: State
                             // 0xA1: Error
                             // 0xA2: Charging current
+                            if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA2) {
+                                ReadStatusValueResponse(0xA0, STATUS_STATE, 3);
+                            }
                             // Register 0xC*: Configuration
                             // 0xC0: MENU_CONFIG  2
                             // 0xC9: MENU_RCMON  11
                             if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
-                                ReadMenuItemValueResponse(0xC0, 2, 10);
+                                ReadMenuItemValueResponse(0xC0, MENU_CONFIG, 10);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
                             // 0xE0: MENU_MAX            12
                             // 0xE7: MENU_PVMETERADDRESS 19
                             else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
-                                ReadMenuItemValueResponse(0xE0, 12, 8);
+                                ReadMenuItemValueResponse(0xE0, MENU_MAX, 8);
                             }
                         }
                         break;

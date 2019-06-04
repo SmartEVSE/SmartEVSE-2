@@ -1996,6 +1996,52 @@ void init(void) {
 
 }
 
+/**
+ * Update current data after received current measurement
+ */
+void UpdateCurrentData(void) {
+    unsigned char x;
+
+    // reset Imeasured value (grid power used)
+    Imeasured = 0;
+    // reset ImeasuredNegative (surplus power generated)
+    ImeasuredNegative = 0;
+    Isum = 0;
+    for (x=0; x<3; x++) {
+        // Imeasured holds highest Irms of all channels
+        if (Irms[x] > Imeasured) Imeasured = (unsigned int) Irms[x];
+        if (Irms[x] < ImeasuredNegative) ImeasuredNegative = (signed int) Irms[x];
+        Isum = Isum + (int) Irms[x];
+    }
+
+    // Load Balancing mode: Smart/Master or Disabled
+    if (Mode && LoadBl < 2) {
+        // Calculate dynamic charge current for connected EVSE's
+        CalcBalancedCurrent(0);
+
+        // No current left, or Overload (2x Maxmains)?
+        if (NoCurrent > 2 || (Imeasured > (MaxMains * 20))) {
+            // STOP charging for all EVSE's
+            // Display error message
+            Error |= NOCURRENT;
+            // Set all EVSE's to State A
+            for (x = 0; x < 4; x++) BalancedState[x] = 0;
+
+            // Broadcast Error code over RS485
+            // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
+            ModbusWriteSingleRequest(0x00, 0x02, LESS_6A);
+            NoCurrent = 0;
+        } else if (LoadBl) BroadcastCurrent(); // Master sends current to all connected EVSE's
+
+        if ((State == STATE_B) || (State == STATE_C)) {
+            // Set current for Master EVSE in Smart Mode
+            SetCurrent(Balanced[0]);
+        }
+        DEBUG_PRINT(("STATE:%c Error:%u StartCurrent: %i ImeasuredNegative: %i ChargeDelay:%u SolarStopTimer:%u NoCurrent:%u Imeas:%3u.%01uA IsetBalanced:%u.%01uA ",State-1+'A', Error, (unsigned int)StartCurrent*-10, ImeasuredNegative, ChargeDelay, SolarStopTimer,  NoCurrent,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)IsetBalanced/10,(unsigned int)IsetBalanced%10));
+        DEBUG_PRINT(("L1: %3.1f A L2: %3.1f A L3: %3.1f A Isum: %3.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
+    } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
+}
+
 void main(void) {
     char x, n;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
@@ -2483,7 +2529,7 @@ void main(void) {
                                 MainsReceived = 1;
                             }
                             else {
-                                DataReceived = 1;
+                                UpdateCurrentData();
                             }
                         } else if (MainsReceived && PVMeter && Modbus.Address == PVMeterAddress) {
                             // packet from PV electric meter
@@ -2492,7 +2538,7 @@ void main(void) {
                                 Irms[x] = Irms[x] - PV[x];
                             }
                             MainsReceived = 0;
-                            DataReceived = 1;
+                            UpdateCurrentData();
                         }
                         break;
                     default:
@@ -2600,7 +2646,7 @@ void main(void) {
                     }
                     // if (U1packet[4] == 0xA5 && !TestState) TestState = 1;    // TestIO command received, perform selfcheck (test interface required)
 
-                    DataReceived = 1;
+                    UpdateCurrentData();
                 }
             } else {
                 printf("\n  CRC invalid");
@@ -2610,39 +2656,6 @@ void main(void) {
 
         // Process received data
         switch (DataReceived) {
-            case 1: // Measurement received
-                Imeasured = 0;                                                  // reset Imeasured value (grid power used)
-                ImeasuredNegative = 0;                                          // reset ImeasuredNegative (surplus power generated)
-                Isum = 0;
-                for (x=0; x<3; x++) {
-                    if (Irms[x] > Imeasured) Imeasured = (unsigned int) Irms[x]; // Imeasured holds highest Irms of all channels
-                    if (Irms[x] < ImeasuredNegative) ImeasuredNegative = (signed int) Irms[x];
-                    Isum = Isum + (int) Irms[x];
-                }
-
-                if (Mode && LoadBl < 2)                                         // Load Balancing mode: Smart/Master or Disabled
-                {
-                    CalcBalancedCurrent(0);                                     // Calculate dynamic charge current for connected EVSE's
-
-                    if (NoCurrent > 2 || (Imeasured > (MaxMains * 20)))         // No current left, or Overload (2x Maxmains)?
-                    {                                                           // STOP charging for all EVSE's
-                        Error |= NOCURRENT;                                     // Display error message
-                        for (x = 0; x < 4; x++) BalancedState[x] = 0;           // Set all EVSE's to State A
-
-                        // Broadcast Error code over RS485
-                        // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
-                        ModbusWriteSingleRequest(0x00, 0x02, LESS_6A);
-                        NoCurrent = 0;
-                    } else if (LoadBl) BroadcastCurrent();                       // Master sends current to all connected EVSE's
-
-                    if ((State == STATE_B) || (State == STATE_C)) {
-                        SetCurrent(Balanced[0]);                                // Set current for Master EVSE in Smart Mode
-                    }
-                    DEBUG_PRINT(("STATE:%c Error:%u StartCurrent: %i ImeasuredNegative: %i ChargeDelay:%u SolarStopTimer:%u NoCurrent:%u Imeas:%3u.%01uA IsetBalanced:%u.%01uA ",State-1+'A', Error, (unsigned int)StartCurrent*-10, ImeasuredNegative, ChargeDelay, SolarStopTimer,  NoCurrent,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)IsetBalanced/10,(unsigned int)IsetBalanced%10));
-                    DEBUG_PRINT(("L1: %3.1f A L2: %3.1f A L3: %3.1f A Isum: %3.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
-                } else Imeasured = 0;                                           // In case Sensorbox is connected in Normal mode. Clear measurement.
-                break;
-
             case 2: // Master -> Slave
                 if (Modbus.Address == 0x00 && LoadBl > 1)                       // Broadcast message from Master->Slaves, Set Charge current
                 {

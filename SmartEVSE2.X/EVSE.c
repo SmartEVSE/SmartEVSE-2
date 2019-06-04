@@ -1248,22 +1248,22 @@ unsigned char getMenuItems (void) {
     unsigned char m = 0;
 
     MenuItems[m++] = MENU_CONFIG;                                               // Configuration (0:Socket / 1:Fixed Cable)
+    if (Config) {                                                               // ? Fixed Cable?
+        MenuItems[m++] = MENU_CABLE;                                            // - Fixed Cable Current limit (A)
+    } else {                                                                    // ? Socket?
+        MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
+    }
     MenuItems[m++] = MENU_MODE;                                                 // EVSE mode (0:Normal / 1:Smart)
     if (Mode == MODE_SOLAR) {                                                   // ? Solar mode?
         MenuItems[m++] = MENU_START;                                            // - Start Surplus Current (A)
         MenuItems[m++] = MENU_STOP;                                             // - Stop time (min)
     }
     MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-    if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode and Load Balancing Disabled or Master?
+    if (Mode && LoadBl <= 1 || LoadBl == 1) {                                   // ? Smart or Solar mode and Load Balancing Disabled or Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
     }
     MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
-    if (Config) {                                                               // ? Fixed Cable?
-        MenuItems[m++] = MENU_CABLE;                                            // - Fixed Cable Current limit (A)
-    } else {                                                                    // ? Socket?
-        MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
-    }
     MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
     if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?

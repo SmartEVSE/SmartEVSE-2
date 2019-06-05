@@ -820,6 +820,7 @@ void write_settings(void) {
 
     // Validate Settings
     if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
+    if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
     if (MainsMeterMeasure == 0) PVMeter = 0;
     
     savint = INTCON;                                                            // Save interrupts state
@@ -851,15 +852,17 @@ void write_settings(void) {
     printf("\r\nsettings saved\r\n");
 
     if (LoadBl == 1) {
-        unsigned int values[7];
-        values[0] = MaxMains;
-        values[1] = ICal;
-        values[2] = MainsMeter;
-        values[3] = MainsMeterAddress;
-        values[4] = MainsMeterMeasure;
-        values[5] = PVMeter;
-        values[6] = PVMeterAddress;
-        ModbusWriteMultipleRequest(0x00, 0xE1, values, 7);
+        unsigned int values[9];
+        values[0] = MaxCurrent;
+        values[1] = Mode;
+        values[2] = MaxMains;
+        values[3] = ICal;
+        values[4] = MainsMeter;
+        values[5] = MainsMeterAddress;
+        values[6] = MainsMeterMeasure;
+        values[7] = PVMeter;
+        values[8] = PVMeterAddress;
+        ModbusWriteMultipleRequest(0x00, 0xE0, values, 9);
     }
 }
 
@@ -1262,8 +1265,8 @@ unsigned char getMenuItems (void) {
     if (Mode && LoadBl <= 1 || LoadBl == 1) {                                   // ? Smart or Solar mode and Load Balancing Disabled or Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
+        MenuItems[m++] = MENU_MAX;                                              // - Max Charge current (A)
     }
-    MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
     MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
     if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?
@@ -2561,15 +2564,15 @@ void main(void) {
                             }
                             // Register 0xC*: Configuration
                             // 0xC0: MENU_CONFIG  2
-                            // 0xC9: MENU_RCMON  11
+                            // 0xC9: MENU_RCMON  10
                             if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
-                                ReadMenuItemValueResponse(0xC0, MENU_CONFIG, 10);
+                                ReadMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX            12
+                            // 0xE0: MENU_MAX            11
                             // 0xE7: MENU_PVMETERADDRESS 19
                             else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
-                                ReadMenuItemValueResponse(0xE0, MENU_MAX, 8);
+                                ReadMenuItemValueResponse(0xE0, MENU_MAX, 9);
                             }
                         }
                         break;
@@ -2590,15 +2593,15 @@ void main(void) {
                         if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
                             // Register 0xC*: Configuration
                             // 0xC0: MENU_CONFIG  2
-                            // 0xC9: MENU_RCMON  11
+                            // 0xC9: MENU_RCMON  10
                             if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
-                                WriteMenuItemValueResponse(0xC0, 2);
+                                WriteMenuItemValueResponse(0xC0, MENU_CONFIG);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX            12
+                            // 0xE0: MENU_MAX            11
                             // 0xE7: MENU_PVMETERADDRESS 19
                             else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
-                                WriteMenuItemValueResponse(0xE0, 12);
+                                WriteMenuItemValueResponse(0xE0, MENU_MAX);
                             }
                         }
                         break;
@@ -2615,13 +2618,13 @@ void main(void) {
                             // 0xC0: MENU_CONFIG  2
                             // 0xC9: MENU_RCMON  11
                             else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
-                                WriteMultipleMenuItemValueResponse(0xC0, 2, 10);
+                                WriteMultipleMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX            12
+                            // 0xE0: MENU_MAX            11
                             // 0xE7: MENU_PVMETERADDRESS 19
                             else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
-                                WriteMultipleMenuItemValueResponse(0xE0, 12, 8);
+                                WriteMultipleMenuItemValueResponse(0xE0, MENU_MAX, 9);
                             }
                         }
                         break;

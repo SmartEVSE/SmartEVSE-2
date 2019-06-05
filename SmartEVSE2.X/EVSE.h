@@ -101,16 +101,16 @@
 
 #define MENU_ENTER 1
 #define MENU_CONFIG 2
-#define MENU_MODE 3
-#define MENU_START 4
-#define MENU_STOP 5
-#define MENU_LOADBL 6
-#define MENU_MIN 7
-#define MENU_CABLE 8
-#define MENU_LOCK 9
-#define MENU_ACCESS 10
-#define MENU_RCMON 11
-#define MENU_MAX 12
+#define MENU_LOADBL 3
+#define MENU_MIN 4
+#define MENU_CABLE 5
+#define MENU_LOCK 6
+#define MENU_START 7
+#define MENU_STOP 8
+#define MENU_ACCESS 9
+#define MENU_RCMON 10
+#define MENU_MAX 11
+#define MENU_MODE 12
 #define MENU_MAINS 13
 #define MENU_CAL 14
 #define MENU_MAINSMETER 15
@@ -213,16 +213,16 @@ const far struct {
     {"",       "",         "Not in menu", 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1},
-    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2},
-    {"START",  "START",    "Surplus energy start Current", 1, 16},
-    {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60},
     {"LOADBL", "LOAD BAL", "Set Load Balancing mode", 0, 4},
     {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16},
     {"CABLE",  "CABLE",    "Set Fixed Cable Current limit", 13, 80},
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2},
+    {"START",  "START",    "Surplus energy start Current", 1, 16},
+    {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60},
     {"ACCESS", "ACCESS",   "Access control on IO2", 0, 1},
     {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1},
-    {"MAX",    "MAX",      "Set MAX Charge Current for the EV", 10, 80},
+    {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80},
+    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 60, 1000},
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 0, 20},

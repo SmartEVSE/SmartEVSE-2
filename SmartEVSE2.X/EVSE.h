@@ -125,9 +125,10 @@
 #define STATUS_CURRENT 3
 
 #define EM_SENSORBOX1 1
-#define EM_SENSORBOX2 3
-#define EM_PHOENIX_CONTACT 10
-#define EM_FINDER 20
+#define EM_SENSORBOX2 2
+#define EM_PHOENIX_CONTACT 3
+#define EM_FINDER 4
+#define EM_CUSTOM 5
 
 #define MODBUS_INVALID 0
 #define MODBUS_OK 1
@@ -225,12 +226,28 @@ const far struct {
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 60, 1000},
-    {"MAINEM", "MAINSMET", "Type of mains electric meter", 0, 20},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 4},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 0, 20},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 3, 4},
     {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255},
     {"EXIT",   "EXIT",     "EXIT", 0, 0}
+};
+
+const far struct {
+    unsigned char Desc[10];
+    unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
+    unsigned char IRegister;
+    unsigned char IDivisor; // 10^x
+    unsigned int ERegister;
+    unsigned char ERegCount;
+    unsigned char EDivisor;
+} EMConfig[5] = {
+    {"Disabled",  0,   0, 0,     0, 0, 0},
+    {"Sensorb.1", 0,   0, 0,     0, 0, 0}, // Sensorbox 1
+    {"Sensorb.2", 0,   0, 0,     0, 0, 0}, // Sensorbox 2
+    {"Phoenix C", 2,  12, 3,    62, 2, 1}, // PHOENIX CONTACT EEM-350-D-MCB
+    {"Finder",    3, 0xE, 3, 0x109, 3, 4}  // Finder 7E.78.8.400.0212
 };
 
 void delay(unsigned int d);

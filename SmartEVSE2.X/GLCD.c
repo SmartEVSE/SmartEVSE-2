@@ -655,8 +655,6 @@ void GLCDMenu(unsigned char Buttons) {                                          
     static unsigned int CT1, CT1old, value;
     static double Iold;
 
-    unsigned char EMs[5] = {0, EM_SENSORBOX1, EM_SENSORBOX2, EM_PHOENIX_CONTACT, EM_FINDER};
-    unsigned char EMs2[3] = {0, EM_PHOENIX_CONTACT, EM_FINDER};
     unsigned char MenuItemsCount = getMenuItems();
 
     // Main Menu Navigation
@@ -690,19 +688,9 @@ void GLCDMenu(unsigned char Buttons) {                                          
     else if ((LCDNav > 1) && (Buttons == 0x2 || Buttons == 0x3 || Buttons == 0x6) && (ButtonRelease == 0))
     {
         if (SubMenu) {
-            switch (LCDNav) {
-                case MENU_MAINSMETER:
-                    MainsMeter = MenuNavCharArray(Buttons, MainsMeter, EMs, 5);
-                    break;
-                case MENU_PVMETER:
-                    PVMeter = MenuNavCharArray(Buttons, PVMeter, EMs2, 3);
-                    break;
-                default:
-                    value = getMenuItemValue(LCDNav);
-                    value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-                    setMenuItemValue(LCDNav, value, 0);
-                    break;
-            }
+            value = getMenuItemValue(LCDNav);
+            value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
+            setMenuItemValue(LCDNav, value, 0);
         } else {
             LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
         }

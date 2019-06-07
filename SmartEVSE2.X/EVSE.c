@@ -122,10 +122,6 @@ const far char StrSlave3[]  = "Slave 3";
 const far char StrSwitch[]  = "Switch";
 const far char StrEnabled[] = "Enabled";
 const far char StrExitMenu[] = "MENU";
-const far char StrSensorbox1[] = "Sensorb.1";
-const far char StrSensorbox2[] = "Sensorb.2";
-const far char StrPhoenix[] = "Phoenix C";
-const far char StrFinder[]  = "Finder";
 const far char StrMainsAll[] = "All"; // Everything
 const far char StrMainsHomeEVSE[] = "Home+EVSE";
 
@@ -355,6 +351,22 @@ void interrupt high_isr(void)
         PIR5bits.TMR4IF = 0;                                                    // clear interrupt flag
     }
 
+}
+
+/**
+ * Calculate 10 to the power of x
+ * 
+ * @param unsigned char exponent
+ * @return unsigned int pow10
+ */
+unsigned int pow10(unsigned char exp) {
+    unsigned int i, ret = 1;
+
+    for (i = 0; i < exp; i++) {
+        ret = ret * 10;
+    }
+
+    return ret;
 }
 
 /* triwave8: triangle (sawtooth) wave generator.  Useful for
@@ -1185,13 +1197,8 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
         case EM_SENSORBOX2:
             ModbusReadInputRequest(Address, 0, 20);
             break;
-        case EM_PHOENIX_CONTACT:
-            ModbusReadInputRequest(Address, 12, 6);
-            break;
-        case EM_FINDER:
-            ModbusReadInputRequest(Address, 0xE, 6);
-            break;
         default:
+            ModbusReadInputRequest(Address, EMConfig[Meter].IRegister, 6);
             break;
     }  
 }
@@ -1219,25 +1226,11 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
                 var[x] = var[x] * ICal;	
             }
             break;
-        case EM_PHOENIX_CONTACT:
-            // PHOENIX CONTACT EEM-350-D-MCB
-            // I: Register 12 / I = val / 1000
-            // high byte first, low word first
-            for (x = 0; x < 3; x++) {
-                combineBytes(&lCombined, buf, (x * 4), 2);
-                var[x] = (double) lCombined / 100;
-            }
-            break;
-        case EM_FINDER:
-            // Finder 7E.78.8.400.0212
-            // I: Register 0xE / I = val / 1000
-            // high byte first, high word first
-            for (x = 0; x < 3; x++) {
-                combineBytes(&lCombined, buf, (x * 4), 3);
-                var[x] = (double) lCombined / 100;
-            }
-            break;
         default:
+            for (x = 0; x < 3; x++) {
+                combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
+                var[x] = (double) lCombined / (pow10(EMConfig[Meter].IDivisor) / 10);
+            }
             break;
     }
 }
@@ -1457,21 +1450,7 @@ char * getMenuItemOption(unsigned char nav) {
             else return StrDisabled;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
-            switch (value) {
-                case 0:
-                    return StrDisabled;
-                case EM_SENSORBOX1:
-                    return StrSensorbox1;
-                case EM_SENSORBOX2:
-                    return StrSensorbox2;
-                case EM_PHOENIX_CONTACT:
-                    return StrPhoenix;
-                case EM_FINDER:
-                    return StrFinder;
-                default:
-                    break;
-            }
-            break;
+            if (value < EM_CUSTOM) return EMConfig[value].Desc;
         case MENU_MAINSMETERADDRESS:
         case MENU_PVMETERADDRESS:
             sprintf(Str, "%u", value);
@@ -1706,21 +1685,11 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_MAINSMETER:
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    MainsMeter = 0;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SENSORBOX1") == 0) {
-                    MainsMeter = EM_SENSORBOX1;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SENSORBOX2") == 0) {
-                    MainsMeter = EM_SENSORBOX2;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "PHOENIX") == 0) {
-                    MainsMeter = EM_PHOENIX_CONTACT;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "FINDER") == 0) {
-                    MainsMeter = EM_FINDER;
-                    write_settings();
+            case MENU_PVMETER:
+                for(i = 0; i < EM_CUSTOM; i++){
+                    if (strcmp(U2buffer, EMConfig[i].Desc) == 0) {
+                        setMenuItemValue(menu, i, 1);
+                    }
                 }
                 break;
             case MENU_MAINSMETERMEASURE:
@@ -1729,18 +1698,6 @@ void RS232cli(void) {
                     write_settings();
                 } else if (strcmp(U2buffer, (const far char *) "HOME") == 0) {
                     MainsMeterMeasure = 1;
-                    write_settings();
-                }
-                break;
-            case MENU_PVMETER:
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    PVMeter = 0;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "PHOENIX") == 0) {
-                    PVMeter = EM_PHOENIX_CONTACT;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "FINDER") == 0) {
-                    PVMeter = EM_FINDER;
                     write_settings();
                 }
                 break;
@@ -1823,7 +1780,11 @@ void RS232cli(void) {
             printf("CT1 reads: %3u.%01u A\r\nEnter new Measured Current for CT1: ", (unsigned int)Irms[0], (unsigned int)(Irms[0] * 10) % 10);
             break;
         case MENU_MAINSMETER:
-            printf("Enter new type of mains electric meter (DISABLE/SENSORBOX1/SENSORBOX2/PHOENIX/FINDER): ");
+            printf("Enter new type of mains electric meter (Disabled");
+            for(i = 1; i < EM_CUSTOM; i++) {
+                printf("/%s",EMConfig[i].Desc);
+            }
+            printf("): ");
             break;
         case MENU_MAINSMETERADDRESS:
             printf("Enter new address of mains electric meter (5-255): ");
@@ -1832,7 +1793,11 @@ void RS232cli(void) {
             printf("Enter what mains electric meter measure (ALL/HOME): ");
             break;
         case MENU_PVMETER:
-            printf("Enter new type of PV electric meter (DISABLE/PHOENIX/FINDER): ");
+            printf("Enter new type of PV electric meter (Disabled");
+            for(i = 1; i < EM_CUSTOM; i++) {
+                printf("/%s",EMConfig[i].Desc);
+            }
+            printf("): ");
             break;
         case MENU_PVMETERADDRESS:
             printf("Enter new address of PV electric meter (5-255): ");

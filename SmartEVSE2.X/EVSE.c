@@ -356,14 +356,21 @@ void interrupt high_isr(void)
 /**
  * Calculate 10 to the power of x
  * 
- * @param unsigned char exponent
- * @return unsigned int pow10
+ * @param signed char exponent
+ * @return signed double pow10
  */
-unsigned int pow10(unsigned char exp) {
-    unsigned int i, ret = 1;
+signed double pow10(signed char exp) {
+    signed char i;
+    signed double ret = 1;
 
-    for (i = 0; i < exp; i++) {
-        ret = ret * 10;
+    if(exp > 0) {
+        for (i = 0; i < exp; i++) {
+            ret = ret * 10;
+        }
+    } else {
+        for (i = 0; i > exp; i--) {
+            ret = ret / 10;
+        }
     }
 
     return ret;
@@ -1229,7 +1236,7 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
         default:
             for (x = 0; x < 3; x++) {
                 combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
-                var[x] = (double) lCombined / (pow10(EMConfig[Meter].IDivisor) / 10);
+                var[x] = (double) lCombined / pow10(EMConfig[Meter].IDivisor - 1);
             }
             break;
     }

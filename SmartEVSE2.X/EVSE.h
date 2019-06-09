@@ -50,11 +50,14 @@
 #define BACKLIGHT 60                                                            // Seconds delay for the LCD backlight to turn off.
 #define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
-#define MAINS_METER 3
+#define MAINS_METER 2
 #define MAINS_METER_ADDRESS 10
 #define MAINS_METER_MEASURE 0
 #define PV_METER 0
 #define PV_METER_ADDRESS 11
+#define EMCUSTOM_ENDIANESS 0
+#define EMCUSTOM_IREGISTER 0
+#define EMCUSTOM_IDIVISOR 0
 
 // Mode settings
 #define MODE_NORMAL 0
@@ -118,7 +121,10 @@
 #define MENU_MAINSMETERMEASURE 17
 #define MENU_PVMETER 18
 #define MENU_PVMETERADDRESS 19
-#define MENU_EXIT 20
+#define MENU_EMCUSTOM_ENDIANESS 20
+#define MENU_EMCUSTOM_IREGISTER 21
+#define MENU_EMCUSTOM_IDIVISOR 22
+#define MENU_EXIT 23
 
 #define STATUS_STATE 1
 #define STATUS_ERROR 2
@@ -202,7 +208,7 @@ extern unsigned char ChargeDelay;                                               
 extern unsigned char TestState;
 extern unsigned char Access_bit;
 
-extern unsigned char MenuItems[18];
+extern unsigned char MenuItems[21];
 
 const far struct {
     char Key[7];
@@ -210,7 +216,7 @@ const far struct {
     char Desc[52];
     unsigned int Min;
     unsigned int Max;
-} MenuStr[21] = {
+} MenuStr[24] = {
     {"",       "",         "Not in menu", 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1},
@@ -226,15 +232,18 @@ const far struct {
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 60, 1000},
-    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 4},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 3, 4},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 3, 5},
     {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255},
+    {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3},
+    {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255},
+    {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 4},
     {"EXIT",   "EXIT",     "EXIT", 0, 0}
 };
 
-const far struct {
+struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
     unsigned char IRegister;
@@ -242,12 +251,13 @@ const far struct {
     unsigned int ERegister;
     unsigned char ERegCount;
     unsigned char EDivisor;
-} EMConfig[5] = {
-    {"Disabled",  0,   0, 0,     0, 0, 0},
+} EMConfig[6] = {
+    {"Disabled",  0,   0, 0,     0, 0, 0}, // First entry!
     {"Sensorb.1", 0,   0, 0,     0, 0, 0}, // Sensorbox 1
     {"Sensorb.2", 0,   0, 0,     0, 0, 0}, // Sensorbox 2
     {"Phoenix C", 2,  12, 3,    62, 2, 1}, // PHOENIX CONTACT EEM-350-D-MCB
-    {"Finder",    3, 0xE, 3, 0x109, 3, 4}  // Finder 7E.78.8.400.0212
+    {"Finder",    3, 0xE, 3, 0x109, 3, 4}, // Finder 7E.78.8.400.0212
+    {"Custom",    0,   0, 0,     0, 0, 0}  // Last entry!
 };
 
 void delay(unsigned int d);

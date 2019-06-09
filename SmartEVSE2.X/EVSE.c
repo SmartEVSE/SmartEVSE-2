@@ -99,11 +99,14 @@ const unsigned int EE_Access_RCmon @ 0xf00010 = ACCESS + (RC_MON << 8);
 const unsigned int EE_StartCurrent @ 0xf00012 = START_CURRENT;
 const unsigned int EE_StopTime @ 0xf00014 = STOP_TIME;
 /*
-const unsigned EE_MainsMeter @ 0xf00016 = MAINS_METER
-const unsigned EE_MainsMeterAddress @ 0xf00017 = MAINS_METER_ADDRESS
-const unsigned EE_MainsMeterMeasure @ 0xf00018 = MAINS_METER_MEASURE
-const unsigned EE_PVMeter @ 0xf00019 = PV_METER
-const unsigned EE_PVMeterAddress @ 0xf00020 = PV_METER_ADDRESS
+const unsigned char EE_MainsMeter @ 0xf00016 = MAINS_METER
+const unsigned char EE_MainsMeterAddress @ 0xf00017 = MAINS_METER_ADDRESS
+const unsigned char EE_MainsMeterMeasure @ 0xf00018 = MAINS_METER_MEASURE
+const unsigned char EE_PVMeter @ 0xf00019 = PV_METER
+const unsigned char EE_PVMeterAddress @ 0xf00020 = PV_METER_ADDRESS
+const unsigned char EMConfig[EM_CUSTOM].Endianness @ 0xf00021 = EMCUSTOM_ENDIANESS
+const unsigned char EMConfig[EM_CUSTOM].IRegister @ 0xf00022 = EMCUSTOM_IREGISTER
+const unsigned char EMConfig[EM_CUSTOM].IDivisor @ 0xf00023 = EMCUSTOM_IDIVISOR
 */
 
 // Text
@@ -198,7 +201,7 @@ unsigned char LedUpdate = 0;                                                    
 unsigned char LedCount = 0;                                                     // Raw Counter before being converted to PWM value
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
 unsigned char ModbusRequest = 0;                                                // Flag to request Modbus information
-unsigned char MenuItems[18];
+unsigned char MenuItems[21];
 
 unsigned char Access_bit = 0;
 unsigned int AccessTimer = 0;         
@@ -830,6 +833,9 @@ void read_settings(void) {
     eeprom_read_object(&MainsMeterMeasure, sizeof MainsMeterMeasure);
     eeprom_read_object(&PVMeter, sizeof PVMeter);
     eeprom_read_object(&PVMeterAddress, sizeof PVMeterAddress);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].Endianness, sizeof EMConfig[EM_CUSTOM].Endianness);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].IRegister, sizeof EMConfig[EM_CUSTOM].IRegister);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
 
     INTCON = savint; // Restore interrupts
 }
@@ -866,12 +872,15 @@ void write_settings(void) {
     eeprom_write_object(&MainsMeterMeasure, sizeof MainsMeterMeasure);
     eeprom_write_object(&PVMeter, sizeof PVMeter);
     eeprom_write_object(&PVMeterAddress, sizeof PVMeterAddress);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].Endianness, sizeof EMConfig[EM_CUSTOM].Endianness);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].IRegister, sizeof EMConfig[EM_CUSTOM].IRegister);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
 
     INTCON = savint;                                                            // Restore interrupts
     printf("\r\nsettings saved\r\n");
 
     if (LoadBl == 1) {
-        unsigned int values[9];
+        unsigned int values[12];
         values[0] = MaxCurrent;
         values[1] = Mode;
         values[2] = MaxMains;
@@ -881,7 +890,10 @@ void write_settings(void) {
         values[6] = MainsMeterMeasure;
         values[7] = PVMeter;
         values[8] = PVMeterAddress;
-        ModbusWriteMultipleRequest(0x00, 0xE0, values, 9);
+        values[9] = EMConfig[EM_CUSTOM].Endianness;
+        values[10] = EMConfig[EM_CUSTOM].IRegister;
+        values[11] = EMConfig[EM_CUSTOM].IDivisor;
+        ModbusWriteMultipleRequest(0x00, 0xE0, values, 12);
     }
 }
 
@@ -1280,6 +1292,11 @@ unsigned char getMenuItems (void) {
                 MenuItems[m++] = MENU_PVMETER;                                  // - - - Type of PV electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
                 MenuItems[m++] = MENU_PVMETERADDRESS;                           // - - - Address of PV electric meter (5 - 254)
             }
+            if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM) {              // ? Custom electric meter used?
+                MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                       // - Byte order of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                       // - Starting register for current of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                        // - Divisor for current of custom electric meter
+            }
         }
     }
     MenuItems[m++] = MENU_EXIT;
@@ -1349,6 +1366,15 @@ unsigned char setMenuItemValue(unsigned char nav, unsigned int val, unsigned cha
             case MENU_PVMETERADDRESS:
                 PVMeterAddress = val;
                 break;
+            case MENU_EMCUSTOM_ENDIANESS:
+                EMConfig[EM_CUSTOM].Endianness = val;
+                break;
+            case MENU_EMCUSTOM_IREGISTER:
+                EMConfig[EM_CUSTOM].IRegister = val;
+                break;
+            case MENU_EMCUSTOM_IDIVISOR:
+                EMConfig[EM_CUSTOM].IDivisor = val;
+                break;
             default:
                 return 0;
         }
@@ -1402,6 +1428,15 @@ unsigned int getMenuItemValue(unsigned char nav) {
             return PVMeter;
         case MENU_PVMETERADDRESS:
             return PVMeterAddress;
+        case MENU_EMCUSTOM_ENDIANESS:
+            return EMConfig[EM_CUSTOM].Endianness;
+            break;
+        case MENU_EMCUSTOM_IREGISTER:
+            return EMConfig[EM_CUSTOM].IRegister;
+            break;
+        case MENU_EMCUSTOM_IDIVISOR:
+            return EMConfig[EM_CUSTOM].IDivisor;
+            break;
         default:
             return 0;
     }
@@ -1457,14 +1492,27 @@ char * getMenuItemOption(unsigned char nav) {
             else return StrDisabled;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
-            if (value < EM_CUSTOM) return EMConfig[value].Desc;
+            if (value <= EM_CUSTOM) return EMConfig[value].Desc;
         case MENU_MAINSMETERADDRESS:
         case MENU_PVMETERADDRESS:
+        case MENU_EMCUSTOM_IREGISTER:
             sprintf(Str, "%u", value);
             return Str;
         case MENU_MAINSMETERMEASURE:
             if (MainsMeterMeasure) return StrMainsHomeEVSE;
             else return StrMainsAll;
+        case MENU_EMCUSTOM_ENDIANESS:
+            switch(value) {
+                case 0: return "LBF & LWF";
+                case 1: return "LBF & HWF";
+                case 2: return "HBF & LWF";
+                case 3: return "HBF & HWF";
+                default:
+                    break;
+            }
+        case MENU_EMCUSTOM_IDIVISOR:
+            sprintf(Str, "%i", (unsigned int)pow10(value));
+            return Str;
         case MENU_EXIT:
             return StrExitMenu;
         default:
@@ -1788,28 +1836,29 @@ void RS232cli(void) {
             break;
         case MENU_MAINSMETER:
             printf("Enter new type of mains electric meter (Disabled");
-            for(i = 1; i < EM_CUSTOM; i++) {
+            for(i = 1; i <= EM_CUSTOM; i++) {
                 printf("/%s",EMConfig[i].Desc);
             }
             printf("): ");
-            break;
-        case MENU_MAINSMETERADDRESS:
-            printf("Enter new address of mains electric meter (5-255): ");
             break;
         case MENU_MAINSMETERMEASURE:
             printf("Enter what mains electric meter measure (ALL/HOME): ");
             break;
         case MENU_PVMETER:
             printf("Enter new type of PV electric meter (Disabled");
-            for(i = 1; i < EM_CUSTOM; i++) {
+            for(i = 1; i <= EM_CUSTOM; i++) {
                 printf("/%s",EMConfig[i].Desc);
             }
             printf("): ");
             break;
-        case MENU_PVMETERADDRESS:
-            printf("Enter new address of PV electric meter (5-255): ");
+        case MENU_EMCUSTOM_ENDIANESS:
+            printf("Enter new Byte order (0: LBF & LWF, 1: LBF & HWF, 2: HBF & LWF, 3: HBF & HWF): ");
+            break;
+        case MENU_EMCUSTOM_IDIVISOR:
+            printf("Enter new exponent of divisor (0-4): ");
             break;
         default:
+            printf("Enter new value (%i,%i): ", MenuStr[menu].Min, MenuStr[menu].Max);
             break;
     }
     ISR2FLAG = 0;                                                               // clear flag
@@ -2062,7 +2111,7 @@ void main(void) {
 
         if ((ButtonState != 0x07) || (ButtonState != OldButtonState)) GLCDMenu(ButtonState); // Any button pressed or just released?
 
-        if (LCDNav >= MENU_CONFIG && LCDNav <= MENU_PVMETERADDRESS && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
+        if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
 
 
         if (PORTBbits.RB2 == 0)                                                 // External switch input pulled low?
@@ -2541,10 +2590,10 @@ void main(void) {
                                 ReadMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX            11
-                            // 0xE7: MENU_PVMETERADDRESS 19
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
-                                ReadMenuItemValueResponse(0xE0, MENU_MAX, 9);
+                            // 0xE0: MENU_MAX   11
+                            // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEA) {
+                                ReadMenuItemValueResponse(0xE0, MENU_MAX, 12);
                             }
                         }
                         break;
@@ -2570,9 +2619,9 @@ void main(void) {
                                 WriteMenuItemValueResponse(0xC0, MENU_CONFIG);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX            11
-                            // 0xE7: MENU_PVMETERADDRESS 19
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
+                            // 0xE0: MENU_MAX  11
+                            // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEA) {
                                 WriteMenuItemValueResponse(0xE0, MENU_MAX);
                             }
                         }
@@ -2593,10 +2642,10 @@ void main(void) {
                                 WriteMultipleMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX            11
-                            // 0xE7: MENU_PVMETERADDRESS 19
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xE7) {
-                                WriteMultipleMenuItemValueResponse(0xE0, MENU_MAX, 9);
+                            // 0xE0: MENU_MAX  11
+                            // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEA) {
+                                WriteMultipleMenuItemValueResponse(0xE0, MENU_MAX, 12);
                             }
                         }
                         break;

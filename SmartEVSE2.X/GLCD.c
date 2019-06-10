@@ -690,7 +690,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
         if (SubMenu) {
             value = getMenuItemValue(LCDNav);
             value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-            setMenuItemValue(LCDNav, value, 0);
+            setMenuItemValue(LCDNav, value);
         } else {
             LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
         }

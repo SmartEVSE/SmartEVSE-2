@@ -806,6 +806,26 @@ void eeprom_write_object(void *obj_p, size_t obj_size) {
     }
 }
 
+/**
+ * Validate setting ranges and dependencies
+ */
+void validate_settings(void) {
+    unsigned char i, OK;
+    unsigned int value;
+
+    for (i = MENU_ENTER + 1;i < MENU_EXIT; i++){
+        value = getMenuItemValue(i);
+        if (value > MenuStr[i].Max || value < MenuStr[i].Min) {
+            value = MenuStr[i].Default;
+            OK = setMenuItemValue(i, value);
+        }
+    }
+
+    if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
+    if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
+    if (MainsMeterMeasure == 0) PVMeter = 0;
+}
+
 void read_settings(void) {
     char savint;
 
@@ -838,16 +858,15 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
 
     INTCON = savint; // Restore interrupts
+
+    validate_settings();
 }
 
 void write_settings(void) {
     char savint;
 
-    // Validate Settings
-    if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
-    if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
-    if (MainsMeterMeasure == 0) PVMeter = 0;
-    
+    validate_settings();
+
     savint = INTCON;                                                            // Save interrupts state
     INTCONbits.GIE = 0;                                                         // Disable interrupts
 
@@ -1309,10 +1328,9 @@ unsigned char getMenuItems (void) {
  * 
  * @param unsigned char MENU_xxx
  * @param unsigned int value
- * @param unsinged char write
  * @return unsigned char success
  */
-unsigned char setMenuItemValue(unsigned char nav, unsigned int val, unsigned char write) {
+unsigned char setMenuItemValue(unsigned char nav, unsigned int val) {
     if (val >= MenuStr[nav].Min && val <= MenuStr[nav].Max) {
         switch (nav) {
             case MENU_CONFIG:
@@ -1351,6 +1369,9 @@ unsigned char setMenuItemValue(unsigned char nav, unsigned int val, unsigned cha
             case MENU_RCMON:
                 RCmon = val;
                 break;
+            case MENU_CAL:
+                ICal = val;
+                break;
             case MENU_MAINSMETER:
                 MainsMeter = val;
                 break;
@@ -1378,11 +1399,8 @@ unsigned char setMenuItemValue(unsigned char nav, unsigned int val, unsigned cha
             default:
                 return 0;
         }
-        
-        if (write) write_settings();
         return 1;
     }
-    
     return 0;
 }
 
@@ -1418,6 +1436,8 @@ unsigned int getMenuItemValue(unsigned char nav) {
             return Access;
         case MENU_RCMON:
             return RCmon;
+        case MENU_CAL:
+            return ICal;
         case MENU_MAINSMETER:
             return MainsMeter;
         case MENU_MAINSMETERADDRESS:
@@ -1567,7 +1587,8 @@ void ReadMenuItemValueResponse(unsigned int reg, unsigned int nav, unsigned int 
 void WriteMenuItemValueResponse(unsigned int reg, unsigned int nav) {
     unsigned char OK = 0;
 
-    OK = setMenuItemValue((Modbus.Register - reg) + nav, Modbus.Value, 1);
+    OK = setMenuItemValue((Modbus.Register - reg) + nav, Modbus.Value);
+    write_settings();
 
     if (Modbus.Address > 0 || LoadBl == 0) {
         if (OK == 0) {
@@ -1592,7 +1613,7 @@ void WriteMultipleMenuItemValueResponse(unsigned int reg, unsigned int nav, unsi
     if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
             value = (Modbus.Data[i * 2] <<8) | Modbus.Data[(i * 2) + 1];
-            OK += setMenuItemValue((Modbus.Register - reg) + nav + i, value, 0);
+            OK += setMenuItemValue((Modbus.Register - reg) + nav + i, value);
         }
         write_settings();
     }
@@ -1743,7 +1764,8 @@ void RS232cli(void) {
             case MENU_PVMETER:
                 for(i = 0; i < EM_CUSTOM; i++){
                     if (strcmp(U2buffer, EMConfig[i].Desc) == 0) {
-                        setMenuItemValue(menu, i, 1);
+                        setMenuItemValue(menu, i);
+                        write_settings();
                     }
                 }
                 break;
@@ -1758,7 +1780,8 @@ void RS232cli(void) {
                 break;
             default:
                 n = (unsigned int) atoi(U2buffer);
-                OK = setMenuItemValue(menu, n, 1);
+                OK = setMenuItemValue(menu, n);
+                write_settings();
                 if(!OK) printf("\r\nError! please check limits\r\n");
                 break;
         }

@@ -216,31 +216,32 @@ const far struct {
     char Desc[52];
     unsigned int Min;
     unsigned int Max;
+    unsigned int Default;
 } MenuStr[24] = {
-    {"",       "",         "Not in menu", 0, 0},
-    {"",       "",         "Hold 2 sec", 0, 0},
-    {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1},
-    {"LOADBL", "LOAD BAL", "Set Load Balancing mode", 0, 4},
-    {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16},
-    {"CABLE",  "CABLE",    "Set Fixed Cable Current limit", 13, 80},
-    {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2},
-    {"START",  "START",    "Surplus energy start Current", 1, 16},
-    {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60},
-    {"ACCESS", "ACCESS",   "Access control on IO2", 0, 1},
-    {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1},
-    {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80},
-    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2},
-    {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 60, 1000},
-    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5},
-    {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255},
-    {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 3, 5},
-    {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255},
-    {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3},
-    {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255},
-    {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 4},
-    {"EXIT",   "EXIT",     "EXIT", 0, 0}
+    {"",       "",         "Not in menu", 0, 0, 0},
+    {"",       "",         "Hold 2 sec", 0, 0, 0},
+    {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
+    {"LOADBL", "LOAD BAL", "Set Load Balancing mode", 0, 4, LOADBL},
+    {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
+    {"CABLE",  "CABLE",    "Set Fixed Cable Current limit", 13, 80, CABLE_LIMIT},
+    {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
+    {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
+    {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
+    {"ACCESS", "ACCESS",   "Access control on IO2", 0, 1, ACCESS},
+    {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1, RC_MON},
+    {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80, MAX_CURRENT},
+    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
+    {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 0, 100, ICAL},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
+    {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
+    {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 3, 5, PV_METER},
+    {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
+    {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
+    {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
+    {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 4, EMCUSTOM_IDIVISOR},
+    {"EXIT",   "EXIT",     "EXIT", 0, 0, 0}
 };
 
 struct {
@@ -264,7 +265,7 @@ void delay(unsigned int d);
 void read_settings(void);
 void write_settings(void);
 unsigned char getMenuItems(void);
-unsigned char setMenuItemValue(unsigned char nav, unsigned int val, unsigned char write);
+unsigned char setMenuItemValue(unsigned char nav, unsigned int val);
 unsigned int getMenuItemValue(unsigned char nav);
 unsigned char * getMenuItemOption(unsigned char nav);
 

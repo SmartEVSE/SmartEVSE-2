@@ -187,7 +187,7 @@ extern unsigned char NextState;
 extern unsigned int MaxCapacity;                                                // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
 extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps * 10) (23 = 2.3A)
 extern int Isum;            
-extern int Balanced[4];                                                         // Amps value per EVSE (max 4)
+extern unsigned int Balanced[4];                                                         // Amps value per EVSE (max 4)
 
 extern unsigned char RX1byte;
 extern unsigned char idx2, ISR2FLAG;
@@ -232,7 +232,7 @@ const far struct {
     {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 0, 100, ICAL},
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 0, 100, (unsigned int)ICAL},
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
@@ -267,6 +267,6 @@ void write_settings(void);
 unsigned char getMenuItems(void);
 unsigned char setMenuItemValue(unsigned char nav, unsigned int val);
 unsigned int getMenuItemValue(unsigned char nav);
-unsigned char * getMenuItemOption(unsigned char nav);
+const far char * getMenuItemOption(unsigned char nav);
 
 #endif

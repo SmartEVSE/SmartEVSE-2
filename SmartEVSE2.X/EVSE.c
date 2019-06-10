@@ -169,12 +169,12 @@ unsigned int MaxCapacity;                                                       
 unsigned int ChargeCurrent;                                                     // Calculated Charge Current (Amps *10)
 unsigned int Imeasured = 0;                                                     // Max of all Phases (Amps *10) of mains power
 signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
-int Isum = 0;                                                                   // Sum of all measured Phases (can be negative)
+signed int Isum = 0;                                                            // Sum of all measured Phases (can be negative)
 
 // Load Balance variables
-int IsetBalanced = 0;                                                           // Max calculated current available for all EVSE's
-int Balanced[4] = {0, 0, 0, 0};                                                 // Amps value per EVSE (max 4)
-int BalancedMax[4] = {0, 0, 0, 0};                                              // Max Amps value per EVSE (max 4)
+unsigned int IsetBalanced = 0;                                                  // Max calculated current available for all EVSE's
+unsigned int Balanced[4] = {0, 0, 0, 0};                                        // Amps value per EVSE (max 4)
+unsigned int BalancedMax[4] = {0, 0, 0, 0};                                     // Max Amps value per EVSE (max 4)
 char BalancedState[4] = {0, 0, 0, 0};                                           // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C) 
 
 unsigned char RX1byte, TX1byte;
@@ -1437,7 +1437,7 @@ unsigned int getMenuItemValue(unsigned char nav) {
         case MENU_RCMON:
             return RCmon;
         case MENU_CAL:
-            return ICal;
+            return (unsigned int)ICal;
         case MENU_MAINSMETER:
             return MainsMeter;
         case MENU_MAINSMETERADDRESS:
@@ -1450,13 +1450,10 @@ unsigned int getMenuItemValue(unsigned char nav) {
             return PVMeterAddress;
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
-            break;
         case MENU_EMCUSTOM_IREGISTER:
             return EMConfig[EM_CUSTOM].IRegister;
-            break;
         case MENU_EMCUSTOM_IDIVISOR:
             return EMConfig[EM_CUSTOM].IDivisor;
-            break;
         default:
             return 0;
     }
@@ -1468,8 +1465,8 @@ unsigned int getMenuItemValue(unsigned char nav) {
  * @param unsigned char nav
  * @return unsigned char[] MenuItemOption
  */
-char * getMenuItemOption(unsigned char nav) {
-    char Str[10];
+const far char * getMenuItemOption(unsigned char nav) {
+    unsigned char Str[10];
     unsigned int value;
     
     value = getMenuItemValue(nav); 
@@ -1536,7 +1533,7 @@ char * getMenuItemOption(unsigned char nav) {
         case MENU_EXIT:
             return StrExitMenu;
         default:
-            break;
+            return "";
     }
 }
 
@@ -1555,7 +1552,7 @@ unsigned int getStatusValue(unsigned char status) {
         case STATUS_CURRENT:
             return Balanced[0];
         default:
-            break;
+            return 0;
     }
 }
 

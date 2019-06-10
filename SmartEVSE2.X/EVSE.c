@@ -2586,13 +2586,13 @@ void main(void) {
                             // Register 0xC*: Configuration
                             // 0xC0: MENU_CONFIG  2
                             // 0xC9: MENU_RCMON  10
-                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
+                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
                                 ReadMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
                             // 0xE0: MENU_MAX   11
                             // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEA) {
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
                                 ReadMenuItemValueResponse(0xE0, MENU_MAX, 12);
                             }
                         }
@@ -2615,13 +2615,13 @@ void main(void) {
                             // Register 0xC*: Configuration
                             // 0xC0: MENU_CONFIG  2
                             // 0xC9: MENU_RCMON  10
-                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
+                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
                                 WriteMenuItemValueResponse(0xC0, MENU_CONFIG);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
                             // 0xE0: MENU_MAX  11
                             // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEA) {
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
                                 WriteMenuItemValueResponse(0xE0, MENU_MAX);
                             }
                         }
@@ -2638,13 +2638,13 @@ void main(void) {
                             // Register 0xC*: Configuration
                             // 0xC0: MENU_CONFIG  2
                             // 0xC9: MENU_RCMON  11
-                            else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC9) {
+                            else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
                                 WriteMultipleMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
                             }
                             // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
                             // 0xE0: MENU_MAX  11
                             // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEA) {
+                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
                                 WriteMultipleMenuItemValueResponse(0xE0, MENU_MAX, 12);
                             }
                         }

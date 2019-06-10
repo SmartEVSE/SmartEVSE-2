@@ -688,9 +688,16 @@ void GLCDMenu(unsigned char Buttons) {                                          
     else if ((LCDNav > 1) && (Buttons == 0x2 || Buttons == 0x3 || Buttons == 0x6) && (ButtonRelease == 0))
     {
         if (SubMenu) {
-            value = getMenuItemValue(LCDNav);
-            value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-            setMenuItemValue(LCDNav, value);
+            switch (LCDNav) {
+                case MENU_CAL:
+                    CT1 = MenuNavInt(Buttons, CT1, 100, 999);
+                    break;
+                default:
+                    value = getMenuItemValue(LCDNav);
+                    value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
+                    setMenuItemValue(LCDNav, value);
+                    break;
+            }
         } else {
             LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
         }
@@ -749,27 +756,30 @@ void GLCDMenu(unsigned char Buttons) {                                          
 
         } else {
             GLCD_print_menu(MenuStr[LCDNav].LCD, 2);                            // add navigation arrows on both sides
-            if (LCDNav == MENU_CAL) {
-                GLCD_buffer_clr();                                              // Clear buffer
-                if (SubMenu) {
-                    GLCD_print_arrows();
-                    GLCDx = 4 + (12 * 3);
-                    GLCD_write_buf2((CT1 / 100) + 0x30);
-                    GLCD_write_buf2((CT1 % 100) / 10 + 0x30);
-                    GLCD_write_buf2('.');
-                    GLCD_write_buf2((CT1 % 10) + 0x30);
-                } else {
-                    GLCDx = 4 + (12 * 3);
-                    GLCD_write_buf2(((unsigned int) Irms[0] / 100) + 0x30);
-                    GLCD_write_buf2(((unsigned int) Irms[0] % 100 / 10) + 0x30);
-                    GLCD_write_buf2('.');
-                    GLCD_write_buf2(((unsigned int) Irms[0] % 10) + 0x30);
-                }
-                GLCDx = 4 + (12 * 7);
-                GLCD_write_buf2('A');
-                GLCD_sendbuf(4);                                                // copy buffer to LCD
-            } else {
-                GLCD_print_menu(getMenuItemOption(LCDNav), 4);
+            switch (LCDNav) {
+                case MENU_CAL:
+                    GLCD_buffer_clr();                                          // Clear buffer
+                    if (SubMenu) {
+                        GLCD_print_arrows();
+                        GLCDx = 4 + (12 * 3);
+                        GLCD_write_buf2((CT1 / 100) + 0x30);
+                        GLCD_write_buf2((CT1 % 100) / 10 + 0x30);
+                        GLCD_write_buf2('.');
+                        GLCD_write_buf2((CT1 % 10) + 0x30);
+                    } else {
+                        GLCDx = 4 + (12 * 3);
+                        GLCD_write_buf2(((unsigned int) Irms[0] / 100) + 0x30);
+                        GLCD_write_buf2(((unsigned int) Irms[0] % 100 / 10) + 0x30);
+                        GLCD_write_buf2('.');
+                        GLCD_write_buf2(((unsigned int) Irms[0] % 10) + 0x30);
+                    }
+                    GLCDx = 4 + (12 * 7);
+                    GLCD_write_buf2('A');
+                    GLCD_sendbuf(4);                                            // copy buffer to LCD
+                    break;
+                default:
+                    GLCD_print_menu(getMenuItemOption(LCDNav), 4);
+                    break;
             }
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once

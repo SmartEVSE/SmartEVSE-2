@@ -172,7 +172,7 @@ signed int ImeasuredNegative = 0;                                               
 signed int Isum = 0;                                                            // Sum of all measured Phases (can be negative)
 
 // Load Balance variables
-unsigned int IsetBalanced = 0;                                                  // Max calculated current available for all EVSE's
+signed int IsetBalanced = 0;                                                    // Max calculated current available for all EVSE's
 unsigned int Balanced[4] = {0, 0, 0, 0};                                        // Amps value per EVSE (max 4)
 unsigned int BalancedMax[4] = {0, 0, 0, 0};                                     // Max Amps value per EVSE (max 4)
 char BalancedState[4] = {0, 0, 0, 0};                                           // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C) 
@@ -899,19 +899,10 @@ void write_settings(void) {
     printf("\r\nsettings saved\r\n");
 
     if (LoadBl == 1) {
-        unsigned int values[12];
-        values[0] = MaxCurrent;
-        values[1] = Mode;
-        values[2] = MaxMains;
-        values[3] = ICal;
-        values[4] = MainsMeter;
-        values[5] = MainsMeterAddress;
-        values[6] = MainsMeterMeasure;
-        values[7] = PVMeter;
-        values[8] = PVMeterAddress;
-        values[9] = EMConfig[EM_CUSTOM].Endianness;
-        values[10] = EMConfig[EM_CUSTOM].IRegister;
-        values[11] = EMConfig[EM_CUSTOM].IDivisor;
+        unsigned int i, values[12];
+        for (i = 0; i < 12; i++) {
+            values[i] = getMenuItemValue(MENU_MAX + i);
+        }
         ModbusWriteMultipleRequest(0x00, 0xE0, values, 12);
     }
 }

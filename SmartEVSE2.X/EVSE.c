@@ -204,7 +204,6 @@ unsigned char ModbusRequest = 0;                                                
 unsigned char MenuItems[21];
 
 unsigned char Access_bit = 0;
-unsigned int AccessTimer = 0;         
 
 unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
@@ -343,7 +342,6 @@ void interrupt high_isr(void)
         }
 
         Timer++;                                                                // mSec counter (overflows in 1193 hours)
-        if (AccessTimer) AccessTimer--;
 
         if (LedTimer-- == 0) {
             CCPR2L = LedPwm;                                                    // MSB of DutyCycle, Lsb 0-1 are part of CCP2CON, but not used
@@ -2081,7 +2079,7 @@ void main(void) {
     char x, n;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
     char DiodeCheck = 0;
-    char SlaveAdr, Broadcast = 0, Switch_count = 0, Sens2s = 1;
+    char SlaveAdr, Broadcast = 0, RB2count = 0, RB2last = 1, Sens2s = 1;
     unsigned int crc;
     int BalancedReceived;
     signed double dCombined;
@@ -2125,33 +2123,47 @@ void main(void) {
         if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
 
 
-        if (PORTBbits.RB2 == 0)                                                 // External switch input pulled low?
-        {
-            if (Switch_count++ > 5) {
-                if (AccessTimer == 0) {
-                    if (Access)                                                 // Menu option Access is enabled (set to Switch))
-                    {
-                        if (Access_bit) {
-                            Access_bit = 0;                                     // Toggle Access bit on/off
-                            State = STATE_A;                                    // Switch back to state A
-                        } else Access_bit = 1;
+        // External switch changed state?
+        if (PORTBbits.RB2 != RB2last) {
+            // make sure that noise on the input does not switch
+            if (RB2count++ > 5) {
+                RB2last = PORTBbits.RB2;
 
-                        printf("access: %d ", Access_bit);
-                    } else if (State == STATE_C)                                // Menu option Access is set to Disabled
-                    {                                                           // We only use the switch/button now to STOP charging
-                        State = STATE_A;
-                        if (!TestState) ChargeDelay = 15;                       // Keep in State A for 15 seconds, so the Charge cable can be removed.
+                if (RB2last == 0) {
+                    // Switch input pulled low
+                    switch (Access) {
+                        case 1: // Access
+                            if (Access_bit) {
+                                Access_bit = 0;                                 // Toggle Access bit on/off
+                                State = STATE_A;                                // Switch back to state A
+                            } else Access_bit = 1;
+                            printf("access: %d ", Access_bit);
+                            break;
+                        default:
+                            if (State == STATE_C) {                             // Menu option Access is set to Disabled
+                                State = STATE_A;
+                                if (!TestState) ChargeDelay = 15;               // Keep in State A for 15 seconds, so the Charge cable can be removed.
+                            }
+                            break;
                     }
 
-                    if (RCmon == 1 && (Error & RCD_TRIPPED) && PORTBbits.RB1 == 0) // RCD was tripped, but RCD level is back to normal
-                    {
-                        Error &= ~RCD_TRIPPED;                                  // Clear RCD error
+                    // RCD was tripped, but RCD level is back to normal
+                    if (RCmon == 1 && (Error & RCD_TRIPPED) && PORTBbits.RB1 == 0) {
+                        // Clear RCD error
+                        Error &= ~RCD_TRIPPED;
                     }
-                }                                                               // Reset timer while button is pressed.
-                AccessTimer = 200;                                              // this de-bounces the switch, and makes sure we don't toggle between Access and No-Access.    
-                Switch_count = 0;                                               // make sure that noise on the input does not switch off charging
+                } else {
+                    // Switch input released
+                    switch (Access) {
+                        default:
+                            break;
+                    }
+                }
+
+                RB2count = 0;
             }
-        } else Switch_count = 0;
+        } else RB2count = 0;
+
 
         if (RCmon == 1 && PORTBbits.RB1 == 1)                                   // RCD monitor active, and RCD DC current > 6mA ?
         {

@@ -503,7 +503,7 @@ void GLCD(void) {
             glcd_clrln(0, 0x00);
             glcd_clrln(1, 0x04); // horizontal line
 
-            if (Access_bit || Access == 0) {
+            if (Access_bit) {
                 GLCD_print2(2, (const far char *) "READY TO");
                 GLCD_print2(4, (const far char *) "CHARGE  ");
             } else {
@@ -693,9 +693,9 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     CT1 = MenuNavInt(Buttons, CT1, 100, 999);
                     break;
                 default:
-                    value = getMenuItemValue(LCDNav);
+                    value = getItemValue(LCDNav);
                     value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-                    setMenuItemValue(LCDNav, value);
+                    setItemValue(LCDNav, value);
                     break;
             }
         } else {

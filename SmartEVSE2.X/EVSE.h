@@ -126,9 +126,12 @@
 #define MENU_EMCUSTOM_IDIVISOR 22
 #define MENU_EXIT 23
 
-#define STATUS_STATE 1
-#define STATUS_ERROR 2
-#define STATUS_CURRENT 3
+#define STATUS_STATE 64
+#define STATUS_ERROR 65
+#define STATUS_CURRENT 66
+#define STATUS_REAL_CURRENT 67
+#define STATUS_PHASE_COUNT 68
+#define STATUS_ACCESS 69
 
 #define EM_SENSORBOX1 1
 #define EM_SENSORBOX2 2
@@ -141,6 +144,7 @@
 #define MODBUS_REQUEST 2
 #define MODBUS_RESPONSE 3
 
+#define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 0x02
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
 #ifdef DEBUG_P
@@ -265,8 +269,8 @@ void delay(unsigned int d);
 void read_settings(void);
 void write_settings(void);
 unsigned char getMenuItems(void);
-unsigned char setMenuItemValue(unsigned char nav, unsigned int val);
-unsigned int getMenuItemValue(unsigned char nav);
+unsigned char setItemValue(unsigned char nav, unsigned int val);
+unsigned int getItemValue(unsigned char nav);
 const far char * getMenuItemOption(unsigned char nav);
 
 #endif

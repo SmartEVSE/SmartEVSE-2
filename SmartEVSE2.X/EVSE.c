@@ -696,6 +696,9 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                         Modbus.Type = MODBUS_OK;
                         // Modbus register
                         Modbus.Register = (buf[2] <<8) | buf[3];
+                        // Modbus register count
+                        Modbus.RegisterCount = 1;
+                        // value
                         Modbus.Value = (buf[4] <<8) | buf[5];
                     } else {
                         printf("\nInvalid modbus packet");
@@ -812,16 +815,21 @@ void validate_settings(void) {
     unsigned int value;
 
     for (i = MENU_ENTER + 1;i < MENU_EXIT; i++){
-        value = getMenuItemValue(i);
+        value = getItemValue(i);
         if (value > MenuStr[i].Max || value < MenuStr[i].Min) {
             value = MenuStr[i].Default;
-            OK = setMenuItemValue(i, value);
+            OK = setItemValue(i, value);
         }
     }
 
+    // Sensorbox v2 has always address 0x0A
     if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
+    // Disable modbus reciption on normal mode
     if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
+    // Disable PV reciption if not configured
     if (MainsMeterMeasure == 0) PVMeter = 0;
+    // Enable access if no access switch used
+    if (Access != 1) Access_bit = 1;
 }
 
 void read_settings(void) {
@@ -899,7 +907,7 @@ void write_settings(void) {
     if (LoadBl == 1) {
         unsigned int i, values[12];
         for (i = 0; i < 12; i++) {
-            values[i] = getMenuItemValue(MENU_MAX + i);
+            values[i] = getItemValue(MENU_MAX + i);
         }
         ModbusWriteMultipleRequest(0x00, 0xE0, values, 12);
     }
@@ -978,7 +986,7 @@ void BlinkLed(void) {
   
             LedUpdate = 0;                  
           }
-    } else if (Access && Access_bit == 0) LedPwm = 0;                           // No Access, LED off
+    } else if (Access_bit == 0) LedPwm = 0;                                     // No Access, LED off
     else if (State == STATE_A) LedPwm = 40;                                     // STATE A, LED on (dimmed)
     else if (State == STATE_B) {
         LedPwm = 255;                                                           // STATE B, LED on (full brightness)
@@ -1319,78 +1327,95 @@ unsigned char getMenuItems (void) {
  * @param unsigned int value
  * @return unsigned char success
  */
-unsigned char setMenuItemValue(unsigned char nav, unsigned int val) {
-    if (val >= MenuStr[nav].Min && val <= MenuStr[nav].Max) {
+unsigned char setItemValue(unsigned char nav, unsigned int val) {
+    unsigned char ret = 0;
+
+    if (nav < MENU_EXIT) {
+        if (val >= MenuStr[nav].Min && val <= MenuStr[nav].Max) {
+            switch (nav) {
+                case MENU_CONFIG:
+                    Config = val;
+                    break;
+                case MENU_MODE:
+                    Mode = val;
+                    break;
+                case MENU_START:
+                    StartCurrent = val;
+                    break;
+                case MENU_STOP:
+                    StopTime = val;
+                    break;
+                case MENU_LOADBL:
+                    LoadBl = val;
+                    break;
+                case MENU_MAINS:
+                    MaxMains = val;
+                    break;
+                case MENU_MIN:
+                    MinCurrent = val;
+                    break;
+                case MENU_MAX:
+                    MaxCurrent = val;
+                    break;
+                case MENU_CABLE:
+                    CableLimit = val;
+                    break;
+                case MENU_LOCK:
+                    Lock = val;
+                    break;
+                case MENU_ACCESS:
+                    Access = val;
+                    break;
+                case MENU_RCMON:
+                    RCmon = val;
+                    break;
+                case MENU_CAL:
+                    ICal = val;
+                    break;
+                case MENU_MAINSMETER:
+                    MainsMeter = val;
+                    break;
+                case MENU_MAINSMETERADDRESS:
+                    MainsMeterAddress = val;
+                    break;
+                case MENU_MAINSMETERMEASURE:
+                    MainsMeterMeasure = val;
+                    break;
+                case MENU_PVMETER:
+                    PVMeter = val;
+                    break;
+                case MENU_PVMETERADDRESS:
+                    PVMeterAddress = val;
+                    break;
+                case MENU_EMCUSTOM_ENDIANESS:
+                    EMConfig[EM_CUSTOM].Endianness = val;
+                    break;
+                case MENU_EMCUSTOM_IREGISTER:
+                    EMConfig[EM_CUSTOM].IRegister = val;
+                    break;
+                case MENU_EMCUSTOM_IDIVISOR:
+                    EMConfig[EM_CUSTOM].IDivisor = val;
+                    break;
+                default:
+                    break;
+            }
+            ret = 1;
+        }
+    } else {
         switch (nav) {
-            case MENU_CONFIG:
-                Config = val;
-                break;
-            case MENU_MODE:
-                Mode = val;
-                break;
-            case MENU_START:
-                StartCurrent = val;
-                break;
-            case MENU_STOP:
-                StopTime = val;
-                break;
-            case MENU_LOADBL:
-                LoadBl = val;
-                break;
-            case MENU_MAINS:
-                MaxMains = val;
-                break;
-            case MENU_MIN:
-                MinCurrent = val;
-                break;
-            case MENU_MAX:
-                MaxCurrent = val;
-                break;
-            case MENU_CABLE:
-                CableLimit = val;
-                break;
-            case MENU_LOCK:
-                Lock = val;
-                break;
-            case MENU_ACCESS:
-                Access = val;
-                break;
-            case MENU_RCMON:
-                RCmon = val;
-                break;
-            case MENU_CAL:
-                ICal = val;
-                break;
-            case MENU_MAINSMETER:
-                MainsMeter = val;
-                break;
-            case MENU_MAINSMETERADDRESS:
-                MainsMeterAddress = val;
-                break;
-            case MENU_MAINSMETERMEASURE:
-                MainsMeterMeasure = val;
-                break;
-            case MENU_PVMETER:
-                PVMeter = val;
-                break;
-            case MENU_PVMETERADDRESS:
-                PVMeterAddress = val;
-                break;
-            case MENU_EMCUSTOM_ENDIANESS:
-                EMConfig[EM_CUSTOM].Endianness = val;
-                break;
-            case MENU_EMCUSTOM_IREGISTER:
-                EMConfig[EM_CUSTOM].IRegister = val;
-                break;
-            case MENU_EMCUSTOM_IDIVISOR:
-                EMConfig[EM_CUSTOM].IDivisor = val;
+            case STATUS_ACCESS:
+                if (val == 0 || val == 1) {
+                    Access_bit = val;
+                    ret = 1;
+                    if (val == 0) State = STATE_A;
+                }
                 break;
             default:
-                return 0;
+                break;
         }
-        return 1;
     }
-    return 0;
+
+    return ret;
 }
 
 /**
@@ -1399,7 +1424,7 @@ unsigned char setMenuItemValue(unsigned char nav, unsigned int val) {
  * @param unsigned char MENU_xxx
  * @return unsigned int value
  */
-unsigned int getMenuItemValue(unsigned char nav) {
+unsigned int getItemValue(unsigned char nav) {
     switch (nav) {
         case MENU_CONFIG:
             return Config;
@@ -1443,6 +1468,16 @@ unsigned int getMenuItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].IRegister;
         case MENU_EMCUSTOM_IDIVISOR:
             return EMConfig[EM_CUSTOM].IDivisor;
+
+        case STATUS_STATE:
+            return State + 64;
+        case STATUS_ERROR:
+            return Error;
+        case STATUS_CURRENT:
+            return Balanced[0];
+        case STATUS_ACCESS:
+            return Access_bit;
+
         default:
             return 0;
     }
@@ -1458,7 +1493,7 @@ const far char * getMenuItemOption(unsigned char nav) {
     unsigned char Str[10];
     unsigned int value;
     
-    value = getMenuItemValue(nav); 
+    value = getItemValue(nav); 
 
     switch (nav) {
         case MENU_CONFIG:
@@ -1527,108 +1562,149 @@ const far char * getMenuItemOption(unsigned char nav) {
 }
 
 /**
- * Get the variable
+ * Map a Modbus register to an item ID (MENU_xxx or STATUS_xxx)
  * 
- * @param unsigned char status
- * @return unsigned int value
+ * @return unsigned char ItemID
  */
-unsigned int getStatusValue(unsigned char status) {
-    switch (status) {
-        case STATUS_STATE:
-            return State + 64;
-        case STATUS_ERROR:
-            return Error;
-        case STATUS_CURRENT:
-            return Balanced[0];
-        default:
-            return 0;
+unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterCount
+    unsigned int RegisterStart, ItemStart, Count;
+
+    // Register 0x0*: Slave -> Master
+    if (Modbus.Register >= 0x01 && Modbus.Register <= 0x04) {
+        return 255;
+    }
+
+    // Register 0x8*: Master -> Slave
+    else if (Modbus.Register >= 0x81 && Modbus.Register <= 0x84) {
+        return 255;
+    }
+
+    // Register 0xA*: Status
+    // 0xA0: State
+    // 0xA1: Error
+    // 0xA2: Charging current (A * 10)
+    // 0xA3: Real charging current (ToDo)
+    // 0xA4: Number of used phases (ToDo)
+    // 0xA5: Access bit
+    else if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA5) {
+        RegisterStart = 0xA0;
+        ItemStart = STATUS_STATE;
+        Count = 6;
+    }
+
+    // Register 0xC*: Configuration
+    // 0xC0: Configuration
+    // 0xC1: Load Balance
+    // 0xC2: Minimal current the EV is happy with
+    // 0xC3: Fixed Cable Current limit
+    // 0xC4: Cable lock
+    // 0xC5: Surplus energy start Current
+    // 0xC6: Stop solar charging at 6A after this time
+    // 0xC7: External Start/Stop button
+    // 0xC8: Residual Current Monitor
+    else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
+        RegisterStart = 0xC0;
+        ItemStart = MENU_CONFIG;
+        Count = 9;
+    }
+
+    // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
+    // 0xE0: Max Charge Current of the system
+    // 0xE1: EVSE mode
+    // 0xE2: Max Mains Current
+    // 0xE3: CT calibration value
+    // 0xE4: Type of Mains electric meter
+    // 0xE5: Address of Mains electric meter
+    // 0xE6: What does Mains electric meter measure
+    // 0xE7: Type of PV electric meter
+    // 0xE8: Address of PV electric meter
+    // 0xE9: Byte order of custom electric meter
+    // 0xEA: Register for Current of custom electric meter
+    // 0xEB: Divisor for Current of custom electric meter (10^x)
+    else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
+        RegisterStart = 0xE0;
+        ItemStart = MENU_MAX;
+        Count = 12;
+    }
+
+    else {
+        return 0;
+    }
+    
+    if (Modbus.RegisterCount <= (RegisterStart + Count) - Modbus.Register) {
+        return (Modbus.Register - RegisterStart + ItemStart);
+    } else {
+        return 0;
     }
 }
 
 /**
- * Read menu item values and send modbus response
+ * Read item values and send modbus response
  * 
- * @param unsigned int reg: Start register
- * @param unsigned int nav: Start MENU_xxx number
- * @param unsigned int count: Count of MENU_xxx items
+ * @param unsigned char ItemID: Start item ID
  */
-void ReadMenuItemValueResponse(unsigned int reg, unsigned int nav, unsigned int count) {
+void ReadItemValueResponse(unsigned char ItemID) {
     unsigned char i;
-    unsigned int values[10];
+    unsigned int values[12];
 
-    if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
+    if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
-            values[i] = getMenuItemValue((Modbus.Register - reg) + nav + i);
+            values[i] = getItemValue(ItemID + i);
         }
         ModbusReadInputResponse(Modbus.Address, values, Modbus.RegisterCount);
+    } else {
+        ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
     }
 }
 
 /**
- * Write menu item values and send modbus response
+ * Write item values and send modbus response
  * 
- * @param unsigned int reg: Start register
- * @param unsigned int nav: Start MENU_xxx number
+ * @param unsigned char ItemID: Start item ID
  */
-void WriteMenuItemValueResponse(unsigned int reg, unsigned int nav) {
+void WriteItemValueResponse(unsigned char ItemID) {
     unsigned char OK = 0;
 
-    OK = setMenuItemValue((Modbus.Register - reg) + nav, Modbus.Value);
-    write_settings();
+    if (ItemID) {
+        OK = setItemValue(ItemID, Modbus.Value);
+    }
 
     if (Modbus.Address > 0 || LoadBl == 0) {
-        if (OK == 0) {
+        if (!ItemID) {
+            ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+        } else if (!OK) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE);
-        }
-        else if (OK == 1) {
+        } else {
+            if (ItemID < STATUS_STATE) write_settings();
             ModbusWriteSingleResponse(Modbus.Address, Modbus.Register, Modbus.Value);
         }
     }
 }
 
 /**
- * Write multiple menu item values and send modbus response
+ * Write multiple item values and send modbus response
  * 
- * @param unsigned int reg: Start register
- * @param unsigned int nav: Start MENU_xxx number
- * @param unsigned int count: Count of MENU_xxx items
+ * @param unsigned char ItemID: Start item ID
  */
-void WriteMultipleMenuItemValueResponse(unsigned int reg, unsigned int nav, unsigned int count) {
+void WriteMultipleItemValueResponse(unsigned char ItemID) {
     unsigned int i, OK = 0, value;
 
-    if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
+    if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
             value = (Modbus.Data[i * 2] <<8) | Modbus.Data[(i * 2) + 1];
-            OK += setMenuItemValue((Modbus.Register - reg) + nav + i, value);
+            OK += setItemValue(ItemID, value);
         }
-        write_settings();
     }
-    
+
     if (Modbus.Address > 0 || LoadBl == 0) {
-        if (OK == 0) {
+        if (!ItemID) {
+            ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+        } else if (!OK) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE);
         } else  {
+            if (ItemID < STATUS_STATE) write_settings();
             ModbusWriteMultipleResponse(Modbus.Address, Modbus.Register, OK);
         }
-    }
-}
-
-/**
- * Read status values and send modbus response
- * 
- * @param unsigned int reg: Start register
- * @param unsigned int nav: Start STATUS_xxx number
- * @param unsigned int count: Count of STATUS_xxx items
- */
-void ReadStatusValueResponse(unsigned int reg, unsigned int nav, unsigned int count) {
-    unsigned char i;
-    unsigned int values[3];
-
-    if (Modbus.RegisterCount <= (reg + count) - Modbus.Register) {
-        for (i = 0; i < Modbus.RegisterCount; i++) {
-            values[i] = getStatusValue((Modbus.Register - reg) + nav + i);
-        }
-        ModbusReadInputResponse(Modbus.Address, values, Modbus.RegisterCount);
     }
 }
 
@@ -1750,7 +1826,7 @@ void RS232cli(void) {
             case MENU_PVMETER:
                 for(i = 0; i < EM_CUSTOM; i++){
                     if (strcmp(U2buffer, EMConfig[i].Desc) == 0) {
-                        setMenuItemValue(menu, i);
+                        setItemValue(menu, i);
                         write_settings();
                     }
                 }
@@ -1766,7 +1842,7 @@ void RS232cli(void) {
                 break;
             default:
                 n = (unsigned int) atoi(U2buffer);
-                OK = setMenuItemValue(menu, n);
+                OK = setItemValue(menu, n);
                 write_settings();
                 if(!OK) printf("\r\nError! please check limits\r\n");
                 break;
@@ -2076,12 +2152,12 @@ void UpdateCurrentData(void) {
 }
 
 void main(void) {
-    char x, n;
+    unsigned char x, n;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
-    char DiodeCheck = 0;
-    char SlaveAdr, Broadcast = 0, RB2count = 0, RB2last = 1, Sens2s = 1;
+    unsigned char DiodeCheck = 0, ItemID;
+    unsigned char SlaveAdr, Broadcast = 0, RB2count = 0, RB2last = 1, Sens2s = 1;
     unsigned int crc;
-    int BalancedReceived;
+    unsigned int BalancedReceived;
     signed double dCombined;
     signed double PV[3]={0, 0, 0};
 
@@ -2197,7 +2273,7 @@ void main(void) {
             }
             if (pilot == PILOT_9V)                                              // switch to State B ?
             {
-                if ((NextState == STATE_B) && (Access_bit || Access == 0))      // Access is permitted when Access is disabled or Access_bit=1
+                if ((NextState == STATE_B) && Access_bit)                       // Access is permitted when Access_bit set
                 {
                     if (count++ > 25)                                           // repeat 25 times (changed in v2.05)
                     {
@@ -2599,25 +2675,8 @@ void main(void) {
                     case 0x04: // (Read input register)
                         // Addressed to this device
                         if (Modbus.Address == LoadBl) {
-                            // Register 0xA*: Status
-                            // 0xA0: State
-                            // 0xA1: Error
-                            // 0xA2: Charging current
-                            if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA2) {
-                                ReadStatusValueResponse(0xA0, STATUS_STATE, 3);
-                            }
-                            // Register 0xC*: Configuration
-                            // 0xC0: MENU_CONFIG  2
-                            // 0xC9: MENU_RCMON  10
-                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
-                                ReadMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
-                            }
-                            // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX   11
-                            // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
-                                ReadMenuItemValueResponse(0xE0, MENU_MAX, 12);
-                            }
+                            ItemID = mapModbusRegister2ItemID();
+                            if (ItemID < 255) ReadItemValueResponse(ItemID);
                         }
                         break;
                     case 0x06: // (Write single register)
@@ -2635,18 +2694,8 @@ void main(void) {
 
                         // Broadcast or addressed to this device
                         if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
-                            // Register 0xC*: Configuration
-                            // 0xC0: MENU_CONFIG  2
-                            // 0xC9: MENU_RCMON  10
-                            if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
-                                WriteMenuItemValueResponse(0xC0, MENU_CONFIG);
-                            }
-                            // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX  11
-                            // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
-                                WriteMenuItemValueResponse(0xE0, MENU_MAX);
-                            }
+                            ItemID = mapModbusRegister2ItemID();
+                            if (ItemID < 255) WriteItemValueResponse(ItemID);
                         }
                         break;
                     case 0x10: // (Write multiple register))
@@ -2658,18 +2707,9 @@ void main(void) {
                                 printf("\n  Address %02x Register %02x BalancedReceived %i", Modbus.Address, Modbus.Register, BalancedReceived);
                                 DataReceived = 2;
                             }
-                            // Register 0xC*: Configuration
-                            // 0xC0: MENU_CONFIG  2
-                            // 0xC9: MENU_RCMON  11
-                            else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
-                                WriteMultipleMenuItemValueResponse(0xC0, MENU_CONFIG, 9);
-                            }
-                            // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-                            // 0xE0: MENU_MAX  11
-                            // 0xE7: MENU_EMCUSTOM_IDIVISOR  22
-                            else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
-                                WriteMultipleMenuItemValueResponse(0xE0, MENU_MAX, 12);
-                            }
+
+                            ItemID = mapModbusRegister2ItemID();
+                            if (ItemID < 255) WriteMultipleItemValueResponse(ItemID);
                         }
                         break;
                     default:

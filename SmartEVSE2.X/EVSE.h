@@ -44,7 +44,7 @@
 #define CABLE_LIMIT 13                                                          // Manual set Cable Limit (for use with Fixed Cable)
 #define CONFIG 0                                                                // Configuration: 0= TYPE 2 socket, 1= Fixed Cable
 #define LOADBL 0                                                                // Load Balancing disabled
-#define ACCESS 0                                                                // 0= Charge on plugin, 1= (Push)Button on IO2 is used to Start/Stop charging.
+#define SWITCH 0                                                                // 0= Charge on plugin, 1= (Push)Button on IO2 is used to Start/Stop charging.
 #define RC_MON 0                                                                // Residual Current Monitoring on IO3. Disabled=0, RCM14=1
 #define CHARGEDELAY 60                                                          // Seconds to wait after overcurrent, before trying again
 #define BACKLIGHT 60                                                            // Seconds delay for the LCD backlight to turn off.
@@ -110,7 +110,7 @@
 #define MENU_LOCK 6
 #define MENU_START 7
 #define MENU_STOP 8
-#define MENU_ACCESS 9
+#define MENU_SWITCH 9
 #define MENU_RCMON 10
 #define MENU_MAX 11
 #define MENU_MODE 12
@@ -170,7 +170,7 @@ extern char Lock;                                                               
 extern unsigned int CableLimit;                                                 // Fixed Cable Current limit (only used when config is set to Fixed Cable)
 extern char Config;                                                             // Configuration (Fixed Cable or Type 2 Socket)
 extern char LoadBl;                                                             // Load Balance Setting (Disable, Master or Slave)
-extern char Access;                                                             // Allow access to EVSE with button on IO2
+extern char Switch;                                                             // Allow access to EVSE with button on IO2
 extern char RCmon;                                                              // Residual Current monitor
 extern unsigned int StartCurrent;
 extern unsigned int StopTime;
@@ -231,7 +231,7 @@ const far struct {
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
-    {"ACCESS", "ACCESS",   "Access control on IO2", 0, 1, ACCESS},
+    {"SW",     "SWITCH",   "Switch function control on IO2", 0, 2, SWITCH},
     {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1, RC_MON},
     {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},

@@ -95,7 +95,7 @@ const double EE_ICal @ 0xf00006 = ICAL;
 const unsigned int EE_Mode @ 0xf0000a = MODE + (LOCK << 8);
 const unsigned int EE_CableLimit @ 0xf0000c = CABLE_LIMIT;
 const unsigned int EE_Config_LoadBl @ 0xf0000e = CONFIG + (LOADBL << 8);
-const unsigned int EE_Access_RCmon @ 0xf00010 = ACCESS + (RC_MON << 8);
+const unsigned int EE_Access_RCmon @ 0xf00010 = SWITCH + (RC_MON << 8);
 const unsigned int EE_StartCurrent @ 0xf00012 = START_CURRENT;
 const unsigned int EE_StopTime @ 0xf00014 = STOP_TIME;
 /*
@@ -122,7 +122,7 @@ const far char StrMaster[]  = "Master";
 const far char StrSlave1[]  = "Slave 1";
 const far char StrSlave2[]  = "Slave 2";
 const far char StrSlave3[]  = "Slave 3";
-const far char StrSwitch[]  = "Switch";
+const far char StrSwitch[3][9]  = { "Disabled", "Access" , "Smrt-Sol"};
 const far char StrEnabled[] = "Enabled";
 const far char StrExitMenu[] = "MENU";
 const far char StrMainsAll[] = "All"; // Everything
@@ -146,7 +146,7 @@ char Lock;                                                                      
 unsigned int CableLimit;                                                        // Fixed Cable Current limit (only used when config is set to Fixed Cable) (A)
 char Config;                                                                    // Configuration (0:Socket / 1:Fixed Cable)
 char LoadBl;                                                                    // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-char Access;                                                                    // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
+char Switch;                                                                    // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
 char RCmon;                                                                     // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
 unsigned int StartCurrent;
 unsigned int StopTime;
@@ -829,7 +829,7 @@ void validate_settings(void) {
     // Disable PV reciption if not configured
     if (MainsMeterMeasure == 0) PVMeter = 0;
     // Enable access if no access switch used
-    if (Access != 1) Access_bit = 1;
+    if (Switch != 1) Access_bit = 1;
 }
 
 void read_settings(void) {
@@ -850,7 +850,7 @@ void read_settings(void) {
     eeprom_read_object(&CableLimit, sizeof CableLimit);
     eeprom_read_object(&Config, sizeof Config);
     eeprom_read_object(&LoadBl, sizeof LoadBl);
-    eeprom_read_object(&Access, sizeof Access);
+    eeprom_read_object(&Switch, sizeof Switch);
     eeprom_read_object(&RCmon, sizeof RCmon);
     eeprom_read_object(&StartCurrent, sizeof StartCurrent);
     eeprom_read_object(&StopTime, sizeof StopTime);
@@ -888,7 +888,7 @@ void write_settings(void) {
     eeprom_write_object(&CableLimit, sizeof CableLimit);
     eeprom_write_object(&Config, sizeof Config);
     eeprom_write_object(&LoadBl, sizeof LoadBl);
-    eeprom_write_object(&Access, sizeof Access);
+    eeprom_write_object(&Switch, sizeof Switch);
     eeprom_write_object(&RCmon, sizeof RCmon);
     eeprom_write_object(&StartCurrent, sizeof StartCurrent);
     eeprom_write_object(&StopTime, sizeof StopTime);
@@ -1295,7 +1295,7 @@ unsigned char getMenuItems (void) {
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
         MenuItems[m++] = MENU_MAX;                                              // - Max Charge current (A)
     }
-    MenuItems[m++] = MENU_ACCESS;                                               // External Start/Stop button on I/O 2 (0:Disable / 1:Enable)
+    MenuItems[m++] = MENU_SWITCH;                                               // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
     if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?
         MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
@@ -1363,8 +1363,8 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                 case MENU_LOCK:
                     Lock = val;
                     break;
-                case MENU_ACCESS:
-                    Access = val;
+                case MENU_SWITCH:
+                    Switch = val;
                     break;
                 case MENU_RCMON:
                     RCmon = val;
@@ -1446,8 +1446,8 @@ unsigned int getItemValue(unsigned char nav) {
             return CableLimit;
         case MENU_LOCK:
             return Lock;
-        case MENU_ACCESS:
-            return Access;
+        case MENU_SWITCH:
+            return Switch;
         case MENU_RCMON:
             return RCmon;
         case MENU_CAL:
@@ -1525,15 +1525,14 @@ const far char * getMenuItemOption(unsigned char nav) {
             if (Lock == 1) return StrSolenoid;
             else if (Lock == 2) return StrMotor;
             else return StrDisabled;
-        case MENU_ACCESS:
-            if (Access) return StrSwitch;
-            else return StrDisabled;
+        case MENU_SWITCH:
+            return StrSwitch[Switch];
         case MENU_RCMON:
             if (RCmon) return StrEnabled;
             else return StrDisabled;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
-            if (value <= EM_CUSTOM) return EMConfig[value].Desc;
+            return EMConfig[value].Desc;
         case MENU_MAINSMETERADDRESS:
         case MENU_PVMETERADDRESS:
         case MENU_EMCUSTOM_IREGISTER:
@@ -1804,13 +1803,12 @@ void RS232cli(void) {
                     write_settings();
                 }
                 break;
-            case MENU_ACCESS:
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    Access = 0;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SWITCH") == 0) {
-                    Access = 1;
-                    write_settings();
+            case MENU_SWITCH:
+                for(i = 0; i < 3; i++){
+                    if (strcmp(U2buffer, StrSwitch[i]) == 0) {
+                        Switch = i;
+                        write_settings();
+                    }
                 }
                 break;
             case MENU_RCMON:
@@ -1910,8 +1908,8 @@ void RS232cli(void) {
         case MENU_LOCK:
             printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
             break;
-        case MENU_ACCESS:
-            printf("Access Control on I/O 2 set to : %s\r\nAccess Control on IO2 (DISABLE/SWITCH): ", getMenuItemOption(menu));
+        case MENU_SWITCH:
+            printf("Access Control on I/O 2 set to : %s\r\nAccess Control on IO2 (Disabled/Access/Smrt-Sol): ", getMenuItemOption(menu));
             break;
         case MENU_RCMON:
             printf("Residual Current Monitor on I/O 3 set to : %s\r\nResidual Current Monitor on IO3 (DISABLE/ENABLE): ", getMenuItemOption(menu));
@@ -2207,13 +2205,17 @@ void main(void) {
 
                 if (RB2last == 0) {
                     // Switch input pulled low
-                    switch (Access) {
+                    switch (Switch) {
                         case 1: // Access
                             if (Access_bit) {
                                 Access_bit = 0;                                 // Toggle Access bit on/off
                                 State = STATE_A;                                // Switch back to state A
                             } else Access_bit = 1;
                             printf("access: %d ", Access_bit);
+                            break;
+                        case 2: // Smart-Solar
+                            Mode = MODE_SMART;
+                            printf("\nMode: Smart");
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
@@ -2230,7 +2232,11 @@ void main(void) {
                     }
                 } else {
                     // Switch input released
-                    switch (Access) {
+                    switch (Switch) {
+                        case 2: // Smart-Solar
+                            Mode = MODE_SOLAR;
+                            printf("\nMode: Solar");
+                            break;
                         default:
                             break;
                     }

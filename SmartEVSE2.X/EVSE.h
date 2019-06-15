@@ -245,7 +245,7 @@ const far struct {
     {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
-    {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 5, EMCUSTOM_IDIVISOR},
+    {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},
     {"EXIT",   "EXIT",     "EXIT", 0, 0, 0}
 };
 
@@ -253,17 +253,17 @@ struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
     unsigned char IRegister;
-    unsigned char IDivisor; // 10^x / 5:double
+    unsigned char IDivisor; // 10^x / 8:double
     unsigned int ERegister;
     unsigned char ERegCount;
-    unsigned char EDivisor; // 10^x / 5:double
+    unsigned char EDivisor; // 10^x / 8:double
 } EMConfig[7] = {
     {"Disabled",  0,   0, 0,     0, 0, 0}, // First entry!
     {"Sensorb.1", 0,   0, 0,     0, 0, 0}, // Sensorbox 1
     {"Sensorb.2", 0,   0, 0,     0, 0, 0}, // Sensorbox 2
     {"Phoenix C", 2,  12, 3,    62, 2, 1}, // PHOENIX CONTACT EEM-350-D-MCB
     {"Finder",    3, 0xE, 3, 0x109, 3, 4}, // Finder 7E.78.8.400.0212
-    {"Eastron",   3, 0x6, 5, 0x156, 2, 5}, // Eastron SDM630
+    {"Eastron",   3, 0x6, 8, 0x156, 2, 8}, // Eastron SDM630
     {"Custom",    0,   0, 0,     0, 0, 0}  // Last entry!
 };
 

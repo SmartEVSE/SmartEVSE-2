@@ -823,7 +823,7 @@ void validate_settings(void) {
     }
 
     // Enable access if no access switch used
-    if (Switch != 1 && Switch !=2) Access_bit = 1;
+    if (Switch != 1 && Switch != 2) Access_bit = 1;
     // For Smart-Solar switch device must be in solar mode
     if (Switch == 4) Mode = MODE_SOLAR;
     // Sensorbox v2 has always address 0x0A
@@ -1264,7 +1264,7 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
             }
             break;
         default:
-            if (EMConfig[Meter].IDivisor == 5) {
+            if (EMConfig[Meter].IDivisor == 8) {
                 for (x = 0; x < 3; x++) {
                     combineBytes(&dCombined, buf, (x * 4), EMConfig[Meter].Endianness);
                     var[x] = dCombined * 10.0;
@@ -1560,8 +1560,8 @@ const far char * getMenuItemOption(unsigned char nav) {
                     break;
             }
         case MENU_EMCUSTOM_IDIVISOR:
-            if (value == 5) return "Double";
-            sprintf(Str, "%i", (unsigned int)pow10(value));
+            if (value == 8) return "Double";
+            sprintf(Str, "%.0f", pow10(value));
             return Str;
         case MENU_EXIT:
             return StrExitMenu;
@@ -1946,7 +1946,7 @@ void RS232cli(void) {
             printf("Enter new Byte order (0: LBF & LWF, 1: LBF & HWF, 2: HBF & LWF, 3: HBF & HWF): ");
             break;
         case MENU_EMCUSTOM_IDIVISOR:
-            printf("Enter new exponent of divisor (0-4) or 5 for double: ");
+            printf("Enter new exponent of divisor (0-7) or 8 for double: ");
             break;
         default:
             printf("Enter new value (%i,%i): ", MenuStr[menu].Min, MenuStr[menu].Max);

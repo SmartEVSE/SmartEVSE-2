@@ -1264,9 +1264,16 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
             }
             break;
         default:
-            for (x = 0; x < 3; x++) {
-                combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
-                var[x] = (double) lCombined / pow10(EMConfig[Meter].IDivisor - 1);
+            if (EMConfig[Meter].IDivisor == 5) {
+                for (x = 0; x < 3; x++) {
+                    combineBytes(&dCombined, buf, (x * 4), EMConfig[Meter].Endianness);
+                    var[x] = dCombined * 10.0;
+                }
+            } else {
+                for (x = 0; x < 3; x++) {
+                    combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
+                    var[x] = (signed double) lCombined / pow10(EMConfig[Meter].IDivisor - 1);
+                }
             }
             break;
     }
@@ -1553,6 +1560,7 @@ const far char * getMenuItemOption(unsigned char nav) {
                     break;
             }
         case MENU_EMCUSTOM_IDIVISOR:
+            if (value == 5) return "Double";
             sprintf(Str, "%i", (unsigned int)pow10(value));
             return Str;
         case MENU_EXIT:
@@ -1940,7 +1948,7 @@ void RS232cli(void) {
             printf("Enter new Byte order (0: LBF & LWF, 1: LBF & HWF, 2: HBF & LWF, 3: HBF & HWF): ");
             break;
         case MENU_EMCUSTOM_IDIVISOR:
-            printf("Enter new exponent of divisor (0-4): ");
+            printf("Enter new exponent of divisor (0-4) or 5 for double: ");
             break;
         default:
             printf("Enter new value (%i,%i): ", MenuStr[menu].Min, MenuStr[menu].Max);

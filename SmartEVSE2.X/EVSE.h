@@ -253,10 +253,10 @@ struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
     unsigned char IRegister;
-    unsigned char IDivisor; // 10^x / 8:double
+    unsigned char IDivisor; // 10^x / 8:double (A)
     unsigned int ERegister;
     unsigned char ERegCount;
-    unsigned char EDivisor; // 10^x / 8:double
+    unsigned char EDivisor; // 10^x / 8:double (kWh)
 } EMConfig[7] = {
     {"Disabled",  0,   0, 0,     0, 0, 0}, // First entry!
     {"Sensorb.1", 0,   0, 0,     0, 0, 0}, // Sensorbox 1

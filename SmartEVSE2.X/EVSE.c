@@ -118,11 +118,8 @@ const far char StrSolar[]   = "Solar";
 const far char StrSolenoid[] = "Solenoid";
 const far char StrMotor[]   = "Motor";
 const far char StrDisabled[] = "Disabled";
-const far char StrMaster[]  = "Master";
-const far char StrSlave1[]  = "Slave 1";
-const far char StrSlave2[]  = "Slave 2";
-const far char StrSlave3[]  = "Slave 3";
-const far char StrSwitch[5][10]  = { "Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S"};
+const far char StrLoadBl[5][9]  = {"Disabled", "Master", "Slave 1", "Slave 2", "Slave 3"};
+const far char StrSwitch[5][10] = {"Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S"};
 const far char StrEnabled[] = "Enabled";
 const far char StrExitMenu[] = "MENU";
 const far char StrMainsAll[] = "All"; // Everything
@@ -1519,11 +1516,7 @@ const far char * getMenuItemOption(unsigned char nav) {
             sprintf(Str, "%2u min", StopTime);
             return Str;
         case MENU_LOADBL:
-            if (LoadBl == 0) return StrDisabled;
-            else if (LoadBl == 1) return StrMaster;
-            else if (LoadBl == 2) return StrSlave1;
-            else if (LoadBl == 3) return StrSlave2;
-            else return StrSlave3;
+            return StrLoadBl[LoadBl];
         case MENU_MAINS:
         case MENU_MIN:
         case MENU_MAX:
@@ -1545,7 +1538,7 @@ const far char * getMenuItemOption(unsigned char nav) {
         case MENU_MAINSMETERADDRESS:
         case MENU_PVMETERADDRESS:
         case MENU_EMCUSTOM_IREGISTER:
-            sprintf(Str, "%u", value);
+            sprintf(Str, "%u (%02X)", value, value);
             return Str;
         case MENU_MAINSMETERMEASURE:
             if (MainsMeterMeasure) return StrMainsHomeEVSE;
@@ -1796,21 +1789,11 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_LOADBL:
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
-                    LoadBl = 0;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "MASTER") == 0) {
-                    LoadBl = 1;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SLAVE1") == 0) {
-                    LoadBl = 2;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SLAVE2") == 0) {
-                    LoadBl = 3;
-                    write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SLAVE3") == 0) {
-                    LoadBl = 4;
-                    write_settings();
+                for(i = 0; i < 5; i++){
+                    if (strcmp(U2buffer, StrLoadBl[i]) == 0) {
+                        LoadBl = i;
+                        write_settings();
+                    }
                 }
                 break;
             case MENU_SWITCH:
@@ -1895,7 +1878,11 @@ void RS232cli(void) {
             printf("Stop solar charging at 6A after %u min.\r\nEnter new time (0-60) min: ", StopTime);
             break;
         case MENU_LOADBL:
-            printf("Load Balancing set to : %s\r\nEnter Load Balancing mode (DISABLE/MASTER/SLAVE1/SLAVE2/SLAVE3): ", getMenuItemOption(menu));
+            printf("Load Balancing set to : %s\r\nEnter Load Balancing mode (%s", getMenuItemOption(menu), StrLoadBl[0]);
+            for(i = 1; i < 5; i++) {
+                printf("/%s", StrLoadBl[i]);
+            }
+            printf("): ");
             break;
         case MENU_MAINS:
             printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
@@ -1949,7 +1936,7 @@ void RS232cli(void) {
             printf("Enter new exponent of divisor (0-7) or 8 for double: ");
             break;
         default:
-            printf("Enter new value (%i,%i): ", MenuStr[menu].Min, MenuStr[menu].Max);
+            printf("Enter new value (%i-%i): ", MenuStr[menu].Min, MenuStr[menu].Max);
             break;
     }
     ISR2FLAG = 0;                                                               // clear flag

@@ -232,7 +232,7 @@ const far struct {
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
-    {"SW",     "SWITCH",   "Switch function control on IO2", 0, 2, SWITCH},
+    {"SW",     "SWITCH",   "Switch function control on IO2", 0, 4, SWITCH},
     {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1, RC_MON},
     {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},

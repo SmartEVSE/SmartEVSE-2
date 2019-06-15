@@ -122,7 +122,7 @@ const far char StrMaster[]  = "Master";
 const far char StrSlave1[]  = "Slave 1";
 const far char StrSlave2[]  = "Slave 2";
 const far char StrSlave3[]  = "Slave 3";
-const far char StrSwitch[3][9]  = { "Disabled", "Access" , "Smrt-Sol"};
+const far char StrSwitch[5][10]  = { "Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S"};
 const far char StrEnabled[] = "Enabled";
 const far char StrExitMenu[] = "MENU";
 const far char StrMainsAll[] = "All"; // Everything
@@ -825,7 +825,7 @@ void validate_settings(void) {
     // Enable access if no access switch used
     if (Switch != 1) Access_bit = 1;
     // For Smart-Solar switch device must be in solar mode
-    if (Switch == 2) Mode = MODE_SOLAR;
+    if (Switch == 4) Mode = MODE_SOLAR;
     // Sensorbox v2 has always address 0x0A
     if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
     // Disable modbus reciption on normal mode
@@ -1814,7 +1814,7 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_SWITCH:
-                for(i = 0; i < 3; i++){
+                for(i = 0; i < 5; i++){
                     if (strcmp(U2buffer, StrSwitch[i]) == 0) {
                         Switch = i;
                         write_settings();
@@ -1919,7 +1919,11 @@ void RS232cli(void) {
             printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
             break;
         case MENU_SWITCH:
-            printf("Access Control on I/O 2 set to : %s\r\nAccess Control on IO2 (Disabled/Access/Smrt-Sol): ", getMenuItemOption(menu));
+            printf("Access Control on I/O 2 set to : %s\r\nAccess Control on IO2 (%s", getMenuItemOption(menu), StrSwitch[0]);
+            for(i = 1; i < 5; i++) {
+                printf("/%s", StrSwitch[i]);
+            }
+            printf("): ");
             break;
         case MENU_RCMON:
             printf("Residual Current Monitor on I/O 3 set to : %s\r\nResidual Current Monitor on IO3 (DISABLE/ENABLE): ", getMenuItemOption(menu));
@@ -1928,21 +1932,15 @@ void RS232cli(void) {
             printf("CT1 reads: %3u.%01u A\r\nEnter new Measured Current for CT1: ", (unsigned int)Irms[0], (unsigned int)(Irms[0] * 10) % 10);
             break;
         case MENU_MAINSMETER:
-            printf("Enter new type of mains electric meter (Disabled");
+        case MENU_PVMETER:
+            printf("Enter new type (%s", EMConfig[0].Desc);
             for(i = 1; i <= EM_CUSTOM; i++) {
-                printf("/%s",EMConfig[i].Desc);
+                printf("/%s", EMConfig[i].Desc);
             }
             printf("): ");
             break;
         case MENU_MAINSMETERMEASURE:
             printf("Enter what mains electric meter measure (ALL/HOME): ");
-            break;
-        case MENU_PVMETER:
-            printf("Enter new type of PV electric meter (Disabled");
-            for(i = 1; i <= EM_CUSTOM; i++) {
-                printf("/%s",EMConfig[i].Desc);
-            }
-            printf("): ");
             break;
         case MENU_EMCUSTOM_ENDIANESS:
             printf("Enter new Byte order (0: LBF & LWF, 1: LBF & HWF, 2: HBF & LWF, 3: HBF & HWF): ");
@@ -2216,16 +2214,25 @@ void main(void) {
                 if (RB2last == 0) {
                     // Switch input pulled low
                     switch (Switch) {
-                        case 1: // Access
+                        case 1: // Access Button
                             if (Access_bit) {
                                 Access_bit = 0;                                 // Toggle Access bit on/off
                                 State = STATE_A;                                // Switch back to state A
                             } else Access_bit = 1;
                             printf("access: %d ", Access_bit);
                             break;
-                        case 2: // Smart-Solar
+                        case 2: // Access Switch
+                            Access_bit = 1;
+                            break;
+                        case 3: // Smart-Solar Button
+                            if (Mode == MODE_SMART) {
+                                Mode = MODE_SOLAR;
+                            } else {
+                                Mode = MODE_SMART;
+                            }
+                            break;
+                        case 4: // Smart-Solar Switch
                             Mode = MODE_SMART;
-                            printf("\nMode: Smart");
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
@@ -2235,6 +2242,7 @@ void main(void) {
                             break;
                     }
 
+                    // Reset RCD error when button is pressed
                     // RCD was tripped, but RCD level is back to normal
                     if (RCmon == 1 && (Error & RCD_TRIPPED) && PORTBbits.RB1 == 0) {
                         // Clear RCD error
@@ -2243,9 +2251,12 @@ void main(void) {
                 } else {
                     // Switch input released
                     switch (Switch) {
-                        case 2: // Smart-Solar
+                        case 2: // Access Switch
+                            Access_bit = 0;
+                            State = STATE_A;
+                            break;
+                        case 4: // Smart-Solar Switch
                             Mode = MODE_SOLAR;
-                            printf("\nMode: Solar");
                             break;
                         default:
                             break;

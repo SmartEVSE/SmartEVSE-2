@@ -823,7 +823,7 @@ void validate_settings(void) {
     }
 
     // Enable access if no access switch used
-    if (Switch != 1) Access_bit = 1;
+    if (Switch != 1 && Switch !=2) Access_bit = 1;
     // For Smart-Solar switch device must be in solar mode
     if (Switch == 4) Mode = MODE_SOLAR;
     // Sensorbox v2 has always address 0x0A

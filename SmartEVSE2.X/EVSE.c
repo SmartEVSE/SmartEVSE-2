@@ -822,14 +822,16 @@ void validate_settings(void) {
         }
     }
 
+    // Enable access if no access switch used
+    if (Switch != 1) Access_bit = 1;
+    // For Smart-Solar switch device must be in solar mode
+    if (Switch == 2) Mode = MODE_SOLAR;
     // Sensorbox v2 has always address 0x0A
     if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
     // Disable modbus reciption on normal mode
     if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
     // Disable PV reciption if not configured
     if (MainsMeterMeasure == 0) PVMeter = 0;
-    // Enable access if no access switch used
-    if (Switch != 1) Access_bit = 1;
 }
 
 void read_settings(void) {

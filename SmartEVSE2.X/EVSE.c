@@ -1302,8 +1302,8 @@ unsigned char getMenuItems (void) {
     if (Mode && LoadBl <= 1 || LoadBl == 1) {                                   // ? Smart or Solar mode and Load Balancing Disabled or Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
-        MenuItems[m++] = MENU_MAX;                                              // - Max Charge current (A)
     }
+    MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
     MenuItems[m++] = MENU_SWITCH;                                               // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
     if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?

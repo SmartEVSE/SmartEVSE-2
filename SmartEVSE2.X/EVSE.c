@@ -166,10 +166,10 @@ unsigned int MaxCapacity;                                                       
 unsigned int ChargeCurrent;                                                     // Calculated Charge Current (Amps *10)
 unsigned int Imeasured = 0;                                                     // Max of all Phases (Amps *10) of mains power
 signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
-signed int Isum = 0;                                                            // Sum of all measured Phases (can be negative)
+signed int Isum = 0;                                                            // Sum of all measured Phases (Amps *10) (can be negative)
 
 // Load Balance variables
-signed int IsetBalanced = 0;                                                    // Max calculated current available for all EVSE's
+signed int IsetBalanced = 0;                                                    // Max calculated current (Amps *10) available for all EVSE's
 unsigned int Balanced[4] = {0, 0, 0, 0};                                        // Amps value per EVSE (max 4)
 unsigned int BalancedMax[4] = {0, 0, 0, 0};                                     // Max Amps value per EVSE (max 4)
 char BalancedState[4] = {0, 0, 0, 0};                                           // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C) 
@@ -1125,7 +1125,7 @@ void CalcBalancedCurrent(char mod) {
 
         MaxBalanced = IsetBalanced;                                             // convert to Amps
 
-        DEBUG_PRINT(("Imeasured:%3u IsetBalanced:%3i Baseload:%3u ", Imeasured, IsetBalanced, Baseload));
+        DEBUG_PRINT(("Imeasured:%.1f A IsetBalanced:%.1f A Baseload:%.1f A ", (double)Imeasured/10, (double)IsetBalanced/10, (double)Baseload/10));
 
         // Calculate average current per EVSE
         n = 0;
@@ -1159,7 +1159,7 @@ void CalcBalancedCurrent(char mod) {
             } while (++n < 4 && BalancedLeft);
         }
 
-        for (n = 0; n < 4; n++) DEBUG_PRINT(("EVSE%u[%u]:%2u.%1uA ", n, BalancedState[n], Balanced[n] / 10, Balanced[n] % 10));
+        for (n = 0; n < 4; n++) DEBUG_PRINT(("EVSE%u[%u]:%.1f A ", n, BalancedState[n], (double)Balanced[n] / 10));
         DEBUG_PRINT(("\n\r"));
     } // BalancedLeft
 
@@ -1859,7 +1859,7 @@ void RS232cli(void) {
             for(i = 0; i < MenuItemsCount - 1; i++) {
                 printf("%-06s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
                 if (MenuItems[i] == MENU_CAL) {
-                    printf("CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA)",(unsigned int)Irms[0], (unsigned int)(Irms[0]*10)%10, (unsigned int)Irms[1], (unsigned int)(Irms[1]*10)%10, (unsigned int)Irms[2], (unsigned int)(Irms[2]*10)%10 );
+                    printf("CT1:%.1f A CT2:%.1f A CT3:%.1f A)", Irms[0]/10, Irms[1]/10, Irms[2]/10);
                 } else {
                     printf(getMenuItemOption(MenuItems[i]));
                 }
@@ -1919,7 +1919,7 @@ void RS232cli(void) {
             printf("Residual Current Monitor on I/O 3 set to : %s\r\nResidual Current Monitor on IO3 (DISABLE/ENABLE): ", getMenuItemOption(menu));
             break;
         case MENU_CAL:
-            printf("CT1 reads: %3u.%01u A\r\nEnter new Measured Current for CT1: ", (unsigned int)Irms[0], (unsigned int)(Irms[0] * 10) % 10);
+            printf("CT1 reads: %.1f A\r\nEnter new Measured Current for CT1: ", Irms[0]/10);
             break;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
@@ -2142,8 +2142,8 @@ void UpdateCurrentData(void) {
             // Set current for Master EVSE in Smart Mode
             SetCurrent(Balanced[0]);
         }
-        DEBUG_PRINT(("STATE:%c Error:%u StartCurrent: %i ImeasuredNegative: %i ChargeDelay:%u SolarStopTimer:%u NoCurrent:%u Imeas:%3u.%01uA IsetBalanced:%u.%01uA ",State-1+'A', Error, (unsigned int)StartCurrent*-10, ImeasuredNegative, ChargeDelay, SolarStopTimer,  NoCurrent,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)IsetBalanced/10,(unsigned int)IsetBalanced%10));
-        DEBUG_PRINT(("L1: %3.1f A L2: %3.1f A L3: %3.1f A Isum: %3.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
+        DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A ", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
+        DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
     } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
 }
 
@@ -2307,7 +2307,7 @@ void main(void) {
                             {
                                 // Send command to Master, followed by Max Charge Current
                                 ModbusWriteSingleRequest(LoadBl, 0x02, ChargeCurrent);
-                                printf("02 sent to Master, requested %uA\r\n", ChargeCurrent);
+                                printf("02 sent to Master, requested %.1f A\r\n", (double)ChargeCurrent/10);
                                 State = STATE_COMM_B;
                                 Timer = 0;                                      // Clear the Timer
                             } else {                                            // Load Balancing: Master or Disabled
@@ -2366,7 +2366,7 @@ void main(void) {
                                 {
                                     // Send command to Master, followed by Charge Current
                                     ModbusWriteSingleRequest(LoadBl, 0x03, ChargeCurrent);
-                                    printf("03 sent to Master, requested %uA\r\n", ChargeCurrent);
+                                    printf("03 sent to Master, requested %.1f A\r\n", (double)ChargeCurrent/10);
                                     State = STATE_COMM_C;
                                     Timer = 0;                                  // Clear the Timer
                                 } else {                                        // Load Balancing: Master or Disabled
@@ -2721,7 +2721,7 @@ void main(void) {
                             // 0x01: Balance currents
                             if (Modbus.Register == 0x01 && LoadBl > 1) {
                                 BalancedReceived = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
-                                printf("\n  Address %02x Register %02x BalancedReceived %i", Modbus.Address, Modbus.Register, BalancedReceived);
+                                printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
                                 DataReceived = 2;
                             }
 
@@ -2767,7 +2767,7 @@ void main(void) {
                         case 0x01:
                             Balanced[0] = BalancedReceived;
                             if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
-                            DEBUG_PRINT(("Broadcast received, Slave %uA \r\n", Balanced[0]));
+                            DEBUG_PRINT(("Broadcast received, Slave %.1f A \r\n", (double)Balanced[0]/10));
                             break;
                         case 0x02:                                              // Broadcast message from Master->Slaves, Error Occured!
                             State = STATE_A;
@@ -2796,7 +2796,7 @@ void main(void) {
                             } else {
                                 SetCurrent(Modbus.Value);
                                 State = STATE_B;
-                                DEBUG_PRINT(("82 ACK State A->B, charge current: %uA\r\n", Modbus.Value));
+                                DEBUG_PRINT(("82 ACK State A->B, charge current: %.1f A\r\n", (double)Modbus.Value/10));
                             }
                             break;
                         case 0x83:                                              // ACK received, state C followed by charge current
@@ -2815,7 +2815,7 @@ void main(void) {
                                 {
                                     GLCD();                                     // immediately update LCD
                                 }
-                                DEBUG_PRINT(("83 ACK State C charge current: %uA\r\n", Modbus.Value));
+                                DEBUG_PRINT(("83 ACK State C charge current: %.1f A\r\n", (double)Modbus.Value/10));
                                 printf("STATE B->C\r\n");
                             }
                             break;
@@ -2848,7 +2848,7 @@ void main(void) {
                                 BalancedMax[SlaveAdr] = Modbus.Value;           // Set requested charge current.
                                 Balanced[SlaveAdr] = MinCurrent * 10;           // Initially set current to lowest setting
                             } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
-                            printf("02 Slave %u requested:%uA\r\n", SlaveAdr, Modbus.Value);
+                            printf("02 Slave %u requested:%.1f A\r\n", SlaveAdr, (double)Modbus.Value/10);
                             // Send ACK to Slave, followed by assigned current
                             ModbusWriteSingleRequest(Modbus.Address, 0x82, Balanced[SlaveAdr]);
                             break;
@@ -2860,7 +2860,7 @@ void main(void) {
                                 Balanced[SlaveAdr] = 0;                         // For correct baseload calculation set current to zero
                                 CalcBalancedCurrent(1);                         // Calculate charge current for all connected EVSE's
                             } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
-                            printf("03 Slave %u charging: %uA\r\n", SlaveAdr, Balanced[SlaveAdr]);
+                            printf("03 Slave %u charging: %.1f A\r\n", SlaveAdr, (double)Balanced[SlaveAdr]);
                             // Send ACK to Slave, followed by assigned current
                             ModbusWriteSingleRequest(Modbus.Address, 0x83, Balanced[SlaveAdr]);
                             break;

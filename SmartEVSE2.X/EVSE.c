@@ -1244,20 +1244,23 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
  * @param pointer to var
  */
 void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var) {
-    unsigned char x;
+    unsigned char x, offset;
     signed double dCombined;
     signed long lCombined;
 
     switch(Meter) {
         case EM_SENSORBOX2:
-            // offset 19 is Smart meter P1 current
+            // determine if there is P1 data present, otherwise use CT data
+            if (buf[3] & 0x80) offset = 16;
+            else offset = 28;
+            // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // combine big endian
-                combineBytes(&dCombined, buf, 28 + (x * 4), 3);
+                combineBytes(&dCombined, buf, offset + (x * 4), 3);
                 // SmartEVSE works with Amps * 10
                 var[x] = dCombined * 10.0;
                 // When using CT's , adjust the measurements with calibration value
-                var[x] = var[x] * ICal;	
+                if (offset == 28) var[x] = var[x] * ICal;
             }
             break;
         default:

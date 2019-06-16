@@ -1697,7 +1697,7 @@ void WriteMultipleItemValueResponse(unsigned char ItemID) {
     if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
             value = (Modbus.Data[i * 2] <<8) | Modbus.Data[(i * 2) + 1];
-            OK += setItemValue(ItemID, value);
+            OK += setItemValue(ItemID + i, value);
         }
     }
 

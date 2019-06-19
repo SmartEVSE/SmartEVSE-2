@@ -260,10 +260,10 @@ struct {
 } EMConfig[7] = {
     {"Disabled",  0,   0, 0,     0, 0, 0}, // First entry!
     {"Sensorb.1", 0,   0, 0,     0, 0, 0}, // Sensorbox 1
-    {"Sensorb.2", 0,   0, 0,     0, 0, 0}, // Sensorbox 2
+    {"Sensorb.2", 0,   0, 0,     0, 0, 0}, // Sensorbox 2 (Own routine for request/receive)
     {"Phoenix C", 2,  12, 3,    62, 2, 1}, // PHOENIX CONTACT EEM-350-D-MCB
     {"Finder",    3, 0xE, 3, 0x109, 3, 4}, // Finder 7E.78.8.400.0212
-    {"Eastron",   3, 0x6, 8, 0x156, 2, 8}, // Eastron SDM630
+    {"Eastron",   3, 0x6, 8, 0x156, 2, 8}, // Eastron SDM630 (Own routine for request/receive)
     {"Custom",    0,   0, 0,     0, 0, 0}  // Last entry!
 };
 

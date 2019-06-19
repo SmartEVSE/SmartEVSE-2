@@ -1231,6 +1231,11 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
         case EM_SENSORBOX2:
             ModbusReadInputRequest(Address, 0, 20);
             break;
+        case EM_EASTRON:
+            // Phase 1-3 current: Register 0x06 - 0x0B (unsigned)
+            // Phase 1-3 power:   Register 0x0C - 0x11 (signed)
+            ModbusReadInputRequest(Address, 0x06, 12);
+            break;
         default:
             ModbusReadInputRequest(Address, EMConfig[Meter].IRegister, 6);
             break;
@@ -1261,6 +1266,14 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
                 var[x] = dCombined * 10.0;
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) var[x] = var[x] * ICal;
+            }
+            break;
+        case EM_EASTRON:
+            for (x = 0; x < 3; x++) {
+                combineBytes(&dCombined, buf, (x * 4), EMConfig[Meter].Endianness);
+                var[x] = dCombined * 10.0;
+                combineBytes(&dCombined, buf, ((x + 3) * 4), EMConfig[Meter].Endianness);
+                if (dCombined < 0) var[x] = -var[x];
             }
             break;
         default:

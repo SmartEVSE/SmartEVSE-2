@@ -1369,7 +1369,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                     RCmon = val;
                     break;
                 case MENU_CAL:
-                    ICal = val;
+                    ICal = (signed double)val * 100;
                     break;
                 case MENU_MAINSMETER:
                     MainsMeter = val;
@@ -1450,7 +1450,7 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_RCMON:
             return RCmon;
         case MENU_CAL:
-            return (unsigned int)ICal;
+            return (unsigned int) (ICal * 100);
         case MENU_MAINSMETER:
             return MainsMeter;
         case MENU_MAINSMETERADDRESS:

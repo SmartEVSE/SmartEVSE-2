@@ -237,7 +237,7 @@ const far struct {
     {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 0, 100, (unsigned int)ICAL},
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 1, 10000, (unsigned int) (ICAL * 100)},
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 6, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},

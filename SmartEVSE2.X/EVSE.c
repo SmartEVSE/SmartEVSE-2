@@ -458,9 +458,6 @@ void RS485SendBuf(char *buffer, unsigned char len) {
     char ch, index = 0;
     unsigned long tmr;
 
-    while (ISRTXFLAG) {
-    }                                                                           // wait if we are still transmitting over RS485
-
     while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus
     ISRTXLEN = len;                                                             // number of bytes to transfer
 

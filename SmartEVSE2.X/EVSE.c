@@ -1664,13 +1664,14 @@ void WriteItemValueResponse(unsigned char ItemID) {
         OK = setItemValue(ItemID, Modbus.Value);
     }
 
+    if (OK && ItemID < STATUS_STATE) write_settings();
+
     if (Modbus.Address > 0 || LoadBl == 0) {
         if (!ItemID) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
         } else if (!OK) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE);
         } else {
-            if (ItemID < STATUS_STATE) write_settings();
             ModbusWriteSingleResponse(Modbus.Address, Modbus.Register, Modbus.Value);
         }
     }
@@ -1691,13 +1692,14 @@ void WriteMultipleItemValueResponse(unsigned char ItemID) {
         }
     }
 
+    if (OK && ItemID < STATUS_STATE) write_settings();
+
     if (Modbus.Address > 0 || LoadBl == 0) {
         if (!ItemID) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
         } else if (!OK) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE);
         } else  {
-            if (ItemID < STATUS_STATE) write_settings();
             ModbusWriteMultipleResponse(Modbus.Address, Modbus.Register, OK);
         }
     }

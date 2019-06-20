@@ -212,6 +212,8 @@ extern unsigned char LCDpos;
 extern unsigned char ChargeDelay;                                               // Delays charging at least 60 seconds in case of not enough current available.
 extern unsigned char TestState;
 extern unsigned char Access_bit;
+extern unsigned int StopTime;
+extern unsigned int SolarStopTimer;
 
 extern unsigned char MenuItems[21];
 

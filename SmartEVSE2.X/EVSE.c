@@ -432,26 +432,6 @@ unsigned int crc16(unsigned char *buf, unsigned char len) {
     return crc;
 }
 
-unsigned int crc16sensorbox1(unsigned char *buf, unsigned char len) {
-    unsigned int crc = 0xffff;
-    
-    // Poly used is x^16+x^12+x^5+x
-    unsigned int c;
-    int i;
-    while (len--) {
-        c = *buf;
-        for (i = 0; i < 8; i++) {
-            if ((crc ^ c) & 1) crc = (crc >> 1)^0x8408;
-            else crc >>= 1;
-            c >>= 1;
-        }
-        buf++;
-    }
-    crc = (unsigned int) (crc ^ 0xFFFF);
-
-    return crc;
-}
-
 // Create HDLC/modbus frame from data, and copy to output buffer
 // Start RS485 transmission, by enabling TX interrupt
 void RS485SendBuf(char *buffer, unsigned char len) {
@@ -2055,13 +2035,9 @@ void init(void) {
     ANSELC = 0;                                                                 // All digital IO
     TRISC = 0b10000010;                                                         // RC1 and RC7 input (RX1), all other output
 
-    if (MainsMeter == EM_SENSORBOX1) {
-        SPBRGH1 = 13;                                                           // Initialize UART 1 (RS485)
-        SPBRG1 = 4;                                                             // Baudrate 1200 
-    } else {
-    	SPBRGH1 = 0x01;                                                         // Initialize UART 1 (RS485)
-        SPBRG1 = 0xA0;                                                          // Baudrate 9600 
-    }
+    SPBRGH1 = 0x01;                                                             // Initialize UART 1 (RS485)
+    SPBRG1 = 0xA0;                                                              // Baudrate 9600 
+
     BAUDCON1 = 0b00001000;                                                      // 16 bit Baudrate register is used
     TXSTA1 = 0b00100100;                                                        // Enable TX, 8 bit, Asynchronous mode
     RCSTA1 = 0b10010000;                                                        // Enable serial port TX and RX, 8 bit. 
@@ -2616,16 +2592,6 @@ void main(void) {
         /*  RS485 serial data is received by the ISR routine, and processed here..
             Reads serial packet with Raw Current values, measured from 1-N CT's, over a RS485 serial line
 
-            packet structure from sensorbox: 	
-            <protocol>,<version>,<nr of samples>,<sample 1>...<sample n>,<crc16>
-            protocol = 0x5001 (2 bytes)
-            version = 1 (1 byte)
-            nr of samples = 1 byte
-            samples are 4 bytes (double)
-            crc16 is 2 bytes
-            total 4+(n*4)+2 bytes (+ HDLC overhead)
-
-
             Load balancing RS485 commands:
             protocol  0x5002		= load balancing commands
             version 	0x01
@@ -2741,26 +2707,6 @@ void main(void) {
                         break;
                     default:
                         break;
-                }
-            } else if (MainsMeter == EM_SENSORBOX1) {
-                // Try sensorbox v1
-                crc = crc16sensorbox1(U1packet, ISRFLAG);
-
-                if (ISRFLAG > 10 && U1packet[2] == 0x50 && U1packet[3] == 0x01 && crc == 0x0f47) // check CRC
-                {                                                               // We have received a data packet from the sensorbox
-                    // received measurement packet from sensorbox v1
-                    n = 6;
-                    if (U1packet[5] > 3) U1packet[5] = 3;                       // protect against buffer overflow
-                    for (x = 0; x < U1packet[5]; x++)                           // Nr of CTs    
-                    {
-                        // combine little endian
-                        combineBytes(&dCombined, U1packet, n, 0);
-                        Irms[x] = dCombined * ICal;                             // adjust CT values with Calibration value
-                        n = n + 4;
-                    }
-                    // if (U1packet[4] == 0xA5 && !TestState) TestState = 1;    // TestIO command received, perform selfcheck (test interface required)
-
-                    UpdateCurrentData();
                 }
             } else {
                 printf("\n  CRC invalid");

@@ -722,7 +722,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
             SubMenu = 1;                                                        // Enter Submenu now
             if (LCDNav == MENU_CAL)                                             // CT1 calibration start
             {
-                CT1 = (unsigned int) Irms[0];                                   // make working copy of CT1 value
+                CT1 = (unsigned int) abs(Irms[0]);                              // make working copy of CT1 value
                 CT1old = CT1;                                                   // and a backup
             } else if (LCDNav == MENU_EXIT)                                     // Exit Main Menu
             {
@@ -768,10 +768,10 @@ void GLCDMenu(unsigned char Buttons) {                                          
                         GLCD_write_buf2((CT1 % 10) + 0x30);
                     } else {
                         GLCDx = 4 + (12 * 3);
-                        GLCD_write_buf2(((unsigned int) Irms[0] / 100) + 0x30);
-                        GLCD_write_buf2(((unsigned int) Irms[0] % 100 / 10) + 0x30);
+                        GLCD_write_buf2(((unsigned int) abs(Irms[0]) / 100) + 0x30);
+                        GLCD_write_buf2(((unsigned int) abs(Irms[0]) % 100 / 10) + 0x30);
                         GLCD_write_buf2('.');
-                        GLCD_write_buf2(((unsigned int) Irms[0] % 10) + 0x30);
+                        GLCD_write_buf2(((unsigned int) abs(Irms[0]) % 10) + 0x30);
                     }
                     GLCDx = 4 + (12 * 7);
                     GLCD_write_buf2('A');

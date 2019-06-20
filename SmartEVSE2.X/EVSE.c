@@ -1742,7 +1742,7 @@ void RS232cli(void) {
                 Inew = atof(U2buffer);
                 if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
                 else {
-                    Iold = Irms[0] / ICal;
+                    Iold = abs(Irms[0]) / ICal;
                     ICal = (Inew * 10) / Iold;                                  // Calculate new Calibration value
                     write_settings();
                 }
@@ -2816,7 +2816,7 @@ void main(void) {
                                 Balanced[SlaveAdr] = 0;                         // For correct baseload calculation set current to zero
                                 CalcBalancedCurrent(1);                         // Calculate charge current for all connected EVSE's
                             } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
-                            printf("03 Slave %u charging: %.1f A\r\n", SlaveAdr, (double)Balanced[SlaveAdr]);
+                            printf("03 Slave %u charging: %.1f A\r\n", SlaveAdr, (double)Balanced[SlaveAdr]/10);
                             // Send ACK to Slave, followed by assigned current
                             ModbusWriteSingleRequest(Modbus.Address, 0x83, Balanced[SlaveAdr]);
                             break;

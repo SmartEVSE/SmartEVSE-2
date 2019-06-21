@@ -1469,9 +1469,13 @@ unsigned int getItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].IDivisor;
 
         case STATUS_STATE:
-            return State + 64;
+            return State + (65 - STATE_A);
         case STATUS_ERROR:
             return Error;
+        case STATUS_MAX:
+            return MaxCapacity;
+        case STATUS_MIN:
+            return MinCurrent;
         case STATUS_CURRENT:
             return Balanced[0];
         case STATUS_ACCESS:
@@ -1577,10 +1581,12 @@ unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterC
     // Register 0xA*: Status
     // 0xA0: State
     // 0xA1: Error
-    // 0xA2: Charging current (A * 10)
-    // 0xA3: Real charging current (ToDo)
+    // 0xA2: Maximum charging current
+    // 0xA3: Minimum charging current
     // 0xA4: Number of used phases (ToDo)
-    // 0xA5: Access bit
+    // 0xA5: Real charging current (ToDo)
+    // 0xA6: Charging current (A * 10)
+    // 0xA7: Access bit
     else if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA5) {
         RegisterStart = 0xA0;
         ItemStart = STATUS_STATE;

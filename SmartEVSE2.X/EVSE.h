@@ -135,12 +135,11 @@
 #define STATUS_CURRENT 70
 #define STATUS_ACCESS 71
 
-#define EM_SENSORBOX1 1
-#define EM_SENSORBOX2 2
-#define EM_PHOENIX_CONTACT 3
-#define EM_FINDER 4
-#define EM_EASTRON 5
-#define EM_CUSTOM 6
+#define EM_SENSORBOX 1
+#define EM_PHOENIX_CONTACT 2
+#define EM_FINDER 3
+#define EM_EASTRON 4
+#define EM_CUSTOM 5
 
 #define MODBUS_INVALID 0
 #define MODBUS_OK 1
@@ -185,7 +184,7 @@ extern unsigned char PVMeterAddress;
 extern unsigned char EVSEMeter;                                                 // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
 extern unsigned char EVSEMeterAddress;
 
-extern signed double Irms[3];                                                  // Momentary current per Phase (Amps *10) (23 = 2.3A)
+extern signed double Irms[3];                                                   // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
 extern unsigned char State;
 extern unsigned char Error;
@@ -193,8 +192,8 @@ extern unsigned char NextState;
 
 extern unsigned int MaxCapacity;                                                // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
 extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps * 10) (23 = 2.3A)
-extern int Isum;            
-extern unsigned int Balanced[4];                                                         // Amps value per EVSE (max 4)
+extern signed int Isum;
+extern unsigned int Balanced[4];                                                // Amps value per EVSE (max 4)
 
 extern unsigned char RX1byte;
 extern unsigned char idx2, ISR2FLAG;
@@ -242,10 +241,10 @@ const far struct {
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 1, 10000, (unsigned int) (ICAL * 100)},
-    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 6, MAINS_METER},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 3, 6, PV_METER},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 2, 5, PV_METER},
     {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
@@ -261,10 +260,9 @@ struct {
     unsigned int ERegister;
     unsigned char ERegCount;
     unsigned char EDivisor; // 10^x / 8:double (kWh)
-} EMConfig[7] = {
+} EMConfig[6] = {
     {"Disabled",  0,   0, 0,     0, 0, 0}, // First entry!
-    {"Sensorb.1", 0,   0, 0,     0, 0, 0}, // Sensorbox 1
-    {"Sensorb.2", 0,   0, 0,     0, 0, 0}, // Sensorbox 2 (Own routine for request/receive)
+    {"Sensorbox", 3,   0, 0,     0, 0, 0}, // Sensorbox (Own routine for request/receive)
     {"Phoenix C", 2, 0xC, 3,  0x3E, 2, 1}, // PHOENIX CONTACT EEM-350-D-MCB
     {"Finder",    3, 0xE, 3, 0x109, 3, 4}, // Finder 7E.78.8.400.0212
     {"Eastron",   3, 0x6, 8, 0x156, 2, 8}, // Eastron SDM630 (Own routine for request/receive)

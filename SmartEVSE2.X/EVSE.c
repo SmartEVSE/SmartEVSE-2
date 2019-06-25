@@ -801,7 +801,7 @@ void validate_settings(void) {
     // For Smart-Solar switch device must be in solar mode
     if (Switch == 4) Mode = MODE_SOLAR;
     // Sensorbox v2 has always address 0x0A
-    if (MainsMeter == EM_SENSORBOX2) MainsMeterAddress = 0x0A;
+    if (MainsMeter == EM_SENSORBOX) MainsMeterAddress = 0x0A;
     // Disable modbus reciption on normal mode
     if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
     // Disable PV reciption if not configured
@@ -1205,7 +1205,7 @@ void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned cha
  */
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
     switch(Meter) {
-        case EM_SENSORBOX2:
+        case EM_SENSORBOX:
             ModbusReadInputRequest(Address, 0, 20);
             break;
         case EM_EASTRON:
@@ -1231,7 +1231,7 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
     signed long lCombined;
 
     switch(Meter) {
-        case EM_SENSORBOX2:
+        case EM_SENSORBOX:
             // determine if there is P1 data present, otherwise use CT data
             if (buf[3] & 0x80) offset = 16;
             else offset = 28;
@@ -1298,7 +1298,7 @@ unsigned char getMenuItems (void) {
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
     if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?
         MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
-        if (MainsMeter == EM_SENSORBOX1 || MainsMeter == EM_SENSORBOX2) {       // - ? Sensorbox?
+        if (MainsMeter == EM_SENSORBOX) {                                       // - ? Sensorbox?
             MenuItems[m++] = MENU_CAL;                                          // - - Sensorbox calibration
         } else if(MainsMeter) {                                                 // - ? Other?
             MenuItems[m++] = MENU_MAINSMETERADDRESS;                            // - - Address of Mains electric meter (5 - 254)
@@ -1475,7 +1475,7 @@ unsigned int getItemValue(unsigned char nav) {
         case STATUS_MAX:
             return MaxCapacity;
         case STATUS_MIN:
-            return MinCurrent;
+            return MinCurrent; // In solar mode StartCurrent?
         case STATUS_CURRENT:
             return Balanced[0];
         case STATUS_ACCESS:

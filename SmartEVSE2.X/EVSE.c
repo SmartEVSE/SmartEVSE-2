@@ -1329,6 +1329,8 @@ unsigned char getMenuItems (void) {
 unsigned char setItemValue(unsigned char nav, unsigned int val) {
     unsigned char ret = 0;
 
+    if (nav == STATUS_MODE) nav = MENU_MODE;
+
     if (nav < MENU_EXIT) {
         if (val >= MenuStr[nav].Min && val <= MenuStr[nav].Max) {
             switch (nav) {
@@ -1428,6 +1430,7 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_CONFIG:
             return Config;
         case MENU_MODE:
+        case STATUS_MODE:
             return Mode;
         case MENU_START:
             return StartCurrent;
@@ -1587,10 +1590,11 @@ unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterC
     // 0xA5: Real charging current (ToDo)
     // 0xA6: Charging current (A * 10)
     // 0xA7: Access bit
-    else if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA5) {
+    // 0xA8: EVSE Mode
+    else if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA8) {
         RegisterStart = 0xA0;
         ItemStart = STATUS_STATE;
-        Count = 6;
+        Count = 9;
     }
 
     // Register 0xC*: Configuration
@@ -2214,9 +2218,11 @@ void main(void) {
                             } else {
                                 Mode = MODE_SMART;
                             }
+                            if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
                         case 4: // Smart-Solar Switch
                             Mode = MODE_SMART;
+                            if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
@@ -2241,6 +2247,7 @@ void main(void) {
                             break;
                         case 4: // Smart-Solar Switch
                             Mode = MODE_SOLAR;
+                            if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
                         default:
                             break;

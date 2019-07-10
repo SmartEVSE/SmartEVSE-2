@@ -1513,8 +1513,10 @@ const far char * getMenuItemOption(unsigned char nav) {
             sprintf(Str, "-%2u A", StartCurrent);
             return Str;
         case MENU_STOP:
-            sprintf(Str, "%2u min", StopTime);
-            return Str;
+            if (StopTime) {
+                sprintf(Str, "%2u min", StopTime);
+                return Str;
+            } else return StrDisabled;
         case MENU_LOADBL:
             return StrLoadBl[LoadBl];
         case MENU_MAINS:

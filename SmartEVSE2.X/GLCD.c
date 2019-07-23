@@ -292,8 +292,8 @@ const unsigned char LCD_Flow [] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xC0, 0x60, 0x30, 0x60, 0xC0,
 0x90, 0x20, 0x40, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x42, 0x04, 0xE0, 0x10, 0x08,
-0x0B, 0x08, 0x10, 0xE0, 0x04, 0x42, 0x40, 0x00, 0x00, 0x00, 0x1C, 0x22, 0x41, 0x4F, 0x49, 0x22,
-0x1C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x0B, 0x08, 0x10, 0xE0, 0x04, 0x42, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1C, 0x22, 0x41, 0x4F,
+0x49, 0x22, 0x1C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x40, 0x61, 0x31, 0x18, 0x08, 0x08, 0x08, 0x08, 0xFF, 0x08, 0x8D, 0x4A, 0xFF, 0x08, 0x08, 0x08,
 0x08, 0x18, 0x31, 0x61, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -306,7 +306,7 @@ const unsigned char LCD_Flow [] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x05, 0x88, 0x50, 0xFF, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0xFF, 0x00, 0xFC, 0x04, 0x04, 0x04, 0x04, 0xFC, 0x00, 0x00, 0x00, 0xF0, 0x10,
+0x00, 0x00, 0x00, 0xFF, 0x00, 0xF8, 0x08, 0x08, 0x08, 0x08, 0xF8, 0x00, 0x00, 0x00, 0xF0, 0x10,
 0x10, 0x10, 0x10, 0x10, 0xF0, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x80, 0x60, 0x10, 0x08, 0x04, 0x02, 0x82, 0x81, 0x81, 0x81, 0x01, 0x01, 0x01, 0x01,
@@ -486,7 +486,7 @@ void GLCD(void) {
     LCDTimer++;
 
                                                                                 // MODE NORMAL
-    if (Mode == MODE_NORMAL) {
+    if (Mode == MODE_NORMAL || !Access_bit) {
         if (State == STATE_C) {                                                 // STATE C
             GLCD_print2(2, (const far char *) "CHARGING");
 
@@ -517,21 +517,21 @@ void GLCD(void) {
         }
     }                                                                           // MODE SMART or SOLAR
     else if ((Mode == MODE_SMART) || (Mode == MODE_SOLAR)) {
-
+        
         GLCD_Flow_buf();                                                        // copy Flow Menu to LCD buffer
 
         if (Mode == MODE_SMART) {                                               // remove the Sun from the LCD buffer
             for (x=0; x<13; x++) {
                 GLCDbuf[x+74] = 0;
                 GLCDbuf[x+74+128] = 0;
-            }
+            }    
         }
         if (SolarStopTimer == 0) {                                              // remove the clock from the LCD buffer
-            for (x=0; x<9; x++) {
-                GLCDbuf[x+89] = 0;
-            }
+            for (x=0; x<8; x++) {
+                GLCDbuf[x+92] = 0;
+            }    
         } else {                                                                // display remaining time before charging is stopped
-            GLCDx = 99;
+            GLCDx = 101;
             GLCDy = 0;
             seconds = StopTime * 60;
             seconds = seconds - SolarStopTimer;
@@ -539,11 +539,14 @@ void GLCD(void) {
             seconds = seconds % 60;
             GLCD_write_buf((minutes / 10) + 0x30);
             GLCD_write_buf((minutes % 10) + 0x30);
+            GLCDx --;                                                           // the colon doesn't need a lot of space
             GLCD_write_buf(':');
+            GLCDx --;
             GLCD_write_buf((seconds / 10) + 0x30);
-            GLCD_write_buf((seconds % 10) + 0x30);
+            GLCD_write_buf((seconds % 10) + 0x30);        
         }
-
+        
+        
         if (Isum < 0) {
             energy_mains -= 3;                                                  // animate the flow of Mains energy on LCD.
             if (energy_mains < 20) energy_mains = 44;                           // Only in Mode: Smart or Solar
@@ -554,7 +557,7 @@ void GLCD(void) {
 
         GLCDx = energy_mains;
         GLCDy = 3;
-
+                                                                                
         if (abs(Isum) >3 ) GLCD_write_buf(0xFE);                                // Show energy flow 'blob' between Grid and House
                                                                                 // If current flow is < 0.3A don't show the blob
 
@@ -730,6 +733,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
         ButtonRelease = 1;
     } else if (LCDNav > 1 && Buttons == 0x5 && ButtonRelease == 0)              // Button 2 pressed?
     {
+        ButtonRelease = 1;
         if (SubMenu)                                                            // Are we in Submenu?
         {
             SubMenu = 0;                                                        // yes, exit Submenu
@@ -756,21 +760,22 @@ void GLCDMenu(unsigned char Buttons) {                                          
                 Error = NO_ERROR;                                               // Clear All Errors when exiting the Main Menu
                 TestState = 0;                                                  // Clear TestState
                 ChargeDelay = 0;                                                // Clear ChargeDelay
+                GLCD();                                             
                 write_settings();                                               // Write to eeprom
-                GLCD();
+                ButtonRelease = 2;                                              // Skip updating of the LCD 
             }
         }
-        ButtonRelease = 1;
+        
     } else if (Buttons == 0x7)                                                  // Buttons released
     {
         ButtonRelease = 0;
-        delay(10);                                                              // debounce keys
+        delay(10);                                                              // debounce keys (blocking)
     }
 
     //
     // here we update the LCD
     //
-    if (ButtonRelease == 1 || LCDNav == 1) {
+    if ( ButtonRelease == 1 || LCDNav == 1) {
         if (LCDNav == 1) {
             glcd_clrln(0, 0x00);
             glcd_clrln(1, 0x04);                                                // horizontal line
@@ -793,6 +798,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                         GLCD_write_buf2((CT1 % 10) + 0x30);
                     } else {
                         GLCDx = 4 + (12 * 3);
+                        
                         GLCD_write_buf2(((unsigned int) abs(Irms[0]) / 100) + 0x30);
                         GLCD_write_buf2(((unsigned int) abs(Irms[0]) % 100 / 10) + 0x30);
                         GLCD_write_buf2('.');

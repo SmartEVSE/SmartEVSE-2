@@ -435,7 +435,7 @@ unsigned int crc16(unsigned char *buf, unsigned char len) {
 // Create HDLC/modbus frame from data, and copy to output buffer
 // Start RS485 transmission, by enabling TX interrupt
 void RS485SendBuf(char *buffer, unsigned char len) {
-    char ch, index = 0;
+    char index = 0;
     unsigned long tmr;
 
     while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus
@@ -802,9 +802,9 @@ void validate_settings(void) {
     if (Switch == 4) Mode = MODE_SOLAR;
     // Sensorbox v2 has always address 0x0A
     if (MainsMeter == EM_SENSORBOX) MainsMeterAddress = 0x0A;
-    // Disable modbus reciption on normal mode
+    // Disable modbus reception on normal mode
     if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
-    // Disable PV reciption if not configured
+    // Disable PV reception if not configured
     if (MainsMeterMeasure == 0) PVMeter = 0;
 }
 
@@ -969,7 +969,8 @@ void BlinkLed(void) {
         LedCount = 128;                                                         // When switching to STATE C, start at full brightness
     } else if (State == STATE_C && LedUpdate)                                   // STATE C, LED fades in/out
     {
-        LedCount = LedCount + 2;
+        if (Mode == MODE_SOLAR) LedCount ++;                                    // Slow fading (Solar mode)
+        else LedCount += 2;                                                     // Faster fading (Smart mode)
         LedPwm = ease8InOutQuad(triwave8(LedCount));                            // pre calculate new LedPwm value
         LedUpdate = 0;
     }
@@ -2219,6 +2220,8 @@ void main(void) {
                                 Mode = MODE_SOLAR;
                             } else {
                                 Mode = MODE_SMART;
+                                ChargeDelay = 0;                                // Clear any Chargedelay 
+                                SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
                             }
                             if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
@@ -2437,6 +2440,7 @@ void main(void) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
                             State = STATE_A;                                    // switch back to STATE_A
+                            CONTACTOR_OFF;                                      // Contactor OFF
                             printf("STATE C->A\r\n");
                             GLCD_init();                                        // Re-init LCD
                             if (LoadBl > 1)                                     // Load Balancing : Slave 

@@ -216,6 +216,7 @@ struct  {
     unsigned char Type;
     unsigned char RequestAddress;
     unsigned char RequestFunction;
+    unsigned int RequestRegister;
     unsigned char Requested;
 } Modbus;
 
@@ -511,6 +512,7 @@ void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg
 void ModbusReadInputRequest(unsigned char address, unsigned int reg, unsigned int quantity) {
     Modbus.RequestAddress = address;
     Modbus.RequestFunction = 0x04;
+    Modbus.RequestRegister = reg;
     ModbusSend8(address, 0x04, reg, quantity);
 }
 
@@ -535,6 +537,7 @@ void ModbusReadInputResponse(unsigned char address, unsigned int *values, unsign
 void ModbusWriteSingleRequest(unsigned char address, unsigned int reg, unsigned int value) {
     Modbus.RequestAddress = address;
     Modbus.RequestFunction = 0x06;
+    Modbus.RequestRegister = reg;
     ModbusSend8(address, 0x06, reg, value);  
 }
 
@@ -563,6 +566,7 @@ void ModbusWriteMultipleRequest(unsigned char address, unsigned int reg, unsigne
 
     Modbus.RequestAddress = address;
     Modbus.RequestFunction = 0x10;
+    Modbus.RequestRegister = reg;
 
     // Device Address
     Tbuffer[n++] = address;
@@ -717,27 +721,34 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                     Modbus.Requested = 0;
                     Modbus.RequestAddress = Modbus.Address;
                     Modbus.RequestFunction = Modbus.Function;
+                    Modbus.RequestRegister = Modbus.Register;
                     break;
                 case MODBUS_RESPONSE:
                     // If address and function identical with last send or received request, it is a valid response
                     if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
                         Modbus.Requested = 1;
+                        if (Modbus.Function == 0x04) Modbus.Register = Modbus.RequestRegister;
                     } else {
                         Modbus.Requested = 0;
                     }
                     Modbus.RequestAddress = 0;
                     Modbus.RequestFunction = 0;
+                    Modbus.RequestRegister = 0;
                     break;
                 case MODBUS_OK:
                     // If address and function identical with last send or received request, it is a valid response
                     if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
                         Modbus.Requested = 1;
                         Modbus.Type = MODBUS_RESPONSE;
+                        Modbus.RequestAddress = 0;
+                        Modbus.RequestFunction = 0;
+                        Modbus.RequestRegister = 0;
                     } else {
                         Modbus.Requested = 0;
+                        Modbus.Type = MODBUS_REQUEST;
                         Modbus.RequestAddress = Modbus.Address;
                         Modbus.RequestFunction = Modbus.Function;
-                        Modbus.Type = MODBUS_REQUEST;
+                        Modbus.RequestRegister = Modbus.Register;
                     }
                     // ToDo: Workaround to disable response detection on communication with slaves
                     if ((Modbus.Register >= 0x01 && Modbus.Register <=0x04) || (Modbus.Register >= 0x81 && Modbus.Register <=0x84)) Modbus.Type = MODBUS_REQUEST;
@@ -2658,7 +2669,7 @@ void main(void) {
                 timeout = 10;
                 switch (Modbus.Function) {
                     case 0x04: // (Read input register)
-                        if (MainsMeter && Modbus.Address == MainsMeterAddress) {
+                        if (MainsMeter && Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
                             // packet from Mains electric meter
                             receiveCurrentMeasurement(Modbus.Data, MainsMeter, Irms);
                             if (PVMeter) {
@@ -2668,7 +2679,7 @@ void main(void) {
                             else {
                                 UpdateCurrentData();
                             }
-                        } else if (MainsReceived && PVMeter && Modbus.Address == PVMeterAddress) {
+                        } else if (MainsReceived && PVMeter && Modbus.Address == PVMeterAddress && Modbus.Register == EMConfig[PVMeter].IRegister) {
                             // packet from PV electric meter
                             receiveCurrentMeasurement(Modbus.Data, PVMeter, PV);
                             for (x = 0; x < 3; x++) {

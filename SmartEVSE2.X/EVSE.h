@@ -41,7 +41,7 @@
 #define MIN_CURRENT 6                                                           // minimum Current the EV will accept
 #define MODE 0                                                                  // Normal EVSE mode
 #define LOCK 0                                                                  // No Cable lock
-#define CABLE_LIMIT 13                                                          // Manual set Cable Limit (for use with Fixed Cable)
+#define MAX_CIRCUIT 16                                                          // Max current of the EVSE circuit breaker
 #define CONFIG 0                                                                // Configuration: 0= TYPE 2 socket, 1= Fixed Cable
 #define LOADBL 0                                                                // Load Balancing disabled
 #define SWITCH 0                                                                // 0= Charge on plugin, 1= (Push)Button on IO2 is used to Start/Stop charging.
@@ -50,7 +50,7 @@
 #define BACKLIGHT 60                                                            // Seconds delay for the LCD backlight to turn off.
 #define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
-#define MAINS_METER 2
+#define MAINS_METER 1                                                           // Mains Meter, 1= Sensorbox, 2=Phoenix, 3= Finder, 4= Eastron, 5=Custom
 #define MAINS_METER_ADDRESS 10
 #define MAINS_METER_MEASURE 0
 #define PV_METER 0
@@ -83,6 +83,9 @@
 #define PILOT_DIODE 4
 #define PILOT_NOK 0
 
+#define STATE_A_TO_C PILOT_9V                                                   // Set to PILOT_6V to allow switching from STATE A to STATE C (without STATE B)
+                                                                                // default is PILOT_9V
+
 #define NO_ERROR 0
 #define LESS_6A 1
 #define CT_NOCOMM 2
@@ -106,7 +109,7 @@
 #define MENU_CONFIG 2
 #define MENU_LOADBL 3
 #define MENU_MIN 4
-#define MENU_CABLE 5
+#define MENU_CIRCUIT 5
 #define MENU_LOCK 6
 #define MENU_START 7
 #define MENU_STOP 8
@@ -136,7 +139,7 @@
 #define STATUS_ACCESS 71
 #define STATUS_MODE 72
 
-#define EM_SENSORBOX 1
+#define EM_SENSORBOX 1                                                          // Mains meter types
 #define EM_PHOENIX_CONTACT 2
 #define EM_FINDER 3
 #define EM_EASTRON 4
@@ -170,7 +173,7 @@ extern unsigned int MinCurrent;                                                 
 extern double ICal;                                                             // CT calibration value
 extern char Mode;                                                               // EVSE mode
 extern char Lock;                                                               // Cable lock enable/disable
-extern unsigned int CableLimit;                                                 // Fixed Cable Current limit (only used when config is set to Fixed Cable)
+extern unsigned int MaxCircuit;                                                 // Max current of the EVSE circuit
 extern char Config;                                                             // Configuration (Fixed Cable or Type 2 Socket)
 extern char LoadBl;                                                             // Load Balance Setting (Disable, Master or Slave)
 extern char Switch;                                                             // Allow access to EVSE with button on IO2
@@ -216,11 +219,13 @@ extern unsigned char TestState;
 extern unsigned char Access_bit;
 extern unsigned int StopTime;
 extern unsigned int SolarStopTimer;
+extern unsigned char SolarTimerEnable;
+
 
 extern unsigned char MenuItems[21];
 
 const far struct {
-    char Key[7];
+    char Key[8];
     char LCD[9];
     char Desc[52];
     unsigned int Min;
@@ -232,20 +237,20 @@ const far struct {
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
     {"LOADBL", "LOAD BAL", "Set Load Balancing mode", 0, 4, LOADBL},
     {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
-    {"CABLE",  "CABLE",    "Set Fixed Cable Current limit", 13, 80, CABLE_LIMIT},
+    {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 80, MAX_CIRCUIT},
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
     {"SW",     "SWITCH",   "Switch function control on IO2", 0, 4, SWITCH},
     {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1, RC_MON},
-    {"MAX",    "MAX",      "Set MAX Charge Current for all EV", 10, 80, MAX_CURRENT},
+    {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 10, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 1, 10000, (unsigned int) (ICAL * 100)},
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 2, 5, PV_METER},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 0, 5, PV_METER},
     {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},

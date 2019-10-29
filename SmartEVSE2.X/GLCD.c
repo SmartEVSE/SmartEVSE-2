@@ -488,6 +488,10 @@ void GLCD(void) {
                                                                                 // MODE NORMAL
     if (Mode == MODE_NORMAL || !Access_bit) {
         if (State == STATE_C) {                                                 // STATE C
+            
+            BACKLIGHT_ON;                                                       // LCD backlight on
+            BacklightTimer = BACKLIGHT;
+            
             GLCD_print2(2, (const far char *) "CHARGING");
 
             GLCDx = 4 + 30;
@@ -526,7 +530,7 @@ void GLCD(void) {
                 GLCDbuf[x+74+128] = 0;
             }    
         }
-        if (SolarStopTimer == 0) {                                              // remove the clock from the LCD buffer
+        if (!SolarTimerEnable) {                                                // remove the clock from the LCD buffer
             for (x=0; x<8; x++) {
                 GLCDbuf[x+92] = 0;
             }    
@@ -693,7 +697,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
     {
         Error &= ~RCD_TRIPPED;                                                  // Clear RCD error bit, by pressing any button
     }
-
+        
     if ((LCDNav == 0) && (Buttons == 0x5) && (ButtonRelease == 0))              // Button 2 pressed ?
     {
         LCDNav = MENU_ENTER;                                                    // about to enter menu
@@ -812,6 +816,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     GLCD_print_menu(getMenuItemOption(LCDNav), 4);
                     break;
             }
+            GLCD_print(98,7, (const far char *) "v"VERSION);                    // show software version in bottom right corner.
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once
     }

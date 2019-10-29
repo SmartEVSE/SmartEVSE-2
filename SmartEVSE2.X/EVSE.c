@@ -22,24 +22,39 @@
 ; 2.05  Fix: Using a 16A charge cable would limit MaxCurrent to 16A, until a reset of the module or adjusting the MAX value using the menu. 
 ;       Fix: Increased number of times a STATE change needs to be valid, before the actual STATE change takes place.
 ;            this to fix erratic behavior on a Renault Zoe.
-;       LCD Backlight will now be activated on any key press, and will turn off after 30 seconds of inactivity (except when charging).  
+;       LCD Backlight will now be activated on any key press, and will turn off after 60 seconds of inactivity (except when charging).  
 ;       CT's default values can be restored by holding both < and > keys while in the CAL menu.
 ;       RCMON menu option added. This adds support for DC Residual Current sensors, as required by IEC62955.
 ;            IO3 is used as the fault input (active high).
 ;            The error state can be reset by pressing any module button, or the pushbutton on IO2
 ; 2.06  Added check in EEprom write routine for disabled interrupts.
-; 2.10  Modbus version
+; 2.07  Fix: The RCD was tripped by inductive loads/ voltage spikes on the mains line. Checking twice for a tripped RCD fixed this.
+;       Bootloader can now only be entered when also the right button on top of the module is pressed.
+;       Added Compile time option to switch directly from STATE_A to STATE_C.
+;
+; 2.10  Modbus version. 
+;       Please note that the old sensorbox will -not- work with this version.
+;       Use Sensorbox 1.5 or Sensorbox 2, or use a Phoenix, Finder or Eastrom modbus kWh meter for measuring the current on your mains wiring.
+;       Thanks to Robert Heel for his work on this code.
 ;       Added MODE Solar option. Maximize charging on Solar power.
 ;       Added START menu option. Start Charging when surplus solar power is above 4A (configurable 1-16 A). EV will always charge at minimal MIN Current per phase
-;       Added STOP menu option. Stop Charging after 15 minutes at MIN charge current (configurable 0-60 min) (0= continue charging)
+;       Added STOP menu option. Stop Charging after XX minutes at MIN charge current (configurable 0-60 min) (0= keep charging)
+;       EEprom initialization done at first power-up.
+;       Fixed Bugfixes in Master/Slave code.
+;       Automatic CT Calibration reset when upgrading from 2.0x to this version.
+;       LCD Backlight will now be lit for 60 seconds, when pressing the external button.
+;       CABLE option removed, just set MAX to the cable capacity.
+;       CIRCUIT menu option added. Used when multiple EVSE's share the same circuit. Set this to the max current of the EVSE circuit. 
+;       Switching between Solar/Smart mode with left button on the module.
 ;
 ;
-;   Use XC8 compiler version 1.45, version 2.x currently does not work.
+;   Build with MPLAB X v5.25 and XC8 compiler version 2.10
 ;
+;   If you get "(902) no chip name specified" error messages, make sure the xc8-cc compiler is used.
+;
+;   set in XC8 global options the C standard to "C90"
 ;   set XC8 linker memory model settings to: double 32 bit, float 32 bit
-;   extended instruction set is not used on XC8
-;   add the following XC8 linker option to reserve space for the bootloader:
-:   --rom=0-FCFB
+;   and reserve space for the bootloader by setting ROM range to 0-FCFB
 ;
 ;
 ;   (C) 2013-2019  Michael Stegen / Stegen Electronics
@@ -88,27 +103,6 @@ unsigned int CalcCurrent();
 #pragma	config EBTRB = OFF
 
 
-const unsigned int EE_MaxMains @ 0xf00000 = MAX_MAINS;
-const unsigned int EE_MaxCurrent @ 0xf00002 = MAX_CURRENT;
-const unsigned int EE_MinCurrent @ 0xf00004 = MIN_CURRENT;
-const double EE_ICal @ 0xf00006 = ICAL;
-const unsigned int EE_Mode @ 0xf0000a = MODE + (LOCK << 8);
-const unsigned int EE_CableLimit @ 0xf0000c = CABLE_LIMIT;
-const unsigned int EE_Config_LoadBl @ 0xf0000e = CONFIG + (LOADBL << 8);
-const unsigned int EE_Access_RCmon @ 0xf00010 = SWITCH + (RC_MON << 8);
-const unsigned int EE_StartCurrent @ 0xf00012 = START_CURRENT;
-const unsigned int EE_StopTime @ 0xf00014 = STOP_TIME;
-/*
-const unsigned char EE_MainsMeter @ 0xf00016 = MAINS_METER
-const unsigned char EE_MainsMeterAddress @ 0xf00017 = MAINS_METER_ADDRESS
-const unsigned char EE_MainsMeterMeasure @ 0xf00018 = MAINS_METER_MEASURE
-const unsigned char EE_PVMeter @ 0xf00019 = PV_METER
-const unsigned char EE_PVMeterAddress @ 0xf00020 = PV_METER_ADDRESS
-const unsigned char EMConfig[EM_CUSTOM].Endianness @ 0xf00021 = EMCUSTOM_ENDIANESS
-const unsigned char EMConfig[EM_CUSTOM].IRegister @ 0xf00022 = EMCUSTOM_IREGISTER
-const unsigned char EMConfig[EM_CUSTOM].IDivisor @ 0xf00023 = EMCUSTOM_IDIVISOR
-*/
-
 // Text
 const far char StrFixed[]   = "Fixed";
 const far char StrSocket[]  = "Socket";
@@ -134,26 +128,26 @@ char GLCDbuf[512];                                                              
 
 
 // The following data will be updated by eeprom data at powerup:
-unsigned int MaxMains;                                                          // Max Mains Amps (hard limit, limited by the MAINS connection) (A)
-unsigned int MaxCurrent;                                                        // Max Charge current (A)
-unsigned int MinCurrent;                                                        // Minimal current the EV is happy with (A)
-double ICal;                                                                    // CT calibration value
-char Mode;                                                                      // EVSE mode (0:Normal / 1:Smart)
-char Lock;                                                                      // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
-unsigned int CableLimit;                                                        // Fixed Cable Current limit (only used when config is set to Fixed Cable) (A)
-char Config;                                                                    // Configuration (0:Socket / 1:Fixed Cable)
-char LoadBl;                                                                    // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-char Switch;                                                                    // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
-char RCmon;                                                                     // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
-unsigned int StartCurrent;
-unsigned int StopTime;
-unsigned char MainsMeter;                                                       // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact)
-unsigned char MainsMeterAddress;
-unsigned char MainsMeterMeasure;                                                // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
-unsigned char PVMeter;                                                          // Type of PV electric meter (0: Disabled / 10: Phoenix Contact)
-unsigned char PVMeterAddress;
-unsigned char EVSEMeter;                                                        // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact)
-unsigned char EVSEMeterAddress;
+unsigned int MaxMains = MAX_MAINS;                                              // Max Mains Amps (hard limit, limited by the MAINS connection) (A)
+unsigned int MaxCurrent = MAX_CURRENT;                                          // Max Charge current (A)
+unsigned int MinCurrent = MIN_CURRENT;                                          // Minimal current the EV is happy with (A)
+double ICal = ICAL;                                                             // CT calibration value
+char Mode = MODE;                                                               // EVSE mode (0:Normal / 1:Smart)
+char Lock = LOCK;                                                               // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
+unsigned int MaxCircuit = MAX_CIRCUIT;                                          // Max current of the EVSE circuit (A)
+char Config = CONFIG;                                                           // Configuration (0:Socket / 1:Fixed Cable)
+char LoadBl = LOADBL;                                                           // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
+char Switch = SWITCH;                                                           // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
+char RCmon = RC_MON;                                                            // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
+unsigned int StartCurrent = START_CURRENT;
+unsigned int StopTime = STOP_TIME;
+unsigned char MainsMeter = MAINS_METER;                                         // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact)
+unsigned char MainsMeterAddress = MAINS_METER_ADDRESS;
+unsigned char MainsMeterMeasure = MAINS_METER_MEASURE;                          // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
+unsigned char PVMeter = PV_METER;                                               // Type of PV electric meter (0: Disabled / 10: Phoenix Contact)
+unsigned char PVMeterAddress = PV_METER_ADDRESS;
+//unsigned char EVSEMeter;                                                      // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact)
+//unsigned char EVSEMeterAddress;
 
 signed double Irms[3]={0, 0, 0};                                                // Momentary current per Phase (Amps *10) (23 = 2.3A)
                                                                                 // Max 3 phases supported
@@ -174,7 +168,7 @@ unsigned int Balanced[4] = {0, 0, 0, 0};                                        
 unsigned int BalancedMax[4] = {0, 0, 0, 0};                                     // Max Amps value per EVSE (max 4)
 char BalancedState[4] = {0, 0, 0, 0};                                           // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C) 
 
-unsigned char RX1byte, TX1byte;
+unsigned char RX1byte;
 unsigned char idx = 0, idx2 = 0, ISRFLAG = 0, ISR2FLAG = 0, ISRTXFLAG = 0, ISRTXLEN = 0;
 unsigned char menu = 0;
 unsigned int locktimer = 0, unlocktimer = 0;                                    // solenoid timers
@@ -251,8 +245,13 @@ void interrupt high_isr(void)
     while (PIR3bits.RC2IF)                                                      
     {
         // Check for BREAK character, then Reset
-
-        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A) {              // Make sure any data during a POR is ignored
+#ifdef DEBUG_P
+        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A ) {
+#else     
+        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A && ButtonState == 0x03) {
+#endif    
+                                                                                // Make sure any data during a POR is ignored.
+                                                                                // added check for Buttonpress > before entering bootloader (2.07)
             RX1byte = RCREG2;                                                   // copy received byte
             if (!RX1byte) Reset();                                              // Only reset if not charging...
         } else RX1byte = RCREG2;
@@ -446,8 +445,8 @@ void RS485SendBuf(char *buffer, unsigned char len) {
         U1TXbuffer[index++] = *buffer++;                                        // load next byte
     }
 
-    tmr = Timer + 1000;
-    while ((Timer < (ModbusTimer + 4)) && (tmr > Timer)) {}                     // if there is a RS485 reception, wait for it to finish, with 1000ms timeout       
+    tmr = Timer + 200;
+    while ((Timer < (ModbusTimer + 4)) && (tmr > Timer)) {}                     // if there is a RS485 reception, wait for it to finish, with 200ms timeout       
 
     LATBbits.LATB5 = 1;                                                         // set RS485 transceiver to transmit
     delay(1);
@@ -644,7 +643,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
         // when checksum == 0 data is ok.
         if (!crc16(buf, len)) {
             // CRC OK
-//            printf("\n  valid Modbus packet: Address %02x Function %02x", Modbus.Address, Modbus.Function);
+        //    printf("\n  valid Modbus packet: Address %02x Function %02x", Modbus.Address, Modbus.Function);
             switch (Modbus.Function) {
                 case 0x04:
                     // (Read input register)
@@ -796,14 +795,16 @@ void eeprom_write_object(void *obj_p, size_t obj_size) {
  * Validate setting ranges and dependencies
  */
 void validate_settings(void) {
-    unsigned char i, OK;
+    unsigned char i;
     unsigned int value;
 
     for (i = MENU_ENTER + 1;i < MENU_EXIT; i++){
         value = getItemValue(i);
+        //printf("value %s set to %i\n",MenuStr[i].Key, value );
         if (value > MenuStr[i].Max || value < MenuStr[i].Min) {
             value = MenuStr[i].Default;
-            OK = setItemValue(i, value);
+          //  printf("set default value for %s to %i\n",MenuStr[i].Key, value );
+            setItemValue(i, value);
         }
     }
 
@@ -820,21 +821,23 @@ void validate_settings(void) {
 }
 
 void read_settings(void) {
-    char savint;
-
-    savint = INTCON;                                                            // Save interrupts state
-    INTCONbits.GIE = 0;                                                         // Disable interrupts
-
+        
     EEADR = 0;                                                                  // start from adr 0 in eeprom
     EEADRH = 0;                                                                 // we only use the first 256 bytes for now.
-
+    
     eeprom_read_object(&MaxMains, sizeof MaxMains);
+    if (MaxMains > 100) {                                                       // check if the eeprom is uninitialized
+        MaxMains = MAX_MAINS;                                                   // set MaxMains back to default value    
+        write_settings();                                                       // uninitialized, write default settings to eeprom   
+        return;
+    } 
+            
     eeprom_read_object(&MaxCurrent, sizeof MaxCurrent);
     eeprom_read_object(&MinCurrent, sizeof MinCurrent);
     eeprom_read_object(&ICal, sizeof ICal);
     eeprom_read_object(&Mode, sizeof Mode);
     eeprom_read_object(&Lock, sizeof Lock);
-    eeprom_read_object(&CableLimit, sizeof CableLimit);
+    eeprom_read_object(&MaxCircuit, sizeof MaxCircuit);
     eeprom_read_object(&Config, sizeof Config);
     eeprom_read_object(&LoadBl, sizeof LoadBl);
     eeprom_read_object(&Switch, sizeof Switch);
@@ -850,9 +853,8 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].IRegister, sizeof EMConfig[EM_CUSTOM].IRegister);
     eeprom_read_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
 
-    INTCON = savint; // Restore interrupts
-
     validate_settings();
+
 }
 
 void write_settings(void) {
@@ -872,7 +874,7 @@ void write_settings(void) {
     eeprom_write_object(&ICal, sizeof ICal);
     eeprom_write_object(&Mode, sizeof Mode);
     eeprom_write_object(&Lock, sizeof Lock);
-    eeprom_write_object(&CableLimit, sizeof CableLimit);
+    eeprom_write_object(&MaxCircuit, sizeof MaxCircuit);
     eeprom_write_object(&Config, sizeof Config);
     eeprom_write_object(&LoadBl, sizeof LoadBl);
     eeprom_write_object(&Switch, sizeof Switch);
@@ -891,13 +893,14 @@ void write_settings(void) {
     INTCON = savint;                                                            // Restore interrupts
     printf("\r\nsettings saved\r\n");
 
-    if (LoadBl == 1) {
+   /* if (LoadBl == 1) {                                                          // Master mode
         unsigned int i, values[12];
         for (i = 0; i < 12; i++) {
             values[i] = getItemValue(MENU_MAX + i);
         }
-        ModbusWriteMultipleRequest(0x00, 0xE0, values, 12);
+        ModbusWriteMultipleRequest(0x00, 0xE0, values, 12);                     // Broadcast settings to other controllers (NEEDS FIX!)
     }
+    */
 }
 
 void putch(unsigned char byte)                                                  // user defined printf support on uart2
@@ -932,7 +935,7 @@ void ProximityPin(void) {
     if ((ADRES > 175) && (ADRES < 193)) MaxCapacity = 32;                       // Max cable current = 32A	220R
     if ((ADRES > 88) && (ADRES < 98)) MaxCapacity = 63;                         // Max cable current = 63A	100R
 
-    if (Config) MaxCapacity = CableLimit;                                       // Override when Fixed Cable is used.  
+    if (Config) MaxCapacity = MaxCurrent;                                       // Override with MaxCurrent when Fixed Cable is used.  
 
     ADCON0 = 0b00000001;                                                        // ADC input AN0 (Pilot)
     ADCON2 = 0b10000101;                                                        // Right justify, Tacq = 0 uS, FOSC/16
@@ -1046,8 +1049,7 @@ void CalcBalancedCurrent(char mod) {
     char CurrentSet[4] = {0, 0, 0, 0};
     char n;
 
-    if (!LoadBl)                                                                // Load balancing disabled?
-    {
+    if (!LoadBl) {                                                              // Load balancing disabled?
         for (n = 1; n < 4; n++) BalancedState[n] = 0;                           // Yes, disable old active Slave states
     }
                                                                                 // Do not modify MaxCurrent as it is a config setting. (fix 2.05)
@@ -1079,23 +1081,24 @@ void CalcBalancedCurrent(char mod) {
             if (Isum < -10) IsetBalanced = IsetBalanced + 5;                    // still more then 1A available, increase Balanced charge current with 0.5A                     
             else IsetBalanced = IsetBalanced - (Isum / 4);                      // less then 1A difference, increase with 1/4th of difference.
         } else IsetBalanced = IsetBalanced - (Isum / 2);                        // Positive, decrease Balanced charge current.
-        
-        if ( (IsetBalanced < (MinCurrent * 10)) || (IsetBalanced < 0) ) {       // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
-            IsetBalanced = MinCurrent * 10;                                     
+                                                                                // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
+        if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {
+            IsetBalanced = BalancedLeft * MinCurrent * 10;                                     
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
-            if (State == STATE_C && StopTime && (Isum > 10)) SolarTimerEnable=1;// If we are Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
+            if (BalancedLeft && StopTime && (Isum > 10)) SolarTimerEnable=1;    // If any EVSE is Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
             else SolarTimerEnable=0;                                            // After the timer runs out, the charging will be stopped.
         } else SolarTimerEnable=0;                                              
     }
+                                                                                // When Load balancing = Master,  Limit total current of all EVSEs to MaxCircuit
+    if (LoadBl == 1 && (IsetBalanced > (MaxCircuit * 10)) ) IsetBalanced = MaxCircuit * 10;       
+    
 
-    if (IsetBalanced > (MaxCurrent * 10)) IsetBalanced = MaxCurrent * 10;       // Limit to MaxCurrent
-
-    Baseload = Imeasured - (TotalCurrent * 10); // Calculate Baseload (load without any active EVSE)
+    Baseload = Imeasured - (TotalCurrent * 10);                                 // Calculate Baseload (load without any active EVSE)
     if (Baseload < 0) Baseload = 0;
 
     if (Mode == MODE_NORMAL)                                                    // Normal Mode
     {
-        if (LoadBl) IsetBalanced = MaxMains * 10;                               // Load Balancing active? MAINS is max current for all active EVSE's
+        if (LoadBl == 1) IsetBalanced = MaxCircuit * 10;                        // Load Balancing = Master? MaxCircuit is max current for all active EVSE's
         else IsetBalanced = ChargeCurrent;                                      // No Load Balancing in Normal Mode. Set current to ChargeCurrent (fix: v2.05)
     }
 
@@ -1104,10 +1107,10 @@ void CalcBalancedCurrent(char mod) {
 
         if (mod) IsetBalanced = (MaxMains * 10) - Baseload;                     // Set max combined charge current to MaxMains - Baseload		
 
-        if (IsetBalanced < 0 || IsetBalanced < (BalancedLeft * (MinCurrent * 10))) {
+        if (IsetBalanced < 0 || IsetBalanced < (BalancedLeft * MinCurrent * 10)) {
             NoCurrent++;                                                        // Flag NoCurrent left
             printf("No Current!!\n\r");
-            IsetBalanced = (BalancedLeft * (MinCurrent * 10));                  // set minimal "MinCurrent" charge per active EVSE
+            IsetBalanced = (BalancedLeft * MinCurrent * 10);                    // set minimal "MinCurrent" charge per active EVSE
         } else NoCurrent = 0;
 
         if (IsetBalanced > ActiveMax) IsetBalanced = ActiveMax;                 // limit to total maximum Amps (of all active EVSE's)
@@ -1290,9 +1293,7 @@ unsigned char getMenuItems (void) {
     unsigned char m = 0;
 
     MenuItems[m++] = MENU_CONFIG;                                               // Configuration (0:Socket / 1:Fixed Cable)
-    if (Config) {                                                               // ? Fixed Cable?
-        MenuItems[m++] = MENU_CABLE;                                            // - Fixed Cable Current limit (A)
-    } else {                                                                    // ? Socket?
+    if (!Config) {                                                              // ? Fixed Cable?
         MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
     }
     MenuItems[m++] = MENU_MODE;                                                 // EVSE mode (0:Normal / 1:Smart)
@@ -1301,9 +1302,14 @@ unsigned char getMenuItems (void) {
         MenuItems[m++] = MENU_STOP;                                             // - Stop time (min)
     }
     MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-    if (Mode && LoadBl <= 1 || LoadBl == 1) {                                   // ? Smart or Solar mode and Load Balancing Disabled or Master?
-        MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A)
-        MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A)
+    if (Mode && LoadBl <= 1) {                                                  // ? Mode Smart/Solar and Load Balancing Disabled/Master?
+        MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A) (Mode:Smart/Solar)
+    }
+    if (Mode && LoadBl <= 1 || LoadBl == 1) {                                   // ? Mode Smart/Solar or LoadBl Master?
+        MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A) (Mode:Smart/Solar or LoadBl:Master)
+    }
+    if (LoadBl == 1) {                                                          // ? Load balancing Master?
+        MenuItems[m++] = MENU_CIRCUIT;                                          // - Max current of the EVSE circuit (A) (LoadBl:Master)
     }
     MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
     MenuItems[m++] = MENU_SWITCH;                                               // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
@@ -1370,8 +1376,8 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                 case MENU_MAX:
                     MaxCurrent = val;
                     break;
-                case MENU_CABLE:
-                    CableLimit = val;
+                case MENU_CIRCUIT:
+                    MaxCircuit = val;
                     break;
                 case MENU_LOCK:
                     Lock = val;
@@ -1383,7 +1389,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                     RCmon = val;
                     break;
                 case MENU_CAL:
-                    ICal = (signed double)val * 100;
+                    ICal = (signed double)val / 100;
                     break;
                 case MENU_MAINSMETER:
                     MainsMeter = val;
@@ -1456,8 +1462,8 @@ unsigned int getItemValue(unsigned char nav) {
             return MinCurrent;
         case MENU_MAX:
             return MaxCurrent;
-        case MENU_CABLE:
-            return CableLimit;
+        case MENU_CIRCUIT:
+            return MaxCircuit;
         case MENU_LOCK:
             return Lock;
         case MENU_SWITCH:
@@ -1534,7 +1540,7 @@ const far char * getMenuItemOption(unsigned char nav) {
         case MENU_MAINS:
         case MENU_MIN:
         case MENU_MAX:
-        case MENU_CABLE:
+        case MENU_CIRCUIT:
             sprintf(Str, "%2u A", value);
             return Str;
         case MENU_LOCK:
@@ -1589,12 +1595,15 @@ unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterC
     if (Modbus.Register >= 0x01 && Modbus.Register <= 0x04) {
         return 255;
     }
-
     // Register 0x8*: Master -> Slave
     else if (Modbus.Register >= 0x81 && Modbus.Register <= 0x84) {
         return 255;
     }
-
+    else if (Modbus.Register == 0xA8 && (Mode == 0 || LoadBl == 0) ) {          // Do not change Charge Mode when set to Normal or Load Balancing is disabled
+        return 255;
+    }
+    
+    
     // Register 0xA*: Status
     // 0xA0: State
     // 0xA1: Error
@@ -1873,7 +1882,7 @@ void RS232cli(void) {
             printf(" Internal Temperature: %2u C\r\n", TempEVSE);
             printf("----------------------------------------------------------------------\r\n");
             for(i = 0; i < MenuItemsCount - 1; i++) {
-                printf("%-06s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
+                printf("%-07s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
                 if (MenuItems[i] == MENU_CAL) {
                     printf("CT1:%.1f A CT2:%.1f A CT3:%.1f A)", Irms[0]/10, Irms[1]/10, Irms[2]/10);
                 } else {
@@ -1916,10 +1925,10 @@ void RS232cli(void) {
             printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
             printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (10-80): ", MaxCurrent);
             break;
-        case MENU_CABLE:
+        case MENU_CIRCUIT:
             printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE CHARGING CABLE\r\n");
-            printf("Fixed Cable Current limit set to: %u A\r\nEnter new limit (13-80): ", CableLimit);
+            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
+            printf("EVSE Circuit Current limit set to: %u A\r\nEnter new limit (10-80): ", MaxCircuit);
             break;
         case MENU_LOCK:
             printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
@@ -1982,7 +1991,7 @@ void TestIO(void)                                                               
         LATBbits.LATB3 = 0;                                                     // set IO1 to low, State B
 
         SOLENOID_OFF;
-        delay(2000);                                                            // wait 2 seconds for capacitor to charge
+        delay(3000);                                                            // wait 3 seconds for capacitor to charge
 
         CCP1CON = 0;                                                            // PWM off
         PORTCbits.RC2 = 0;                                                      // Control pilot static -12V
@@ -2043,7 +2052,7 @@ void init(void) {
 
     RCON = 0b10011111;                                                          // Set Interrupt priority 
 
-    PMD0 = 0b00000000;                                                          // Perhiperal Module Enable/Disable
+    PMD0 = 0b00000000;                                                          // Peripheral Module Enable/Disable
     PMD1 = 0b00000000;                                                          // All enabled
     PMD2 = 0b00000000;
 
@@ -2131,6 +2140,7 @@ void UpdateCurrentData(void) {
         Isum = Isum + (int) Irms[x];
     }
 
+     
     // Load Balancing mode: Smart/Master or Disabled
     if (Mode && LoadBl < 2) {
         // Calculate dynamic charge current for connected EVSE's
@@ -2148,25 +2158,23 @@ void UpdateCurrentData(void) {
             // SendRS485(0x00, 0x02, LESS_6A, ChargeDelay); // ChargeDelay needed?
             ModbusWriteSingleRequest(0x00, 0x02, LESS_6A);
             NoCurrent = 0;
-        } else if (LoadBl) BroadcastCurrent(); // Master sends current to all connected EVSE's
+        } else if (LoadBl) BroadcastCurrent();                                  // Master sends current to all connected EVSE's
 
         if ((State == STATE_B) || (State == STATE_C)) {
             // Set current for Master EVSE in Smart Mode
             SetCurrent(Balanced[0]);
         }
-        DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A ", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
-        DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
+        //DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A ", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
+        //DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
     } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
 }
 
 void main(void) {
-    unsigned char x, n;
+    unsigned char x, leftbutton;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
     unsigned char DiodeCheck = 0, ItemID;
     unsigned char SlaveAdr, Broadcast = 0, RB2count = 0, RB2last = 1, Sens2s = 1;
-    unsigned int crc;
     unsigned int BalancedReceived;
-    signed double dCombined;
     signed double PV[3]={0, 0, 0};
 
     init();                                                                     // initialize ports, ADC, UARTs etc
@@ -2177,7 +2185,6 @@ void main(void) {
     GLCD_init();
     GLCD_version();                                                             // Display Version
 
-    // ???
     RCONbits.POR = 1;                                                           // flag that future resets are not POR resets
 
     while (1)                                                                   // MAIN loop
@@ -2200,13 +2207,22 @@ void main(void) {
         ButtonState = ButtonState | (PORTB & 0x01);                             // Read the state of the last button RB0(<).
         TRISC = 0b10000010;                                                     // RC1 and RC7 input (RX1), all other output
 
-        //printf("ButtonState %02x\r",ButtonState);
-
-        if ((ButtonState != 0x07) || (ButtonState != OldButtonState)) GLCDMenu(ButtonState); // Any button pressed or just released?
+                                                                                // Any button pressed or just released?
+        if ((ButtonState != 0x07) || (ButtonState != OldButtonState)) GLCDMenu(ButtonState);  
 
         if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
-
-
+        
+        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton) {             // Left button pressed and Mode is Smart or Solar?
+                Mode = ~Mode & 0x3;                                             // Change from Solar to Smart mode and vice versa.
+                Error &= ~(NOCURRENT | NO_SUN | LESS_6A);                       // Clear All errors
+                ChargeDelay = 0;                                                // Clear any Chargedelay 
+                SolarTimerEnable = 0;                                           // Also make sure the SolarTimer is disabled.
+                                                                                // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
+                if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
+                leftbutton = 5;
+        } else if (leftbutton && ButtonState == 0x7) leftbutton--;
+        
+               
         // External switch changed state?
         if (PORTBbits.RB2 != RB2last) {
             // make sure that noise on the input does not switch
@@ -2229,16 +2245,18 @@ void main(void) {
                         case 3: // Smart-Solar Button
                             if (Mode == MODE_SMART) {
                                 Mode = MODE_SOLAR;
-                            } else {
+                            } else if (Mode == MODE_SOLAR) {
                                 Mode = MODE_SMART;
-                                ChargeDelay = 0;                                // Clear any Chargedelay 
-                                SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
                             }
-                            if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
+                            Error &= ~(NOCURRENT | NO_SUN | LESS_6A);           // Clear All errors
+                            ChargeDelay = 0;                                    // Clear any Chargedelay 
+                            SolarTimerEnable = 0;                               // Also make sure the SolarTimer is disabled.
+                                                                                // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
+                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
                         case 4: // Smart-Solar Switch
-                            Mode = MODE_SMART;
-                            if (LoadBl == 1) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
+                            Mode = MODE_SMART;                                  // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
+                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
@@ -2254,6 +2272,10 @@ void main(void) {
                         // Clear RCD error
                         Error &= ~RCD_TRIPPED;
                     }
+                    // Also light up the LCD backlight
+                    BacklightTimer = BACKLIGHT;                                 // Backlight ON
+                    BACKLIGHT_ON;
+                    
                 } else {
                     // Switch input released
                     switch (Switch) {
@@ -2277,9 +2299,11 @@ void main(void) {
 
         if (RCmon == 1 && PORTBbits.RB1 == 1)                                   // RCD monitor active, and RCD DC current > 6mA ?
         {
-            State = STATE_A;
-            Error |= RCD_TRIPPED;                                               // Set RCD error
-            LCDTimer = 0;                                                       // display the correct error message on the LCD
+           if (PORTBbits.RB1 == 1) {                                            // check again, to prevent voltage spikes from tripping the RCD detection (2.07)
+                State = STATE_A;
+                Error = RCD_TRIPPED;
+                LCDTimer = 0;                                                   // display the correct error message on the LCD
+            }
         }
 
 
@@ -2305,8 +2329,8 @@ void main(void) {
                 Error &= ~LESS_6A;
                 ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
             }
-            if (pilot == PILOT_9V)                                              // switch to State B ?
-            {
+            if (pilot == PILOT_9V || pilot == STATE_A_TO_C)                     // switch to State B ?
+            {                                                                   // Allow to switch to state C directly if STATE_A_TO_C is set to PILOT_6V (see EVSE.h)
                 if ((NextState == STATE_B) && Access_bit)                       // Access is permitted when Access_bit set
                 {
                     if (count++ > 25)                                           // repeat 25 times (changed in v2.05)
@@ -2527,10 +2551,15 @@ void main(void) {
 
             if (SolarTimerEnable)
             {
-                if ( SolarStopTimer++ > (StopTime*60))                          // Convert minutes into seconds
+                if ( SolarStopTimer++ >= (StopTime*60))                          // Convert minutes into seconds
                 {
                      State = STATE_A;                                           // switch back to state A
                      SolarTimerEnable=0;                                        // Disable Solar Timer
+                     SolarStopTimer=0;
+                                          
+                     for (x = 0; x < 4; x++) BalancedState[x] = 0;              // reset all states
+                     ModbusWriteSingleRequest(0x00, 0x02, NO_SUN);
+                     
                 }   
             } else SolarStopTimer=0;   
             
@@ -2544,6 +2573,7 @@ void main(void) {
             if ( (Error & (LESS_6A|NO_SUN) ) && (LoadBl < 2) && (IsCurrentAvailable() == 0)) {
                 Error &= ~LESS_6A;                                              // Clear Errors if there is enough current available
                 Error &= ~NO_SUN;
+                ModbusWriteSingleRequest(0x00, 0x02, Error);
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
@@ -2625,10 +2655,8 @@ void main(void) {
             Reads serial packet with Raw Current values, measured from 1-N CT's, over a RS485 serial line
 
             Load balancing RS485 commands:
-            protocol  0x5002		= load balancing commands
-            version 	0x01
             adress		0x01		= slave 1 (communication always to/from master)
-                                    = broadcast from master = 0xFF (modbus)
+                                    = broadcast from master = 0x00 (modbus)
             command		0x02		= request to charge
             data	  0x0020		= @ 32A
             data	  0x0000		= unused data bytes
@@ -2659,12 +2687,12 @@ void main(void) {
             memcpy(U1packet, U1buffer, idx);
             // set flag to length of data packet
             ISRFLAG = idx;
-            idx = 0;
-//            printf("\nReceived packet (%i bytes) ",ISRFLAG);
-//            for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
+            idx = 0;                                                            // ready to receive a new packet    
+   //         printf("\nReceived packet (%i bytes) ",ISRFLAG);
+   //         for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
             ModbusDecode(U1packet, ISRFLAG);
             if (Modbus.Type == MODBUS_RESPONSE) {
-//                printf("\nModbus Response Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
+                //printf("\nModbus Response Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
                 // reset 10 second timeout
                 timeout = 10;
                 switch (Modbus.Function) {
@@ -2693,7 +2721,7 @@ void main(void) {
                         break;
                 }
             } else if (Modbus.Type == MODBUS_REQUEST) {
-//                printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
+                //printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
                 // reset 10 second timeout
                 timeout = 10;
                 switch (Modbus.Function) {
@@ -2719,20 +2747,22 @@ void main(void) {
 
                         // Broadcast or addressed to this device
                         if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
+                            
                             ItemID = mapModbusRegister2ItemID();
                             if (ItemID < 255) WriteItemValueResponse(ItemID);
+                            DataReceived = 2;
                         }
                         break;
                     case 0x10: // (Write multiple register))
                         // Broadcast or addressed to this device
                         if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
                             // 0x01: Balance currents
-                            if (Modbus.Register == 0x01 && LoadBl > 1) {
+                            if (Modbus.Register == 0x01 && LoadBl > 1) {        // Message for Slave(s)
                                 BalancedReceived = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
-                                printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
+                                //printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
                                 DataReceived = 2;
                             }
-
+                            
                             ItemID = mapModbusRegister2ItemID();
                             if (ItemID < 255) WriteMultipleItemValueResponse(ItemID);
                         }
@@ -2757,7 +2787,7 @@ void main(void) {
                             if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
                             DEBUG_PRINT(("Broadcast received, Slave %.1f A \r\n", (double)Balanced[0]/10));
                             break;
-                        case 0x02:                                              // Broadcast message from Master->Slaves, Error Occured!
+                        case 0x02:                                              // Broadcast message from Master->Slaves, Error Occurred!
                             State = STATE_A;
                             // Error stored in variable Current
                             Error = Modbus.Value;

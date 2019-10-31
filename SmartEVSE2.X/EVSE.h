@@ -32,7 +32,7 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.06"                                                          // SmartEVSE software version
+#define VERSION "2.07"                                                          // SmartEVSE software version
 #define DEBUG_P                                                                 // Debug print enable/disable
 
 #define ICAL 3.00                                                               // Irms Calibration value (for Current transformers) 
@@ -68,6 +68,9 @@
 #define PILOT_6V 3
 #define PILOT_DIODE 4
 #define PILOT_NOK 0
+
+#define STATE_A_TO_C PILOT_6V                                                   // Set to PILOT_6V to allow switching from STATE A to STATE C (without STATE B)
+                                                                                // default is PILOT_9V
 
 #define NO_ERROR 0
 #define LESS_6A 1

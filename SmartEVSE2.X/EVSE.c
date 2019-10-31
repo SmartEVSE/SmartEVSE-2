@@ -28,6 +28,9 @@
 ;            IO3 is used as the fault input (active high).
 ;            The error state can be reset by pressing any module button, or the pushbutton on IO2
 ; 2.06  Added check in EEprom write routine for disabled interrupts.
+; 2.07  Fix: The RCD was tripped by inductive loads/ voltage spikes on the mains line. Checking twice for a tripped RCD fixed this.
+;       Bootloader can now only be entered when also the right button on top of the module is pressed.
+;       Added Compile time option to switch directly from STATE_A to STATE_C.
 ;
 ;   Use XC8 compiler version 1.45, version 2.x currently does not work.
 ;
@@ -218,7 +221,9 @@ void interrupt high_isr(void)
     {
         // Check for BREAK character, then Reset
 
-        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A) {              // Make sure any data during a POR is ignored
+        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A && ButtonState == 0x03) {
+                                                                                // Make sure any data during a POR is ignored.
+                                                                                // added check for Buttonpress > before entering bootloader (2.07)
             RX1byte = RCREG2;                                                   // copy received byte
             if (!RX1byte) Reset();                                              // Only reset if not charging...
         } else RX1byte = RCREG2;
@@ -1252,9 +1257,11 @@ void main(void) {
 
         if (RCmon == 1 && PORTBbits.RB1 == 1)                                   // RCD monitor active, and RCD DC current > 6mA ?
         {
-            State = STATE_A;
-            Error = RCD_TRIPPED;
-            LCDTimer = 0;                                                       // display the correct error message on the LCD
+            if (PORTBbits.RB1 == 1) {                                           // check again, to prevent voltage spikes from tripping the RCD detection (2.07)
+                State = STATE_A;
+                Error = RCD_TRIPPED;
+                LCDTimer = 0;                                                   // display the correct error message on the LCD
+            }
         }
 
 
@@ -1277,8 +1284,8 @@ void main(void) {
             {
                 ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
             }
-            if (pilot == PILOT_9V)                                              // switch to State B ?
-            {
+            if (pilot == PILOT_9V || pilot == STATE_A_TO_C)                     // switch to State B ?
+            {                                                                   // Allow to switch to state C directly if STATE_A_TO_C is set to PILOT_6V (see EVSE.h)
                 if ((NextState == STATE_B) && (Access_bit || Access == 0))      // Access is permitted when Access is disabled or Access_bit=1
                 {
                     if (count++ > 25)                                           // repeat 25 times (changed in v2.05)

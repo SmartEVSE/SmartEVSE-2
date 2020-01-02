@@ -473,6 +473,10 @@ void GLCD(void) {
             GLCD_write_buf2((TestState % 10) + 0x30);
             GLCD_sendbuf(4); // copy buffer to LCD
             return;
+        } else if (Error & BL_FLASH) {                                          // Bootloader update error
+            GLCD_print2(2, (const far char *) "BOOTLOADER");
+            GLCD_print2(4, (const far char *) "UPDATE ERR");
+            return;
         }
     }
 
@@ -816,7 +820,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     GLCD_print_menu(getMenuItemOption(LCDNav), 4);
                     break;
             }
-            GLCD_print(98,7, (const far char *) "v"VERSION);                    // show software version in bottom right corner.
+            GLCD_print(122-(strlen(VERSION)*6),7, (const far char *) "v"VERSION);// show software version in bottom right corner.
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once
     }
@@ -1064,6 +1068,7 @@ void delayus(int us) {
 }
 
 void GLCD_init(void) {
+    delay(200);
     _A0_0;                                                                      // A0=0
     _RSTB_0;                                                                    // Reset GLCD module
     delayus(4);

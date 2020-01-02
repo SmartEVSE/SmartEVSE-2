@@ -1,6 +1,6 @@
 /*
 ; Project:       Smart EVSE
-; Date:          21 February 2019
+; Date:          02 January 2020
 ;
 ; Changes:
 ;
@@ -46,7 +46,12 @@
 ;       CABLE option removed, just set MAX to the cable capacity.
 ;       CIRCUIT menu option added. Used when multiple EVSE's share the same circuit. Set this to the max current of the EVSE circuit. 
 ;       Switching between Solar/Smart mode with left button on the module.
-;
+; 2.11  Fixed rare corrupted flash issue, seems to happen sometimes at power on. 
+;       The microcontroller would start at a random address, if this happened to be the flash erase code, the flash will become corrupted.
+;       Now using two variables that hold the unlock sequence. So that power up glitches will not trigger a flash erase/write.
+;       Bootloader also gets updated to fix this issue (now v1.06)
+;       MAX setting now starts at 6A
+; 2.12  Fixed garbled LCD. When charging is stopped the the LCD is re-initialized after a 200ms delay.
 ;
 ;   Build with MPLAB X v5.25 and XC8 compiler version 2.10
 ;
@@ -54,10 +59,10 @@
 ;
 ;   set in XC8 global options the C standard to "C90"
 ;   set XC8 linker memory model settings to: double 32 bit, float 32 bit
-;   and reserve space for the bootloader by setting ROM range to 0-FCFB
+;   and reserve space for the bootloader by setting ROM range to 0-FCFB 
 ;
 ;
-;   (C) 2013-2019  Michael Stegen / Stegen Electronics
+;   (C) 2013-2020  Michael Stegen / Stegen Electronics
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -101,6 +106,60 @@ unsigned int CalcCurrent();
 #pragma	config WRTC = OFF, WRTB = OFF, WRTD = OFF
 #pragma	config EBTR0 = OFF, EBTR1 = OFF, EBTR2 = OFF, EBTR3 = OFF
 #pragma	config EBTRB = OFF
+
+const far unsigned char bootloader[] = {
+	0x06, 0xD0, 0x0F, 0x01, 0x3A, 0x9F, 0xD0, 0xB2, 0x81, 0xBE, 0x7E, 0xEF, 0x7E, 0xF0, 0x55, 0x0E, 
+	0x04, 0x6E, 0xAA, 0x0E, 0x05, 0x6E, 0x0F, 0x01, 0x3A, 0x9F, 0x20, 0xEE, 0x00, 0xF0, 0x00, 0x01, 
+	0x81, 0xAE, 0xFE, 0xD7, 0x90, 0x0E, 0x71, 0x6E, 0x26, 0x0E, 0x72, 0x6E, 0x70, 0x86, 0x02, 0x0E, 
+	0xD5, 0x6E, 0x71, 0x98, 0x74, 0x50, 0x74, 0x50, 0xD7, 0x6A, 0xD6, 0x6A, 0xF2, 0x94, 0x4E, 0xD8, 
+	0xD5, 0x8E, 0x4C, 0xD8, 0xD5, 0x9E, 0xF2, 0xB4, 0xF7, 0xD7, 0xD6, 0xCF, 0x75, 0xFF, 0xD7, 0xCF, 
+	0x76, 0xFF, 0x71, 0x88, 0x2B, 0xD9, 0x0F, 0x0A, 0xEC, 0xE1, 0x0F, 0x0E, 0x22, 0xD9, 0x00, 0xEE, 
+	0x05, 0xF0, 0x24, 0xD9, 0x0F, 0x0A, 0xF9, 0xE0, 0x02, 0x50, 0x04, 0x0A, 0x07, 0xE0, 0x02, 0x50, 
+	0x05, 0x0A, 0x01, 0xE1, 0x1B, 0xD9, 0x02, 0xC0, 0xEC, 0xFF, 0xF3, 0xD7, 0x10, 0xEE, 0x06, 0xF0, 
+	0x00, 0x6A, 0x01, 0x6A, 0xED, 0xCF, 0xF4, 0xFF, 0xE6, 0x50, 0x30, 0xD8, 0xE2, 0x50, 0xEA, 0x62, 
+	0xFB, 0xD7, 0xE1, 0x50, 0xE9, 0x62, 0xF8, 0xD7, 0x01, 0x50, 0xF4, 0x62, 0xCA, 0xD7, 0x00, 0x50, 
+	0xEF, 0x62, 0xC7, 0xD7, 0x00, 0x6A, 0x01, 0x6A, 0x07, 0x50, 0xF6, 0x6E, 0xA9, 0x6E, 0x08, 0x50, 
+	0xF7, 0x6E, 0xAA, 0x6E, 0x09, 0xC0, 0xF8, 0xFF, 0x00, 0xEE, 0x0C, 0xF0, 0x0A, 0x0E, 0x06, 0x60, 
+	0xB8, 0xD7, 0xF9, 0x50, 0x06, 0x44, 0xF9, 0x26, 0x27, 0xD0, 0x2F, 0xD0, 0x39, 0xD0, 0x4F, 0xD0, 
+	0x7C, 0xD0, 0xA8, 0xD0, 0xB5, 0xD0, 0xC4, 0xD0, 0x98, 0xD7, 0xFF, 0x00, 0x04, 0x00, 0xF2, 0xB4, 
+	0x12, 0x00, 0x81, 0xBE, 0xFC, 0xD7, 0x81, 0xAE, 0xFE, 0xD7, 0x12, 0x00, 0x01, 0x18, 0x00, 0xC0, 
+	0x01, 0xF0, 0x00, 0x6E, 0xE8, 0x3A, 0x0F, 0x0B, 0x00, 0x1A, 0x00, 0x38, 0xF0, 0x0B, 0x01, 0x1A, 
+	
+    0x00, 0x38, 0xE8, 0x44, 0x01, 0x1A, 0xE0, 0x0B, 0x01, 0x1A, 0x00, 0x1A, 0x12, 0x00, 0x00, 0x03, 
+	0x01, 0x06, 0xFF, 0x84, 0x00, 0xFD, 0x00, 0x00, 0x0E, 0x0E, 0xF6, 0x6E, 0xFE, 0x0E, 0xF7, 0x6E, 
+	0x00, 0x0E, 0xF8, 0x6E, 0x0A, 0x0E, 0x0B, 0x6E, 0x0C, 0x6A, 0x09, 0x00, 0xF5, 0x50, 0xAD, 0xD8, 
+	0xDD, 0xDF, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 0x0C, 0x10, 0xF6, 0xE1, 0x9E, 0xD0, 
+	0x09, 0x00, 0xF5, 0x50, 0xD3, 0xDF, 0xF6, 0x50, 0x3F, 0x0B, 0xFA, 0xE1, 0x00, 0x50, 0xC5, 0xEC, 
+	0x7F, 0xF0, 0x01, 0x50, 0xC5, 0xEC, 0x7F, 0xF0, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 
+	0x0C, 0x10, 0xEE, 0xE1, 0x8F, 0xD0, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xC0, 0x0E, 
+	0xF6, 0x16, 0x00, 0x0E, 0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x02, 0xE6, 
+	0xA6, 0x6A, 0x17, 0xD0, 0x00, 0x0E, 0xF6, 0x5C, 0xFD, 0x0E, 0xF7, 0x58, 0x00, 0x0E, 0xF8, 0x58, 
+	0x0D, 0xE6, 0x00, 0x0E, 0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x06, 0xE7, 
+	0xA6, 0x6A, 0x07, 0xD0, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x94, 0x0E, 0xA6, 0x6E, 
+	0x8B, 0xD8, 0x40, 0x0E, 0xF6, 0x5E, 0xE8, 0x6A, 0xF7, 0x5A, 0xF8, 0x5A, 0x0B, 0x2E, 0xD7, 0xD7, 
+	0x59, 0xD0, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xC0, 0x0E, 0xF6, 0x16, 0x00, 0x0E, 
+	0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x02, 0xE6, 0xA6, 0x6A, 0x16, 0xD0, 
+	0x00, 0x0E, 0xF6, 0x5C, 0xFD, 0x0E, 0xF7, 0x58, 0x00, 0x0E, 0xF8, 0x58, 0x0D, 0xE6, 0x00, 0x0E, 
+	0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x06, 0xE7, 0xA6, 0x6A, 0x06, 0xD0, 
+	
+    0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x84, 0x0E, 0xA6, 0x6E, 0xEE, 0xCF, 0xF5, 0xFF, 
+	0x0D, 0x00, 0xF6, 0x50, 0x3F, 0x0B, 0xFA, 0xE1, 0x0A, 0x00, 0x56, 0xD8, 0x09, 0x00, 0x0B, 0x2E, 
+	0xD4, 0xD7, 0x28, 0xD0, 0xA6, 0x6A, 0xA6, 0x80, 0xA8, 0x50, 0xA9, 0x4A, 0xAA, 0x2A, 0x2D, 0xD8, 
+	0x5D, 0xDF, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 0x0C, 0x10, 0xF4, 0xE1, 0x1E, 0xD0, 
+	0x04, 0x0E, 0xA6, 0x6E, 0xEC, 0xCF, 0xA8, 0xFF, 0x3F, 0xD8, 0xA6, 0xB2, 0xFE, 0xD7, 0xA9, 0x4A, 
+	0xAA, 0x2A, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 0x0C, 0x10, 0xF3, 0xE1, 0x0A, 0xD0, 
+	0xC4, 0x0E, 0xA6, 0x6E, 0x08, 0x00, 0xEE, 0x50, 0xF5, 0x62, 0x2C, 0xD8, 0x0B, 0x00, 0x0B, 0x2E, 
+	0xFA, 0xD7, 0x00, 0xD0, 0xA6, 0x6A, 0x06, 0x50, 0x08, 0xD8, 0x38, 0xDF, 0x00, 0x50, 0x05, 0xD8, 
+	0x01, 0x50, 0x03, 0xD8, 0x04, 0x0E, 0x0D, 0xD8, 0xE5, 0xD6, 0x03, 0x6E, 0x0F, 0x0A, 0x06, 0xE0, 
+	0x03, 0x50, 0x04, 0x0A, 0x03, 0xE0, 0x03, 0x50, 0x05, 0x0A, 0x02, 0xE1, 0x05, 0x0E, 0x01, 0xD8, 
+	0x03, 0x50, 0x04, 0x00, 0xA4, 0xA8, 0xFE, 0xD7, 0x73, 0x6E, 0x12, 0x00, 0x71, 0xB2, 0xFF, 0x00, 
+	0x04, 0x00, 0xA4, 0xAA, 0xFD, 0xD7, 0x74, 0x50, 0x02, 0x6E, 0x12, 0x00, 0xFF, 0x00, 0xFF, 0x00, 
+	0xFF, 0x00, 0xA6, 0x6A, 0xF5, 0x6E, 0x0C, 0x00, 0x04, 0x00, 0x04, 0x50, 0xA7, 0x6E, 0x05, 0x50, 
+	0xA7, 0x6E, 0xA6, 0x82, 0x00, 0x00, 0x12, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+  	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};      
+
 
 
 // Text
@@ -193,8 +252,11 @@ unsigned char LedCount = 0;                                                     
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
 unsigned char ModbusRequest = 0;                                                // Flag to request Modbus information
 unsigned char MenuItems[21];
-
+unsigned char unlockMagic = 0;
+unsigned char unlock55 = 0;                                                     // unlock bytes set to 0 to prevent flash write at por   
+unsigned char unlockAA = 0;                                                     // unlock bytes set to 0 to prevent flash write at por
 unsigned char Access_bit = 0;
+unsigned int serialnr = 0;
 
 unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
@@ -245,13 +307,8 @@ void interrupt high_isr(void)
     while (PIR3bits.RC2IF)                                                      
     {
         // Check for BREAK character, then Reset
-#ifdef DEBUG_P
         if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A ) {
-#else     
-        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A && ButtonState == 0x03) {
-#endif    
                                                                                 // Make sure any data during a POR is ignored.
-                                                                                // added check for Buttonpress > before entering bootloader (2.07)
             RX1byte = RCREG2;                                                   // copy received byte
             if (!RX1byte) Reset();                                              // Only reset if not charging...
         } else RX1byte = RCREG2;
@@ -781,8 +838,8 @@ void eeprom_write_object(void *obj_p, size_t obj_size) {
         EEDATA = *p++;                                                          // set data
         if (!INTCONbits.GIE)                                                    // Interrupts should have been disabled!
         {
-            EECON2 = 0x55;                                                      // required sequence #1
-            EECON2 = 0xAA;                                                      // #2
+            EECON2 = unlock55;                                                  // required sequence #1
+            EECON2 = unlockAA;                                                  // #2
             EECON1bits.WR = 1;                                                  // #3 = actual write
             while (EECON1bits.WR);                                              // blocking
         }    
@@ -860,14 +917,17 @@ void read_settings(void) {
 void write_settings(void) {
     char savint;
 
+    unlock55 = unlockMagic + 0x33;
+    unlockAA = unlockMagic + 0x88;                                              // set unlock variables to magic values
+    
     validate_settings();
 
     savint = INTCON;                                                            // Save interrupts state
     INTCONbits.GIE = 0;                                                         // Disable interrupts
-
+    
     EEADR = 0;                                                                  // start from adr 0 in eeprom
     EEADRH = 0;                                                                 // we only use the first 256 bytes for now.
-
+        
     eeprom_write_object(&MaxMains, sizeof MaxMains);
     eeprom_write_object(&MaxCurrent, sizeof MaxCurrent);
     eeprom_write_object(&MinCurrent, sizeof MinCurrent);
@@ -890,6 +950,9 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].IRegister, sizeof EMConfig[EM_CUSTOM].IRegister);
     eeprom_write_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
 
+    unlock55 = 0;                                                               // clear unlock values
+    unlockAA = 0;
+    
     INTCON = savint;                                                            // Restore interrupts
     printf("\r\nsettings saved\r\n");
 
@@ -1923,7 +1986,7 @@ void RS232cli(void) {
         case MENU_MAX:
             printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
             printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-            printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (10-80): ", MaxCurrent);
+            printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (6-80): ", MaxCurrent);
             break;
         case MENU_CIRCUIT:
             printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
@@ -2050,7 +2113,7 @@ void init(void) {
     OSCCON = 0b01101100;                                                        // setup external oscillator
     OSCCON2 = 0b00000100;                                                       // primary Oscillator On.
 
-    RCON = 0b10011111;                                                          // Set Interrupt priority 
+    RCON = 0b11011111;                                                          // Set Interrupt priority, enable BOR
 
     PMD0 = 0b00000000;                                                          // Peripheral Module Enable/Disable
     PMD1 = 0b00000000;                                                          // All enabled
@@ -2117,6 +2180,8 @@ void init(void) {
 
     CCPR2L = 0;                                                                 // LED DutyCycle 0%
     CCP2CON = 0x0C;                                                             // LED PWM on
+    
+    unlockMagic = 0x22;
 
     printf("\r\nSmart EVSE powerup.\r\n");
 
@@ -2164,10 +2229,96 @@ void UpdateCurrentData(void) {
             // Set current for Master EVSE in Smart Mode
             SetCurrent(Balanced[0]);
         }
-        //DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A ", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
-        //DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
+       // DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A ", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
+       // DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
     } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
 }
+
+unsigned char checkbootloader(void) {
+    unsigned int adr, i=0, cnt;
+    unsigned char err=0, errcnt=0;
+    
+    INTCONbits.GIE = 0;                                                         // Disable interrupts
+    
+    EECON1 = 0x80;                                                              // Access Flash program memory
+    TBLPTR = 0xFFD0;                                                            // Address unused by 1.05 bootloader, should be 0xff
+    asm("TBLRD*+");
+    if (TABLAT != 0xFF) {
+        INTCONbits.GIE = 1;                                                     // Enable interrupts
+        return 0;                                                               // already updated to 1.06 or higher
+    }
+       
+    TBLPTR = 0xFFF0;                                                            // set to serial nr.
+    asm("TBLRD*+");
+    serialnr = TABLAT;                                                          // first read LSB
+    asm("TBLRD*+");
+    serialnr |= TABLAT<<8;                                                      // then MSB
+    //printf("serialnr: %u\n",serialnr);
+    
+    // now erase and overwrite the bootloader @ FD00-FFFF, 12 blocks of 64 bytes
+    
+    unlock55 = unlockMagic + 0x33;                                              // to protect against unintended flash writes/erase 
+    unlockAA = unlockMagic + 0x88;                                              // we calculate the magic values
+    
+    do {
+        i = 0;
+        err = 0;
+        adr = 0xFD00;
+        do {
+            memcpy(GLCDbuf, bootloader+i, 64);                                  // copy 64 bytes to temp buffer
+            if (i == 0x2c0) {
+                GLCDbuf[48] = serialnr & 0xff;
+                GLCDbuf[49] = serialnr >> 8;
+                GLCDbuf[50] = 0;
+                GLCDbuf[51] = 0;
+            }
+
+            TBLPTR = adr;                                                       // set pointer to start of block to erase
+            EECON1 = 0x94;                                                      // select erase, and set write enable     
+            EECON2 = unlock55;
+            EECON2 = unlockAA;                                                  // write magic values to enable erase
+            EECON1bits.WR = 1;                                                  // start the actual erase
+
+            TBLPTR = adr;                                                       // set pointer to start of block to erase         
+            cnt = 0;
+            do {
+                TABLAT = GLCDbuf[i%64];                                         // No debug print here, as it will modify the TBLPTR
+                i++;
+                asm("TBLWT*+");                                                 // write to latch and increment
+            } while (++cnt <64);
+
+            asm("TBLRD*-");                                                     // dummy read to point to the correct flash block
+            EECON1 = 0x84;                                                      // select flash write, and set write enable     
+            EECON2 = unlock55;
+            EECON2 = unlockAA;                                                  // write magic values to enable erase
+            EECON1bits.WR = 1;                                                  // start the actual programming
+
+            EECON1 = 0x80;                                                      // write disable
+            TBLPTR = adr;
+            i -=64;
+
+            cnt = 0;
+            do {
+                asm("TBLRD*+");                                                 // read back flash
+                if (TABLAT != GLCDbuf[i%64]) err = 1;                           // and verify with buffer
+                i++;
+            } while (++cnt <64);
+
+            adr +=64;
+        } while (adr);
+    
+//        if (err) printf("bootloader update error\n");
+    } while (err && ++errcnt < 3);                                              // try three times
+    
+    EECON1bits.WREN = 0;
+    
+    unlock55 = 0;
+    unlockAA = 0;
+    INTCONbits.GIE = 1;                                                         // Enable interrupts
+    if (err) return 2;
+    return 1;
+}
+
 
 void main(void) {
     unsigned char x, leftbutton;
@@ -2177,6 +2328,7 @@ void main(void) {
     unsigned int BalancedReceived;
     signed double PV[3]={0, 0, 0};
 
+    
     init();                                                                     // initialize ports, ADC, UARTs etc
 
     read_settings();                                                            // from EEprom
@@ -2184,9 +2336,13 @@ void main(void) {
 
     GLCD_init();
     GLCD_version();                                                             // Display Version
-
+    
     RCONbits.POR = 1;                                                           // flag that future resets are not POR resets
 
+    x = checkbootloader();                                                      // update the bootloader to v1.06?
+    if (x == 2) Error = BL_FLASH;                                               // bootloader update flash write error!
+
+    
     while (1)                                                                   // MAIN loop
     {
                 
@@ -2474,8 +2630,8 @@ void main(void) {
                     if (NextState == STATE_A) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
-                            State = STATE_A;                                    // switch back to STATE_A
                             CONTACTOR_OFF;                                      // Contactor OFF
+                            State = STATE_A;                                    // switch back to STATE_A
                             printf("STATE C->A\r\n");
                             GLCD_init();                                        // Re-init LCD
                             if (LoadBl > 1)                                     // Load Balancing : Slave 
@@ -2494,18 +2650,18 @@ void main(void) {
                     if (NextState == STATE_B) {
                         if (count++ > 25)                                       // repeat 25 times
                         {
-
                             CONTACTOR_OFF;                                      // Contactor OFF
+                            State = STATE_B;                                    // switch back to STATE_B
+                            printf("STATE C->B\r\n");
                             GLCD_init();                                        // Re-init LCD
                             DiodeCheck = 0;
-                            State = STATE_B;                                    // switch back to STATE_B
+                            
                             if (LoadBl > 1)                                     // Load Balancing : Slave 
                             {
                                 State = STATE_COMM_CB;                          // Send 04 command to Master
                                 Timer = ACK_TIMEOUT + 1;                        // Set the timer to Timeout value, so that it expires immediately
                             } else BalancedState[0] = 0;                        // Master or Disabled
                                                                                 // Mark EVSE as inactive (still State B)
-                            printf("STATE C->B\r\n");
                         }
                     } else {
                         NextState = STATE_B;
@@ -2688,8 +2844,8 @@ void main(void) {
             // set flag to length of data packet
             ISRFLAG = idx;
             idx = 0;                                                            // ready to receive a new packet    
-   //         printf("\nReceived packet (%i bytes) ",ISRFLAG);
-   //         for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
+            //printf("\nReceived packet (%i bytes) ",ISRFLAG);
+            //for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
             ModbusDecode(U1packet, ISRFLAG);
             if (Modbus.Type == MODBUS_RESPONSE) {
                 //printf("\nModbus Response Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
@@ -2744,7 +2900,12 @@ void main(void) {
                                 DataReceived = 2;
                             }
                         }
-
+                        // Special TestIO message?
+                        if (Modbus.Address == 0x0a && Modbus.Register == 0xa8 && Modbus.Value == 0x494f && !TestState) {
+                            TestState = 1;
+                            break;
+                        }    
+                            
                         // Broadcast or addressed to this device
                         if (Modbus.Address == 0x00 || Modbus.Address == LoadBl) {
                             

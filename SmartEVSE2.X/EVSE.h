@@ -32,7 +32,7 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.10"                                                          // SmartEVSE software version
+#define VERSION "2.12"                                                          // SmartEVSE software version
 #define DEBUG_P                                                                 // Debug print enable/disable
 
 #define ICAL 1.00                                                               // Irms Calibration value (for Current transformers) 
@@ -94,16 +94,17 @@
 #define RCD_TRIPPED 16                                                          // RCD tripped. >6mA DC residual current detected.
 #define NO_SUN 32
 #define Test_IO 64
+#define BL_FLASH 128
 
-#define SOLENOID_LOCK       {PORTAbits.RA4 = 1;PORTAbits.RA5 = 0;}
-#define SOLENOID_UNLOCK     {PORTAbits.RA4 = 0;PORTAbits.RA5 = 1;}
-#define SOLENOID_OFF        {PORTAbits.RA4 = 1;PORTAbits.RA5 = 1;}
+#define SOLENOID_LOCK   {LATAbits.LATA4 = 1;LATAbits.LATA5 = 0;}
+#define SOLENOID_UNLOCK {LATAbits.LATA4 = 0;LATAbits.LATA5 = 1;}
+#define SOLENOID_OFF    {LATAbits.LATA4 = 1;LATAbits.LATA5 = 1;}
 
-#define CONTACTOR_OFF PORTBbits.RB4 = 0;                                        // Contactor OFF
-#define CONTACTOR_ON  PORTBbits.RB4 = 1;                                        // Contactor ON
+#define CONTACTOR_OFF LATBbits.LATB4 = 0;                                       // Contactor OFF
+#define CONTACTOR_ON  LATBbits.LATB4 = 1;                                       // Contactor ON
 
-#define BACKLIGHT_OFF PORTAbits.RA3 = 0;                                        // LCD Backlight OFF
-#define BACKLIGHT_ON  PORTAbits.RA3 = 1;                                        // LCD Backlight ON
+#define BACKLIGHT_OFF LATAbits.LATA3 = 0;                                       // LCD Backlight OFF
+#define BACKLIGHT_ON  LATAbits.LATA3 = 1;                                       // LCD Backlight ON
 
 #define MENU_ENTER 1
 #define MENU_CONFIG 2
@@ -159,11 +160,10 @@
 #define DEBUG_PRINT(x)
 #endif 
 
-#define _RSTB_0 PORTCbits.RC4 = 0;
-#define _RSTB_1 PORTCbits.RC4 = 1;
-#define _A0_0 PORTCbits.RC0 = 0;
-#define _A0_1 PORTCbits.RC0 = 1;
-
+#define _RSTB_0 LATCbits.LATC4 = 0;
+#define _RSTB_1 LATCbits.LATC4 = 1;
+#define _A0_0 LATCbits.LATC0 = 0;
+#define _A0_1 LATCbits.LATC0 = 1;
 
 extern char GLCDbuf[512];                                                       // GLCD buffer (half of the display)
 
@@ -243,7 +243,7 @@ const far struct {
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
     {"SW",     "SWITCH",   "Switch function control on IO2", 0, 4, SWITCH},
     {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1, RC_MON},
-    {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 10, 80, MAX_CURRENT},
+    {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value

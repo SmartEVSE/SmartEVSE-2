@@ -491,7 +491,12 @@ void GLCD(void) {
 
                                                                                 // MODE NORMAL
     if (Mode == MODE_NORMAL || !Access_bit) {
-        if (State == STATE_C) {                                                 // STATE C
+        if (Error & LESS_6A) {
+            GLCD_print2(2, (const far char *) "WAITING");
+            GLCD_print2(4, (const far char *) "FOR POWER");
+        } 
+        
+        else if (State == STATE_C) {                                          // STATE C
             
             BACKLIGHT_ON;                                                       // LCD backlight on
             BacklightTimer = BACKLIGHT;
@@ -515,6 +520,12 @@ void GLCD(void) {
             if (Access_bit) {
                 GLCD_print2(2, (const far char *) "READY TO");
                 GLCD_print2(4, (const far char *) "CHARGE  ");
+                if (ChargeDelay) {                                              // show chargedelay
+                    GLCDx = 12 * 8 + 4;
+                    GLCD_write_buf2((ChargeDelay / 10) + 0x30);
+                    GLCD_write_buf2((ChargeDelay % 10) + 0x30);
+                    GLCD_sendbuf(4); // copy buffer to LCD
+                }
             } else {
                 GLCD_print2(2, (const far char *) "ACCESS");
                 GLCD_print2(4, (const far char *) "DENIED");
@@ -768,6 +779,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                 Error = NO_ERROR;                                               // Clear All Errors when exiting the Main Menu
                 TestState = 0;                                                  // Clear TestState
                 ChargeDelay = 0;                                                // Clear ChargeDelay
+                SolarTimerEnable = 0;                                           // Disable Solar Timer
                 GLCD();                                             
                 write_settings();                                               // Write to eeprom
                 ButtonRelease = 2;                                              // Skip updating of the LCD 

@@ -52,6 +52,8 @@
 ;       Bootloader also gets updated to fix this issue (now v1.06)
 ;       MAX setting now starts at 6A
 ; 2.12  Fixed garbled LCD. When charging is stopped the the LCD is re-initialized after a 200ms delay.
+; 2.13  Various Master/Slave communication bug fixes.
+; 
 ;
 ;   Build with MPLAB X v5.25 and XC8 compiler version 2.10
 ;
@@ -87,6 +89,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include "EVSE.h"
+#include "bootloader.h"
+#include "utils.h"
 
 void SetCurrent(unsigned int);
 unsigned int CalcCurrent();
@@ -106,60 +110,6 @@ unsigned int CalcCurrent();
 #pragma	config WRTC = OFF, WRTB = OFF, WRTD = OFF
 #pragma	config EBTR0 = OFF, EBTR1 = OFF, EBTR2 = OFF, EBTR3 = OFF
 #pragma	config EBTRB = OFF
-
-const far unsigned char bootloader[] = {
-	0x06, 0xD0, 0x0F, 0x01, 0x3A, 0x9F, 0xD0, 0xB2, 0x81, 0xBE, 0x7E, 0xEF, 0x7E, 0xF0, 0x55, 0x0E, 
-	0x04, 0x6E, 0xAA, 0x0E, 0x05, 0x6E, 0x0F, 0x01, 0x3A, 0x9F, 0x20, 0xEE, 0x00, 0xF0, 0x00, 0x01, 
-	0x81, 0xAE, 0xFE, 0xD7, 0x90, 0x0E, 0x71, 0x6E, 0x26, 0x0E, 0x72, 0x6E, 0x70, 0x86, 0x02, 0x0E, 
-	0xD5, 0x6E, 0x71, 0x98, 0x74, 0x50, 0x74, 0x50, 0xD7, 0x6A, 0xD6, 0x6A, 0xF2, 0x94, 0x4E, 0xD8, 
-	0xD5, 0x8E, 0x4C, 0xD8, 0xD5, 0x9E, 0xF2, 0xB4, 0xF7, 0xD7, 0xD6, 0xCF, 0x75, 0xFF, 0xD7, 0xCF, 
-	0x76, 0xFF, 0x71, 0x88, 0x2B, 0xD9, 0x0F, 0x0A, 0xEC, 0xE1, 0x0F, 0x0E, 0x22, 0xD9, 0x00, 0xEE, 
-	0x05, 0xF0, 0x24, 0xD9, 0x0F, 0x0A, 0xF9, 0xE0, 0x02, 0x50, 0x04, 0x0A, 0x07, 0xE0, 0x02, 0x50, 
-	0x05, 0x0A, 0x01, 0xE1, 0x1B, 0xD9, 0x02, 0xC0, 0xEC, 0xFF, 0xF3, 0xD7, 0x10, 0xEE, 0x06, 0xF0, 
-	0x00, 0x6A, 0x01, 0x6A, 0xED, 0xCF, 0xF4, 0xFF, 0xE6, 0x50, 0x30, 0xD8, 0xE2, 0x50, 0xEA, 0x62, 
-	0xFB, 0xD7, 0xE1, 0x50, 0xE9, 0x62, 0xF8, 0xD7, 0x01, 0x50, 0xF4, 0x62, 0xCA, 0xD7, 0x00, 0x50, 
-	0xEF, 0x62, 0xC7, 0xD7, 0x00, 0x6A, 0x01, 0x6A, 0x07, 0x50, 0xF6, 0x6E, 0xA9, 0x6E, 0x08, 0x50, 
-	0xF7, 0x6E, 0xAA, 0x6E, 0x09, 0xC0, 0xF8, 0xFF, 0x00, 0xEE, 0x0C, 0xF0, 0x0A, 0x0E, 0x06, 0x60, 
-	0xB8, 0xD7, 0xF9, 0x50, 0x06, 0x44, 0xF9, 0x26, 0x27, 0xD0, 0x2F, 0xD0, 0x39, 0xD0, 0x4F, 0xD0, 
-	0x7C, 0xD0, 0xA8, 0xD0, 0xB5, 0xD0, 0xC4, 0xD0, 0x98, 0xD7, 0xFF, 0x00, 0x04, 0x00, 0xF2, 0xB4, 
-	0x12, 0x00, 0x81, 0xBE, 0xFC, 0xD7, 0x81, 0xAE, 0xFE, 0xD7, 0x12, 0x00, 0x01, 0x18, 0x00, 0xC0, 
-	0x01, 0xF0, 0x00, 0x6E, 0xE8, 0x3A, 0x0F, 0x0B, 0x00, 0x1A, 0x00, 0x38, 0xF0, 0x0B, 0x01, 0x1A, 
-	
-    0x00, 0x38, 0xE8, 0x44, 0x01, 0x1A, 0xE0, 0x0B, 0x01, 0x1A, 0x00, 0x1A, 0x12, 0x00, 0x00, 0x03, 
-	0x01, 0x06, 0xFF, 0x84, 0x00, 0xFD, 0x00, 0x00, 0x0E, 0x0E, 0xF6, 0x6E, 0xFE, 0x0E, 0xF7, 0x6E, 
-	0x00, 0x0E, 0xF8, 0x6E, 0x0A, 0x0E, 0x0B, 0x6E, 0x0C, 0x6A, 0x09, 0x00, 0xF5, 0x50, 0xAD, 0xD8, 
-	0xDD, 0xDF, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 0x0C, 0x10, 0xF6, 0xE1, 0x9E, 0xD0, 
-	0x09, 0x00, 0xF5, 0x50, 0xD3, 0xDF, 0xF6, 0x50, 0x3F, 0x0B, 0xFA, 0xE1, 0x00, 0x50, 0xC5, 0xEC, 
-	0x7F, 0xF0, 0x01, 0x50, 0xC5, 0xEC, 0x7F, 0xF0, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 
-	0x0C, 0x10, 0xEE, 0xE1, 0x8F, 0xD0, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xC0, 0x0E, 
-	0xF6, 0x16, 0x00, 0x0E, 0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x02, 0xE6, 
-	0xA6, 0x6A, 0x17, 0xD0, 0x00, 0x0E, 0xF6, 0x5C, 0xFD, 0x0E, 0xF7, 0x58, 0x00, 0x0E, 0xF8, 0x58, 
-	0x0D, 0xE6, 0x00, 0x0E, 0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x06, 0xE7, 
-	0xA6, 0x6A, 0x07, 0xD0, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x94, 0x0E, 0xA6, 0x6E, 
-	0x8B, 0xD8, 0x40, 0x0E, 0xF6, 0x5E, 0xE8, 0x6A, 0xF7, 0x5A, 0xF8, 0x5A, 0x0B, 0x2E, 0xD7, 0xD7, 
-	0x59, 0xD0, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xC0, 0x0E, 0xF6, 0x16, 0x00, 0x0E, 
-	0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x02, 0xE6, 0xA6, 0x6A, 0x16, 0xD0, 
-	0x00, 0x0E, 0xF6, 0x5C, 0xFD, 0x0E, 0xF7, 0x58, 0x00, 0x0E, 0xF8, 0x58, 0x0D, 0xE6, 0x00, 0x0E, 
-	0xF6, 0x5C, 0x00, 0x0E, 0xF7, 0x58, 0x01, 0x0E, 0xF8, 0x58, 0x06, 0xE7, 0xA6, 0x6A, 0x06, 0xD0, 
-	
-    0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x84, 0x0E, 0xA6, 0x6E, 0xEE, 0xCF, 0xF5, 0xFF, 
-	0x0D, 0x00, 0xF6, 0x50, 0x3F, 0x0B, 0xFA, 0xE1, 0x0A, 0x00, 0x56, 0xD8, 0x09, 0x00, 0x0B, 0x2E, 
-	0xD4, 0xD7, 0x28, 0xD0, 0xA6, 0x6A, 0xA6, 0x80, 0xA8, 0x50, 0xA9, 0x4A, 0xAA, 0x2A, 0x2D, 0xD8, 
-	0x5D, 0xDF, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 0x0C, 0x10, 0xF4, 0xE1, 0x1E, 0xD0, 
-	0x04, 0x0E, 0xA6, 0x6E, 0xEC, 0xCF, 0xA8, 0xFF, 0x3F, 0xD8, 0xA6, 0xB2, 0xFE, 0xD7, 0xA9, 0x4A, 
-	0xAA, 0x2A, 0x0B, 0x06, 0x00, 0x0E, 0x0C, 0x5A, 0x0B, 0x50, 0x0C, 0x10, 0xF3, 0xE1, 0x0A, 0xD0, 
-	0xC4, 0x0E, 0xA6, 0x6E, 0x08, 0x00, 0xEE, 0x50, 0xF5, 0x62, 0x2C, 0xD8, 0x0B, 0x00, 0x0B, 0x2E, 
-	0xFA, 0xD7, 0x00, 0xD0, 0xA6, 0x6A, 0x06, 0x50, 0x08, 0xD8, 0x38, 0xDF, 0x00, 0x50, 0x05, 0xD8, 
-	0x01, 0x50, 0x03, 0xD8, 0x04, 0x0E, 0x0D, 0xD8, 0xE5, 0xD6, 0x03, 0x6E, 0x0F, 0x0A, 0x06, 0xE0, 
-	0x03, 0x50, 0x04, 0x0A, 0x03, 0xE0, 0x03, 0x50, 0x05, 0x0A, 0x02, 0xE1, 0x05, 0x0E, 0x01, 0xD8, 
-	0x03, 0x50, 0x04, 0x00, 0xA4, 0xA8, 0xFE, 0xD7, 0x73, 0x6E, 0x12, 0x00, 0x71, 0xB2, 0xFF, 0x00, 
-	0x04, 0x00, 0xA4, 0xAA, 0xFD, 0xD7, 0x74, 0x50, 0x02, 0x6E, 0x12, 0x00, 0xFF, 0x00, 0xFF, 0x00, 
-	0xFF, 0x00, 0xA6, 0x6A, 0xF5, 0x6E, 0x0C, 0x00, 0x04, 0x00, 0x04, 0x50, 0xA7, 0x6E, 0x05, 0x50, 
-	0xA7, 0x6E, 0xA6, 0x82, 0x00, 0x00, 0x12, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-  	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};      
-
 
 
 // Text
@@ -408,93 +358,16 @@ void interrupt high_isr(void)
 
 }
 
-/**
- * Calculate 10 to the power of x
- * 
- * @param signed char exponent
- * @return signed double pow10
- */
-signed double pow10(signed char exp) {
-    signed char i;
-    signed double ret = 1;
-
-    if(exp > 0) {
-        for (i = 0; i < exp; i++) {
-            ret = ret * 10;
-        }
-    } else {
-        for (i = 0; i > exp; i--) {
-            ret = ret / 10;
-        }
-    }
-
-    return ret;
-}
-
-/* triwave8: triangle (sawtooth) wave generator.  Useful for
-           turning a one-byte ever-increasing value into a
-           one-byte value that oscillates up and down.
-
-           input         output
-           0..127        0..254 (positive slope)
-           128..255      254..0 (negative slope)
- */
-unsigned char triwave8(unsigned char in) {
-    if (in & 0x80) {
-        in = 255 - in;
-    }
-    unsigned char out = in << 1;
-    return out;
-}
-
-unsigned char scale8(unsigned char i, unsigned char scale) {
-    return (((unsigned int) i) * (1 + (unsigned int) (scale))) >> 8;
-}
-
-/* easing functions; see http://easings.net
-
-    ease8InOutQuad: 8-bit quadratic ease-in / ease-out function
- */
-unsigned char ease8InOutQuad(unsigned char i) {
-    unsigned char j = i;
-    if (j & 0x80) {
-        j = 255 - j;
-    }
-    unsigned char jj = scale8(j, j);
-    unsigned char jj2 = jj << 1;
-    if (i & 0x80) {
-        jj2 = 255 - jj2;
-    }
-    return jj2;
-}
-
-// calculates 16-bit CRC of given data
-// used for Frame Check Sequence on data frame
-unsigned int crc16(unsigned char *buf, unsigned char len) {
-    unsigned int crc = 0xffff;
-    
-    // Poly used is x^16+x^15+x^2+x
-    for (int pos = 0; pos < len; pos++) {
-        crc ^= (unsigned int)buf[pos];                                          // XOR byte into least sig. byte of crc
-
-        for (int i = 8; i != 0; i--) {                                          // Loop over each bit
-            if ((crc & 0x0001) != 0) {                                          // If the LSB is set
-                crc >>= 1;                                                      // Shift right and XOR 0xA001
-                crc ^= 0xA001;
-            } else                                                              // Else LSB is not set
-                crc >>= 1;                                                      // Just shift right
-        }
-    }        
-
-    return crc;
-}
 
 // Create HDLC/modbus frame from data, and copy to output buffer
 // Start RS485 transmission, by enabling TX interrupt
 void RS485SendBuf(char *buffer, unsigned char len) {
-    char index = 0;
+    char i,index = 0;
     unsigned long tmr;
 
+  //  for (i=0;i<len;i++) printf("%02X ",Tbuffer[i]);
+  //  printf("\r\n");
+    
     while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus
     ISRTXLEN = len;                                                             // number of bytes to transfer
 
@@ -536,7 +409,8 @@ void ModbusSend(unsigned char address, unsigned char function, unsigned char byt
     // Calculate CRC16 from data
     cs = crc16(Tbuffer, n);
     Tbuffer[n++] = ((unsigned char)(cs));
-    Tbuffer[n++] = ((unsigned char)(cs>>8));	
+    Tbuffer[n++] = ((unsigned char)(cs>>8));
+
     // Send buffer to RS485 port
     RS485SendBuf(Tbuffer, n);
 }
@@ -646,6 +520,7 @@ void ModbusWriteMultipleRequest(unsigned char address, unsigned int reg, unsigne
     Tbuffer[n++] = ((unsigned char)(cs));
     Tbuffer[n++] = ((unsigned char)(cs>>8));	
     // Send buffer to RS485 port
+   // printf("write multiple req ");
     RS485SendBuf(Tbuffer, n);    
 }
 
@@ -1070,24 +945,28 @@ void SetCurrent(unsigned int current)                                           
 
 char IsCurrentAvailable(void) {
     unsigned char n, ActiveEVSE = 0;
-    int Baseload, TotalCurrent = 0;
+    int Baseload, TempMax, TotalCurrent = 0;
 
     for (n = 0; n < 4; n++) if (BalancedState[n] == 2)                          // must be in STATE_C
     {
-        ActiveEVSE++;                                                           // Count nr of Active EVSE's
+        ActiveEVSE++;                                                           // Count nr of active (charging) EVSE's
         TotalCurrent += Balanced[n];                                            // Calculate total max charge current for all active EVSE's
     }
-    if (ActiveEVSE == 0) {
+    if (ActiveEVSE == 0) {                                                      // No active (charging) EVSE's
         if (Imeasured > ((MaxMains - MinCurrent) * 10)) {
             return 1;                                                           // Not enough current available!, return with error
         }
-    } else {
+    } else {                                                                    // at least one active EVSE
         ActiveEVSE++;                                                           // Do calculations with one more EVSE
         Baseload = Imeasured - (TotalCurrent * 10);                             // Calculate Baseload (load without any active EVSE)
-        if (Baseload < 0) Baseload = 0;
+        if (Baseload < 0) Baseload = 0;                                         // only relevant for Smart/Solar mode
 
         if (ActiveEVSE > 4) ActiveEVSE = 4;
-        if ((ActiveEVSE * (MinCurrent * 10) + Baseload) > (MaxMains * 10)) {
+        // When load balancing is active, and we are the Master, the Circuit option limits the max total current
+        if (LoadBl == 1) TempMax = MaxCircuit;
+        else TempMax = MaxMains;
+                            
+        if ((ActiveEVSE * (MinCurrent * 10) + Baseload) > (TempMax * 10)) {
             return 1;                                                           // Not enough current available!, return with error
         }
     }
@@ -1214,10 +1093,13 @@ void CalcBalancedCurrent(char mod) {
             } while (++n < 4 && BalancedLeft);
         }
 
+        
+    } // BalancedLeft
+    
+    if (LoadBl == 1) {
         for (n = 0; n < 4; n++) DEBUG_PRINT(("EVSE%u[%u]:%.1f A ", n, BalancedState[n], (double)Balanced[n] / 10));
         DEBUG_PRINT(("\n\r"));
-    } // BalancedLeft
-
+    }
 }
 
 /**
@@ -1320,7 +1202,11 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
                 // SmartEVSE works with Amps * 10
                 var[x] = dCombined * 10.0;
                 // When using CT's , adjust the measurements with calibration value
-                if (offset == 28) var[x] = var[x] * ICal;
+                if (offset == 28) { 
+                    var[x] = var[x] * ICal;
+                    // very small negative currents are shown as zero.
+                    if ((var[x] > -0.01) && (var[x] < 0.01)) var[x] = 0.0;                             
+                }
             }
             break;
         case EM_EASTRON:
@@ -2229,94 +2115,9 @@ void UpdateCurrentData(void) {
             // Set current for Master EVSE in Smart Mode
             SetCurrent(Balanced[0]);
         }
-       // DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A ", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
-       // DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
+     //   DEBUG_PRINT(("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeas: %.1f A IsetBalanced: %.1f A \r\n", State-1+'A', Error, StartCurrent, (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent, (double)Imeasured/10, (double)IsetBalanced/10));
+     //   DEBUG_PRINT(("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", Irms[0]/10, Irms[1]/10, Irms[2]/10, (Irms[0]+Irms[1]+Irms[2])/10 ));
     } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
-}
-
-unsigned char checkbootloader(void) {
-    unsigned int adr, i=0, cnt;
-    unsigned char err=0, errcnt=0;
-    
-    INTCONbits.GIE = 0;                                                         // Disable interrupts
-    
-    EECON1 = 0x80;                                                              // Access Flash program memory
-    TBLPTR = 0xFFD0;                                                            // Address unused by 1.05 bootloader, should be 0xff
-    asm("TBLRD*+");
-    if (TABLAT != 0xFF) {
-        INTCONbits.GIE = 1;                                                     // Enable interrupts
-        return 0;                                                               // already updated to 1.06 or higher
-    }
-       
-    TBLPTR = 0xFFF0;                                                            // set to serial nr.
-    asm("TBLRD*+");
-    serialnr = TABLAT;                                                          // first read LSB
-    asm("TBLRD*+");
-    serialnr |= TABLAT<<8;                                                      // then MSB
-    //printf("serialnr: %u\n",serialnr);
-    
-    // now erase and overwrite the bootloader @ FD00-FFFF, 12 blocks of 64 bytes
-    
-    unlock55 = unlockMagic + 0x33;                                              // to protect against unintended flash writes/erase 
-    unlockAA = unlockMagic + 0x88;                                              // we calculate the magic values
-    
-    do {
-        i = 0;
-        err = 0;
-        adr = 0xFD00;
-        do {
-            memcpy(GLCDbuf, bootloader+i, 64);                                  // copy 64 bytes to temp buffer
-            if (i == 0x2c0) {
-                GLCDbuf[48] = serialnr & 0xff;
-                GLCDbuf[49] = serialnr >> 8;
-                GLCDbuf[50] = 0;
-                GLCDbuf[51] = 0;
-            }
-
-            TBLPTR = adr;                                                       // set pointer to start of block to erase
-            EECON1 = 0x94;                                                      // select erase, and set write enable     
-            EECON2 = unlock55;
-            EECON2 = unlockAA;                                                  // write magic values to enable erase
-            EECON1bits.WR = 1;                                                  // start the actual erase
-
-            TBLPTR = adr;                                                       // set pointer to start of block to erase         
-            cnt = 0;
-            do {
-                TABLAT = GLCDbuf[i%64];                                         // No debug print here, as it will modify the TBLPTR
-                i++;
-                asm("TBLWT*+");                                                 // write to latch and increment
-            } while (++cnt <64);
-
-            asm("TBLRD*-");                                                     // dummy read to point to the correct flash block
-            EECON1 = 0x84;                                                      // select flash write, and set write enable     
-            EECON2 = unlock55;
-            EECON2 = unlockAA;                                                  // write magic values to enable erase
-            EECON1bits.WR = 1;                                                  // start the actual programming
-
-            EECON1 = 0x80;                                                      // write disable
-            TBLPTR = adr;
-            i -=64;
-
-            cnt = 0;
-            do {
-                asm("TBLRD*+");                                                 // read back flash
-                if (TABLAT != GLCDbuf[i%64]) err = 1;                           // and verify with buffer
-                i++;
-            } while (++cnt <64);
-
-            adr +=64;
-        } while (adr);
-    
-//        if (err) printf("bootloader update error\n");
-    } while (err && ++errcnt < 3);                                              // try three times
-    
-    EECON1bits.WREN = 0;
-    
-    unlock55 = 0;
-    unlockAA = 0;
-    INTCONbits.GIE = 1;                                                         // Enable interrupts
-    if (err) return 2;
-    return 1;
 }
 
 
@@ -2368,7 +2169,8 @@ void main(void) {
 
         if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
         
-        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton) {             // Left button pressed and Mode is Smart or Solar?
+        // Left button pressed, Loadbalancing is Master or Disabled, and Mode is Smart or Solar?
+        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2)) { 
                 Mode = ~Mode & 0x3;                                             // Change from Solar to Smart mode and vice versa.
                 Error &= ~(NOCURRENT | NO_SUN | LESS_6A);                       // Clear All errors
                 ChargeDelay = 0;                                                // Clear any Chargedelay 
@@ -2660,7 +2462,7 @@ void main(void) {
                             {
                                 State = STATE_COMM_CB;                          // Send 04 command to Master
                                 Timer = ACK_TIMEOUT + 1;                        // Set the timer to Timeout value, so that it expires immediately
-                            } else BalancedState[0] = 0;                        // Master or Disabled
+                            } else BalancedState[0] = 1;               //1         // Master or Disabled
                                                                                 // Mark EVSE as inactive (still State B)
                         }
                     } else {
@@ -2682,6 +2484,7 @@ void main(void) {
             Timer = 0;                                                          // Clear the Timer
         }
 
+        
         if (RCSTA1bits.OERR)                                                    // Uart1 Overrun Error?
         {
             RCSTA1bits.CREN = 0;
@@ -2699,7 +2502,7 @@ void main(void) {
             TMR0H = 0;
             TMR0L = 0;
 
-            Temp(); // once a second, measure temperature
+            Temp();                                                             // once a second, measure temperature
 
             // When Solar Charging, once the current drops to MINcurrent a timer is started.
             // Charging is stopped when the timer reaches the time set in 'StopTime' (in minutes)
@@ -2707,7 +2510,7 @@ void main(void) {
 
             if (SolarTimerEnable)
             {
-                if ( SolarStopTimer++ >= (StopTime*60))                          // Convert minutes into seconds
+                if ( SolarStopTimer++ >= (StopTime*60))                         // Convert minutes into seconds
                 {
                      State = STATE_A;                                           // switch back to state A
                      SolarTimerEnable=0;                                        // Disable Solar Timer
@@ -2727,9 +2530,10 @@ void main(void) {
             }
 
             if ( (Error & (LESS_6A|NO_SUN) ) && (LoadBl < 2) && (IsCurrentAvailable() == 0)) {
-                Error &= ~LESS_6A;                                              // Clear Errors if there is enough current available
+                Error &= ~LESS_6A;                                              // Clear Errors if there is enough current available, and Load Balancing is disabled or we are Master
                 Error &= ~NO_SUN;
-                ModbusWriteSingleRequest(0x00, 0x02, Error);
+                printf("No sun/current Errors Cleared.\r\n");
+                ModbusWriteSingleRequest(0x00, 0x02, Error);                    // Broadcast 
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
@@ -2748,7 +2552,7 @@ void main(void) {
                 for (x = 0; x < 4; x++) BalancedState[x] = 0;                   // reset all states
             }
 
-            if (Error & (NOCURRENT|NO_SUN|LESS_6A) ) {
+            if (Error & NOCURRENT) { //(NOCURRENT|NO_SUN|LESS_6A) ) {
                 Error &= ~NOCURRENT;                                            // Clear NO_CURRENT from error register
 
                 if (Mode == MODE_SOLAR) {
@@ -2764,11 +2568,8 @@ void main(void) {
 
             GLCD();                                                             // once a second, update LCD
 
-            //			if (State==STATE_C) ChargeTimer=Timer/1000;	// Update ChargeTimer (unused)
-            //			printf("STATE:%c Pilot:%u ChargeDelay:%u CT1:%3u.%01uA CT2:%3u.%01uA CT3:%3u.%01uA Imeas:%3u.%01uA Iset:%u.%01uA\r\n",State-1+'A',pilottest, ChargeDelay, (unsigned int)Irms[0]/10, (unsigned int)Irms[0]%10, (unsigned int)Irms[1]/10, (unsigned int)Irms[1]%10, (unsigned int)Irms[2]/10, (unsigned int)Irms[2]%10,(unsigned int)Imeasured/10,(unsigned int)Imeasured%10,(unsigned int)Iset/10,(unsigned int)Iset%10);
-
-            // Request measurement data data from Sensorbox2
-            if (Mode && !Sens2s--)                                              // Smart/Solar mode or Loadbalancing set to Master
+                                                                                // Request measurement data data from Sensorbox2
+            if (Mode && !Sens2s--)                                              // Smart or Solar mode
             {
                 ModbusRequest = 1;
                 Sens2s = 1; // reset to 2 sec
@@ -2793,8 +2594,8 @@ void main(void) {
         } // end 1 second timer
 
         
-        // Send modbus request
-        if (ModbusRequest && LoadBl <=1) {
+        // Every 2 seconds, request current measurement from Sensorbox or kWh meter
+        if (ModbusRequest && LoadBl < 2) {                                      // Load Balancing mode: Master or Disabled
             switch (ModbusRequest) {
                 case 1:
                     requestCurrentMeasurement(MainsMeter, MainsMeterAddress);
@@ -2878,8 +2679,7 @@ void main(void) {
                 }
             } else if (Modbus.Type == MODBUS_REQUEST) {
                 //printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
-                // reset 10 second timeout
-                timeout = 10;
+                                                                                // No timeout reset here, as it is a request, no response!!!! 
                 switch (Modbus.Function) {
                     case 0x04: // (Read input register)
                         // Addressed to this device
@@ -2920,7 +2720,7 @@ void main(void) {
                             // 0x01: Balance currents
                             if (Modbus.Register == 0x01 && LoadBl > 1) {        // Message for Slave(s)
                                 BalancedReceived = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
-                                //printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
+                              //  printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
                                 DataReceived = 2;
                             }
                             
@@ -2947,6 +2747,7 @@ void main(void) {
                             Balanced[0] = BalancedReceived;
                             if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
                             DEBUG_PRINT(("Broadcast received, Slave %.1f A \r\n", (double)Balanced[0]/10));
+                            timeout = 10;                                       // reset 10 second timeout
                             break;
                         case 0x02:                                              // Broadcast message from Master->Slaves, Error Occurred!
                             State = STATE_A;
@@ -3026,7 +2827,10 @@ void main(void) {
                                 BalancedState[SlaveAdr] = 1;                    // Mark Slave EVSE as active (State B)
                                 BalancedMax[SlaveAdr] = Modbus.Value;           // Set requested charge current.
                                 Balanced[SlaveAdr] = MinCurrent * 10;           // Initially set current to lowest setting
-                            } else Balanced[SlaveAdr] = 0;                      // Make sure the Slave does not start charging by setting current to 0
+                            } else {
+                                Balanced[SlaveAdr] = 0;                         // Make sure the Slave does not start charging by setting current to 0
+                                //Error |= NOCURRENT;
+                            }
                             printf("02 Slave %u requested:%.1f A\r\n", SlaveAdr, (double)Modbus.Value/10);
                             // Send ACK to Slave, followed by assigned current
                             ModbusWriteSingleRequest(Modbus.Address, 0x82, Balanced[SlaveAdr]);
@@ -3044,7 +2848,7 @@ void main(void) {
                             ModbusWriteSingleRequest(Modbus.Address, 0x83, Balanced[SlaveAdr]);
                             break;
                         case 0x04:                                              // charging stopped (state C->B), followed by two empty bytes
-                            BalancedState[SlaveAdr] = 0;                        // Mark Slave EVSE as inactive (still State B)
+                            BalancedState[SlaveAdr] = 1;                        // Mark Slave EVSE as inactive (still State B)
                             CalcBalancedCurrent(0);                             // Calculate dynamic charge current for connected EVSE's
                             printf("04 C->B Slave %u inactive\r\n", SlaveAdr);
                             // Send ACK to Slave

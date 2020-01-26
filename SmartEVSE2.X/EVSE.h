@@ -32,8 +32,8 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.12"                                                          // SmartEVSE software version
-#define DEBUG_P                                                                 // Debug print enable/disable
+#define VERSION "2.13.2"                                                          // SmartEVSE software version
+//#define DEBUG_P 1                                                               // Debug print enable/disable
 
 #define ICAL 1.00                                                               // Irms Calibration value (for Current transformers) 
 #define MAX_MAINS 25                                                            // max Current the Mains connection can supply
@@ -220,7 +220,6 @@ extern unsigned char Access_bit;
 extern unsigned int StopTime;
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
-
 
 extern unsigned char MenuItems[21];
 

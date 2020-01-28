@@ -32,8 +32,8 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.13.2"                                                          // SmartEVSE software version
-//#define DEBUG_P 1                                                               // Debug print enable/disable
+#define VERSION "2.14"                                                          // SmartEVSE software version
+//#define DEBUG_P                                                                 // Debug print enable/disable
 
 #define ICAL 1.00                                                               // Irms Calibration value (for Current transformers) 
 #define MAX_MAINS 25                                                            // max Current the Mains connection can supply
@@ -240,8 +240,8 @@ const far struct {
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
-    {"SW",     "SWITCH",   "Switch function control on IO2", 0, 4, SWITCH},
-    {"RCMON",  "RCMON",    "Residual Current Monitor on IO3", 0, 1, RC_MON},
+    {"SW",     "SWITCH",   "Switch function control on pin SW", 0, 4, SWITCH},
+    {"RCMON",  "RCMON",    "Residual Current Monitor on pin RCM", 0, 1, RC_MON},
     {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},

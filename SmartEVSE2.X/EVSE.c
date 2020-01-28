@@ -40,7 +40,7 @@
 ;       Added START menu option. Start Charging when surplus solar power is above 4A (configurable 1-16 A). EV will always charge at minimal MIN Current per phase
 ;       Added STOP menu option. Stop Charging after XX minutes at MIN charge current (configurable 0-60 min) (0= keep charging)
 ;       EEprom initialization done at first power-up.
-;       Fixed Bugfixes in Master/Slave code.
+;       Bugfixes in Master/Slave code.
 ;       Automatic CT Calibration reset when upgrading from 2.0x to this version.
 ;       LCD Backlight will now be lit for 60 seconds, when pressing the external button.
 ;       CABLE option removed, just set MAX to the cable capacity.
@@ -53,7 +53,10 @@
 ;       MAX setting now starts at 6A
 ; 2.12  Fixed garbled LCD. When charging is stopped the the LCD is re-initialized after a 200ms delay.
 ; 2.13  Various Master/Slave communication bug fixes.
-; 
+; 2.14  Fixed Broadcast error clear message handling on slave.
+;       Added check in Solar mode for overloading the MAINS.
+;       Removed START and STOP menu options from the slave, as it is determined by the master.
+;
 ;
 ;   Build with MPLAB X v5.25 and XC8 compiler version 2.10
 ;
@@ -942,40 +945,51 @@ void SetCurrent(unsigned int current)                                           
 }
 
 // Is there atleast 6A(configurable MinCurrent) available for a EVSE?
-
+// returns 0 if there is 6A available
+// returns 1 if there is no current available
+//
 char IsCurrentAvailable(void) {
     unsigned char n, ActiveEVSE = 0;
-    int Baseload, TempMax, TotalCurrent = 0;
+    int Baseload, TotalCurrent = 0;
 
+        
     for (n = 0; n < 4; n++) if (BalancedState[n] == 2)                          // must be in STATE_C
     {
         ActiveEVSE++;                                                           // Count nr of active (charging) EVSE's
         TotalCurrent += Balanced[n];                                            // Calculate total max charge current for all active EVSE's
     }
     if (ActiveEVSE == 0) {                                                      // No active (charging) EVSE's
-        if (Imeasured > ((MaxMains - MinCurrent) * 10)) {
+        if (Imeasured > ((MaxMains - MinCurrent) * 10)) {                       // There should be at least 6A available
             return 1;                                                           // Not enough current available!, return with error
         }
     } else {                                                                    // at least one active EVSE
         ActiveEVSE++;                                                           // Do calculations with one more EVSE
-        Baseload = Imeasured - (TotalCurrent * 10);                             // Calculate Baseload (load without any active EVSE)
+        Baseload = Imeasured - TotalCurrent;                                    // Calculate Baseload (load without any active EVSE)
         if (Baseload < 0) Baseload = 0;                                         // only relevant for Smart/Solar mode
 
         if (ActiveEVSE > 4) ActiveEVSE = 4;
         // When load balancing is active, and we are the Master, the Circuit option limits the max total current
-        if (LoadBl == 1) TempMax = MaxCircuit;
-        else TempMax = MaxMains;
-                            
-        if ((ActiveEVSE * (MinCurrent * 10) + Baseload) > (TempMax * 10)) {
-            return 1;                                                           // Not enough current available!, return with error
+        if (LoadBl == 1) {
+            if ((ActiveEVSE * (MinCurrent * 10)) > (MaxCircuit * 10)) {
+                return 1;                                                       // Not enough current available!, return with error
+            }    
         }
+       
+        // Check if the lowest charge current(6A) x ActiveEV's + baseload would be higher then the MaxMains.
+        if ((ActiveEVSE * (MinCurrent * 10) + Baseload) > (MaxMains * 10)) {
+            return 1;                                                           // Not enough current available!, return with error
+        }    
+        
     }
 
     // Allow solar Charging if surplus current is above 'StartCurrent' (on one of the phases)
     // Charging will start after the timeout (chargedelay) period has ended
     // now set to -4A (configurable)
-    if (Mode == MODE_SOLAR && ImeasuredNegative >= ((signed int)StartCurrent *-10)) return 1;
-
+    if (Mode == MODE_SOLAR) {                                                   // no active EVSE yet?
+        if (ActiveEVSE == 0 && ImeasuredNegative >= ((signed int)StartCurrent *-10)) return 1;    
+        else if ((ActiveEVSE * MinCurrent * 10) > TotalCurrent) return 1;       // check if we can split the available current between all active EVSE's
+    }
+        
     return 0;
 }
 
@@ -983,7 +997,7 @@ char IsCurrentAvailable(void) {
 // Calculates Balanced PWM current for each EVSE
 // mod =0 normal
 // mod =1 we have a new EVSE requesting to start charging.
-
+//
 void CalcBalancedCurrent(char mod) {
     int Average, MaxBalanced, Idifference;
     int BalancedLeft = 0;
@@ -1016,7 +1030,7 @@ void CalcBalancedCurrent(char mod) {
         if (IsetBalanced > 800) IsetBalanced = 800;                             // hard limit 80A (added 11-11-2017)
     }
 
-    if (!mod && Mode == MODE_SOLAR)                                             // Solar version
+    if (Mode == MODE_SOLAR)                                                     // Solar version
     {
         if (Isum < 0)                                                           // If it's negative, we have surplus (solar) power available
         {
@@ -1025,17 +1039,18 @@ void CalcBalancedCurrent(char mod) {
         } else IsetBalanced = IsetBalanced - (Isum / 2);                        // Positive, decrease Balanced charge current.
                                                                                 // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
         if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {
-            IsetBalanced = BalancedLeft * MinCurrent * 10;                                     
+            IsetBalanced = BalancedLeft * MinCurrent * 10; 
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
             if (BalancedLeft && StopTime && (Isum > 10)) SolarTimerEnable=1;    // If any EVSE is Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
             else SolarTimerEnable=0;                                            // After the timer runs out, the charging will be stopped.
         } else SolarTimerEnable=0;                                              
+  
     }
                                                                                 // When Load balancing = Master,  Limit total current of all EVSEs to MaxCircuit
     if (LoadBl == 1 && (IsetBalanced > (MaxCircuit * 10)) ) IsetBalanced = MaxCircuit * 10;       
     
-
-    Baseload = Imeasured - (TotalCurrent * 10);                                 // Calculate Baseload (load without any active EVSE)
+    
+    Baseload = Imeasured - TotalCurrent;                                        // Calculate Baseload (load without any active EVSE)
     if (Baseload < 0) Baseload = 0;
 
     if (Mode == MODE_NORMAL)                                                    // Normal Mode
@@ -1046,15 +1061,17 @@ void CalcBalancedCurrent(char mod) {
 
     if (BalancedLeft)                                                           // Only if we have active EVSE's
     {
-
-        if (mod) IsetBalanced = (MaxMains * 10) - Baseload;                     // Set max combined charge current to MaxMains - Baseload		
-
-        if (IsetBalanced < 0 || IsetBalanced < (BalancedLeft * MinCurrent * 10)) {
+        // New EVSE charging, and no Solar mode
+        if (mod && Mode != MODE_SOLAR) IsetBalanced = (MaxMains * 10) - Baseload;// Set max combined charge current to MaxMains - Baseload		
+        
+        if (IsetBalanced < 0 || IsetBalanced < (BalancedLeft * MinCurrent * 10) 
+          || ( Mode == MODE_SOLAR && Isum > 10 && Imeasured > (MaxMains * 10)) )
+        {
+            IsetBalanced = BalancedLeft * MinCurrent * 10;                      // set minimal "MinCurrent" charge per active EVSE
             NoCurrent++;                                                        // Flag NoCurrent left
             printf("No Current!!\n\r");
-            IsetBalanced = (BalancedLeft * MinCurrent * 10);                    // set minimal "MinCurrent" charge per active EVSE
         } else NoCurrent = 0;
-
+        
         if (IsetBalanced > ActiveMax) IsetBalanced = ActiveMax;                 // limit to total maximum Amps (of all active EVSE's)
 
         MaxBalanced = IsetBalanced;                                             // convert to Amps
@@ -1098,8 +1115,8 @@ void CalcBalancedCurrent(char mod) {
     
     if (LoadBl == 1) {
         for (n = 0; n < 4; n++) DEBUG_PRINT(("EVSE%u[%u]:%.1f A ", n, BalancedState[n], (double)Balanced[n] / 10));
-        DEBUG_PRINT(("\n\r"));
     }
+    DEBUG_PRINT(("\n\r"));
 }
 
 /**
@@ -1235,6 +1252,7 @@ void receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed d
 
 /**
  * Create an array of available menu items
+ * Depends on configuration settings like CONFIG/MODE/LoadBL
  * 
  * @return unsigned char MenuItemCount
  */
@@ -1246,15 +1264,15 @@ unsigned char getMenuItems (void) {
         MenuItems[m++] = MENU_LOCK;                                             // - Cable lock (0:Disable / 1:Solenoid / 2:Motor)
     }
     MenuItems[m++] = MENU_MODE;                                                 // EVSE mode (0:Normal / 1:Smart)
-    if (Mode == MODE_SOLAR) {                                                   // ? Solar mode?
+    if (Mode == MODE_SOLAR && LoadBl < 2) {                                     // ? Solar mode and Load Balancing Disabled/Master?
         MenuItems[m++] = MENU_START;                                            // - Start Surplus Current (A)
         MenuItems[m++] = MENU_STOP;                                             // - Stop time (min)
     }
     MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Slave)
-    if (Mode && LoadBl <= 1) {                                                  // ? Mode Smart/Solar and Load Balancing Disabled/Master?
+    if (Mode && LoadBl < 2) {                                                   // ? Mode Smart/Solar and Load Balancing Disabled/Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A) (Mode:Smart/Solar)
     }
-    if (Mode && LoadBl <= 1 || LoadBl == 1) {                                   // ? Mode Smart/Solar or LoadBl Master?
+    if (Mode && LoadBl < 2 || LoadBl == 1) {                                    // ? Mode Smart/Solar or LoadBl Master?
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A) (Mode:Smart/Solar or LoadBl:Master)
     }
     if (LoadBl == 1) {                                                          // ? Load balancing Master?
@@ -1263,7 +1281,7 @@ unsigned char getMenuItems (void) {
     MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
     MenuItems[m++] = MENU_SWITCH;                                               // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
-    if (Mode && LoadBl <= 1) {                                                  // ? Smart or Solar mode?
+    if (Mode && LoadBl < 2) {                                                   // ? Smart or Solar mode?
         MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
         if (MainsMeter == EM_SENSORBOX) {                                       // - ? Sensorbox?
             MenuItems[m++] = MENU_CAL;                                          // - - Sensorbox calibration
@@ -1883,14 +1901,14 @@ void RS232cli(void) {
             printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
             break;
         case MENU_SWITCH:
-            printf("Access Control on I/O 2 set to : %s\r\nAccess Control on IO2 (%s", getMenuItemOption(menu), StrSwitch[0]);
+            printf("Access Control on pin SW set to : %s\r\nAccess Control on SW (%s", getMenuItemOption(menu), StrSwitch[0]);
             for(i = 1; i < 5; i++) {
                 printf("/%s", StrSwitch[i]);
             }
             printf("): ");
             break;
         case MENU_RCMON:
-            printf("Residual Current Monitor on I/O 3 set to : %s\r\nResidual Current Monitor on IO3 (DISABLE/ENABLE): ", getMenuItemOption(menu));
+            printf("Residual Current Monitor on pin RCM set to : %s\r\nResidual Current Monitor (DISABLE/ENABLE): ", getMenuItemOption(menu));
             break;
         case MENU_CAL:
             printf("CT1 reads: %.1f A\r\nEnter new Measured Current for CT1: ", Irms[0]/10);
@@ -2135,6 +2153,7 @@ void main(void) {
     read_settings();                                                            // from EEprom
     IsetBalanced = MaxMains * 10;                                               // Initially set to MaxMains
 
+    BACKLIGHT_ON;                                                               // so we can see the version nr at powerup
     GLCD_init();
     GLCD_version();                                                             // Display Version
     
@@ -2169,8 +2188,8 @@ void main(void) {
 
         if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
         
-        // Left button pressed, Loadbalancing is Master or Disabled, and Mode is Smart or Solar?
-        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2)) { 
+        // Left button pressed, Loadbalancing is Master or Disabled, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
+        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == 3) { 
                 Mode = ~Mode & 0x3;                                             // Change from Solar to Smart mode and vice versa.
                 Error &= ~(NOCURRENT | NO_SUN | LESS_6A);                       // Clear All errors
                 ChargeDelay = 0;                                                // Clear any Chargedelay 
@@ -2291,39 +2310,34 @@ void main(void) {
             {                                                                   // Allow to switch to state C directly if STATE_A_TO_C is set to PILOT_6V (see EVSE.h)
                 if ((NextState == STATE_B) && Access_bit)                       // Access is permitted when Access_bit set
                 {
-                    if (count++ > 25)                                           // repeat 25 times (changed in v2.05)
+                    if (count++ > 25 && Error == NO_ERROR && ChargeDelay == 0)  // repeat 25 times (changed in v2.05)
                     {
-                        if (IsCurrentAvailable() == 1) Error |= NOCURRENT;      // Enough current available to start Charging?
+                        DiodeCheck = 0;
+                        ProximityPin();                                         // Sample Proximity Pin
+                        printf("Cable limit: %uA  Max: %uA \r\n", MaxCapacity, MaxCurrent);
+                        if (MaxCurrent > MaxCapacity) ChargeCurrent = MaxCapacity * 10; // Do not modify Max Cable Capacity or MaxCurrent (fix 2.05)
+                        else ChargeCurrent = MaxCurrent * 10;                   // Instead use new variable ChargeCurrent
 
-                        if (ChargeDelay == 0 && Error == NO_ERROR) {
-                            DiodeCheck = 0;
-                            ProximityPin();                                     // Sample Proximity Pin
-                            printf("Cable limit: %uA  Max: %uA \r\n", MaxCapacity, MaxCurrent);
-                            if (MaxCurrent > MaxCapacity) ChargeCurrent = MaxCapacity * 10; // Do not modify Max Cable Capacity or MaxCurrent (fix 2.05)
-                            else ChargeCurrent = MaxCurrent * 10;               // Instead use new variable ChargeCurrent
-
-                            if (LoadBl > 1)                                     // Load Balancing : Slave 
-                            {
-                                // Send command to Master, followed by Max Charge Current
-                                ModbusWriteSingleRequest(LoadBl, 0x02, ChargeCurrent);
-                                printf("02 sent to Master, requested %.1f A\r\n", (double)ChargeCurrent/10);
-                                State = STATE_COMM_B;
-                                Timer = 0;                                      // Clear the Timer
-                            } else {                                            // Load Balancing: Master or Disabled
-                                BalancedMax[0] = MaxCapacity * 10;
-                                BalancedState[0] = 1;                           // Mark as active
-                                State = STATE_B;                                // switch to State B
-                                BacklightTimer = BACKLIGHT;                     // Backlight ON
-                                BACKLIGHT_ON;
-                                printf("STATE A->B\r\n");
-                            }
+                        if (LoadBl > 1)                                         // Load Balancing : Slave 
+                        {
+                            // Send command to Master, followed by Max Charge Current
+                            ModbusWriteSingleRequest(LoadBl, 0x02, ChargeCurrent);
+                            printf("02 sent to Master, requested %.1f A\r\n", (double)ChargeCurrent/10);
+                            State = STATE_COMM_B;
+                            Timer = 0;                                          // Clear the Timer
+                        } else {                                                // Load Balancing: Master or Disabled
+                            BalancedMax[0] = MaxCapacity * 10;
+                            BalancedState[0] = 1;                               // Mark as active
+                            State = STATE_B;                                    // switch to State B
+                            BacklightTimer = BACKLIGHT;                         // Backlight ON
+                            BACKLIGHT_ON;
+                            printf("STATE A->B\r\n");
                         }
-                    }
+                   }
                 } else {
                     NextState = STATE_B;
                     count = 0;
                 }
-
             }
         }
 
@@ -2462,7 +2476,7 @@ void main(void) {
                             {
                                 State = STATE_COMM_CB;                          // Send 04 command to Master
                                 Timer = ACK_TIMEOUT + 1;                        // Set the timer to Timeout value, so that it expires immediately
-                            } else BalancedState[0] = 1;               //1         // Master or Disabled
+                            } else BalancedState[0] = 1;                        // Master or Disabled
                                                                                 // Mark EVSE as inactive (still State B)
                         }
                     } else {
@@ -2544,7 +2558,7 @@ void main(void) {
                 for (x = 0; x < 4; x++) BalancedState[x] = 0;                   // reset all states
             } else if (timeout) timeout--;
 
-            if (TempEVSE >= 65) // Temperature too High?
+            if (TempEVSE >= 65)                                                 // Temperature too High?
             {
                 Error |= TEMP_HIGH;
                 State = STATE_A;                                                // ERROR, switch back to STATE_A
@@ -2552,7 +2566,7 @@ void main(void) {
                 for (x = 0; x < 4; x++) BalancedState[x] = 0;                   // reset all states
             }
 
-            if (Error & NOCURRENT) { //(NOCURRENT|NO_SUN|LESS_6A) ) {
+            if (Error & NOCURRENT) { 
                 Error &= ~NOCURRENT;                                            // Clear NO_CURRENT from error register
 
                 if (Mode == MODE_SOLAR) {
@@ -2749,12 +2763,13 @@ void main(void) {
                             DEBUG_PRINT(("Broadcast received, Slave %.1f A \r\n", (double)Balanced[0]/10));
                             timeout = 10;                                       // reset 10 second timeout
                             break;
-                        case 0x02:                                              // Broadcast message from Master->Slaves, Error Occurred!
-                            State = STATE_A;
-                            // Error stored in variable Current
-                            Error = Modbus.Value;
-                            ChargeDelay = CHARGEDELAY;
-                            DEBUG_PRINT(("Broadcast Error message received!\r\n"));
+                        case 0x02:                                              // Broadcast Error message from Master->Slaves
+                            Error = Modbus.Value;                               // Error stored in variable Current
+                            if (Error) {                                        // Is there an actual Error? Maybe the error got cleared?
+                                State = STATE_A;                                // We received an error; switch to State A, and wait 60 seconds
+                                ChargeDelay = CHARGEDELAY;
+                                DEBUG_PRINT(("Broadcast Error message received!\r\n"));
+                            } else DEBUG_PRINT(("Broadcast Errors Cleared received!\r\n"));
                             break;
                         default:
                             break;

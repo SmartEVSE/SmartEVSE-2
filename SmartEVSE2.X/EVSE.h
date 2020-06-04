@@ -32,8 +32,16 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.14"                                                          // SmartEVSE software version
+#define VERSION "2.16"                                                          // SmartEVSE software version
 //#define DEBUG_P                                                                 // Debug print enable/disable
+#define TRANSFORMER_COMP 1.00                                                   // Current calculation compensation option for use with 230V-400V transformers,
+                                                                                // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.
+                                                                                // set to 1.00 for normal use, and to 1.73 for use with a transformer.
+
+//#define SPECIAL                                                                 // if defined, it will modify program so that some menu options are not shown
+                                                                                // should be undefined by default
+
+//#define MODBUSPRINT                                                             // debug print the modbus messages
 
 #define ICAL 1.00                                                               // Irms Calibration value (for Current transformers) 
 #define MAX_MAINS 25                                                            // max Current the Mains connection can supply
@@ -50,7 +58,13 @@
 #define BACKLIGHT 60                                                            // Seconds delay for the LCD backlight to turn off.
 #define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
+#define IMPORT_CURRENT 0                                                        // Allow the use of grid power when solar charging (Amps)
 #define MAINS_METER 1                                                           // Mains Meter, 1= Sensorbox, 2=Phoenix, 3= Finder, 4= Eastron, 5=Custom
+#ifdef SPECIAL
+#define GRID 1                                                                  // Grid, 0= 4-Wire CW, 1= 4-Wire CCW, 2= 3-Wire CW, 3= 3-Wire CCW
+#else
+#define GRID 0                                                                  // Grid, 0= 4-Wire CW, 1= 4-Wire CCW, 2= 3-Wire CW, 3= 3-Wire CCW
+#endif
 #define MAINS_METER_ADDRESS 10
 #define MAINS_METER_MEASURE 0
 #define PV_METER 0
@@ -76,6 +90,7 @@
 #define STATE_COMM_CB 8                                                         // Waiting for response from Master
 
 #define STATE_CB 10
+#define STATE_ACTSTART 20
 
 #define PILOT_12V 1
 #define PILOT_9V 2
@@ -83,8 +98,11 @@
 #define PILOT_DIODE 4
 #define PILOT_NOK 0
 
-#define STATE_A_TO_C PILOT_9V                                                   // Set to PILOT_6V to allow switching from STATE A to STATE C (without STATE B)
-                                                                                // default is PILOT_9V
+#ifdef SPECIAL
+    #define STATE_A_TO_C PILOT_6V                                               // Set to PILOT_6V to allow switching from STATE A to STATE C (without STATE B)
+#else
+    #define STATE_A_TO_C PILOT_9V                                               // default is PILOT_9V
+#endif
 
 #define NO_ERROR 0
 #define LESS_6A 1
@@ -114,21 +132,23 @@
 #define MENU_LOCK 6
 #define MENU_START 7
 #define MENU_STOP 8
-#define MENU_SWITCH 9
-#define MENU_RCMON 10
-#define MENU_MAX 11
-#define MENU_MODE 12
-#define MENU_MAINS 13
-#define MENU_CAL 14
-#define MENU_MAINSMETER 15
-#define MENU_MAINSMETERADDRESS 16
-#define MENU_MAINSMETERMEASURE 17
-#define MENU_PVMETER 18
-#define MENU_PVMETERADDRESS 19
-#define MENU_EMCUSTOM_ENDIANESS 20
-#define MENU_EMCUSTOM_IREGISTER 21
-#define MENU_EMCUSTOM_IDIVISOR 22
-#define MENU_EXIT 23
+#define MENU_IMPORT 9
+#define MENU_SWITCH 10
+#define MENU_RCMON 11
+#define MENU_MAX 12
+#define MENU_MODE 13
+#define MENU_MAINS 14
+#define MENU_CAL 15
+#define MENU_MAINSMETER 16
+#define MENU_GRID 17
+#define MENU_MAINSMETERADDRESS 18
+#define MENU_MAINSMETERMEASURE 19
+#define MENU_PVMETER 20
+#define MENU_PVMETERADDRESS 21
+#define MENU_EMCUSTOM_ENDIANESS 22
+#define MENU_EMCUSTOM_IREGISTER 23
+#define MENU_EMCUSTOM_IDIVISOR 24
+#define MENU_EXIT 25
 
 #define STATUS_STATE 64
 #define STATUS_ERROR 65
@@ -178,8 +198,10 @@ extern char Config;                                                             
 extern char LoadBl;                                                             // Load Balance Setting (Disable, Master or Slave)
 extern char Switch;                                                             // Allow access to EVSE with button on IO2
 extern char RCmon;                                                              // Residual Current monitor
+extern char Grid;
 extern unsigned int StartCurrent;
 extern unsigned int StopTime;
+extern unsigned int ImportCurrent;
 extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
 extern unsigned char MainsMeterAddress;
 extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
@@ -217,11 +239,10 @@ extern unsigned char LCDpos;
 extern unsigned char ChargeDelay;                                               // Delays charging at least 60 seconds in case of not enough current available.
 extern unsigned char TestState;
 extern unsigned char Access_bit;
-extern unsigned int StopTime;
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
 
-extern unsigned char MenuItems[21];
+extern unsigned char MenuItems[25];
 
 const far struct {
     char Key[8];
@@ -230,16 +251,17 @@ const far struct {
     unsigned int Min;
     unsigned int Max;
     unsigned int Default;
-} MenuStr[24] = {
+} MenuStr[26] = {
     {"",       "",         "Not in menu", 0, 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
-    {"LOADBL", "LOAD BAL", "Set Load Balancing mode", 0, 4, LOADBL},
+    {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-4 SmartEVSEs", 0, 4, LOADBL},
     {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
     {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 80, MAX_CIRCUIT},
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
+    {"IMPORT", "IMPORT",   "Allow grid power when solar charging", 0, 6, IMPORT_CURRENT},
     {"SW",     "SWITCH",   "Switch function control on pin SW", 0, 4, SWITCH},
     {"RCMON",  "RCMON",    "Residual Current Monitor on pin RCM", 0, 1, RC_MON},
     {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
@@ -247,6 +269,7 @@ const far struct {
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
+    {"GRID",   "GRID",     "Grid type to which the Sensorbox is connected", 0, 1, GRID},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
     {"PVEM",   "PV METER", "Type of PV electric meter", 0, 5, PV_METER},

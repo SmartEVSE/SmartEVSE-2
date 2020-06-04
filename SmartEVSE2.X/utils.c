@@ -42,7 +42,7 @@ signed double pow10(signed char exp) {
  */
 unsigned char triwave8(unsigned char in) {
     if (in & 0x80) {
-        in = 255 - in;
+        in = 255u - in;
     }
     unsigned char out = in << 1;
     return out;
@@ -59,12 +59,12 @@ unsigned char scale8(unsigned char i, unsigned char scale) {
 unsigned char ease8InOutQuad(unsigned char i) {
     unsigned char j = i;
     if (j & 0x80) {
-        j = 255 - j;
+        j = 255u - j;
     }
     unsigned char jj = scale8(j, j);
     unsigned char jj2 = jj << 1;
     if (i & 0x80) {
-        jj2 = 255 - jj2;
+        jj2 = 255u - jj2;
     }
     return jj2;
 }

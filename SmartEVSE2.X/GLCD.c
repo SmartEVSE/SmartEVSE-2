@@ -398,7 +398,7 @@ unsigned char MenuNavCharArray(unsigned char Buttons, unsigned char Value, unsig
     for (i = 0; i < Count; i++) {
         if (Value == Values[i]) break;
     }
-    i = MenuNavInt(Buttons, i, 0, Count - 1);
+    i = MenuNavInt(Buttons, i, 0, Count - 1u);
 
     return Values[i];
 }
@@ -469,8 +469,8 @@ void GLCD(void) {
             GLCD_print2(2, (const far char *) "IO Test");
             GLCD_print2(4, (const far char *) "FAILED!   ");
             GLCDx = 12 * 8 + 4;
-            GLCD_write_buf2((TestState / 10) + 0x30);
-            GLCD_write_buf2((TestState % 10) + 0x30);
+            GLCD_write_buf2((TestState / 10u) + 0x30);
+            GLCD_write_buf2((TestState % 10u) + 0x30);
             GLCD_sendbuf(4); // copy buffer to LCD
             return;
         } else if (Error & BL_FLASH) {                                          // Bootloader update error
@@ -522,8 +522,8 @@ void GLCD(void) {
                 GLCD_print2(4, (const far char *) "CHARGE  ");
                 if (ChargeDelay) {                                              // show chargedelay
                     GLCDx = 12 * 8 + 4;
-                    GLCD_write_buf2((ChargeDelay / 10) + 0x30);
-                    GLCD_write_buf2((ChargeDelay % 10) + 0x30);
+                    GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
+                    GLCD_write_buf2((ChargeDelay % 10u) + 0x30);
                     GLCD_sendbuf(4); // copy buffer to LCD
                 }
             } else {
@@ -541,13 +541,13 @@ void GLCD(void) {
 
         if (Mode == MODE_SMART) {                                               // remove the Sun from the LCD buffer
             for (x=0; x<13; x++) {
-                GLCDbuf[x+74] = 0;
-                GLCDbuf[x+74+128] = 0;
+                GLCDbuf[x+74u] = 0;
+                GLCDbuf[x+74u+128u] = 0;
             }    
         }
         if (!SolarTimerEnable) {                                                // remove the clock from the LCD buffer
             for (x=0; x<8; x++) {
-                GLCDbuf[x+92] = 0;
+                GLCDbuf[x+92u] = 0;
             }    
         } else {                                                                // display remaining time before charging is stopped
             GLCDx = 101;
@@ -594,8 +594,8 @@ void GLCD(void) {
 
             GLCDy = 2;
             GLCDx = 77;
-            GLCD_write_buf((Balanced[0] / 100) + 0x30);
-            GLCD_write_buf(((Balanced[0] / 10) % 10) + 0x30);
+            GLCD_write_buf((Balanced[0] / 100u) + 0x30);
+            GLCD_write_buf(((Balanced[0] / 10u) % 10u) + 0x30);
             GLCD_write_buf('A');
         }
 
@@ -647,8 +647,8 @@ void GLCD(void) {
             GLCD_print2(5, (const far char *) "READY");                         // STATE A +B message
             if (ChargeDelay) {
                 GLCDx = 12 * 8 + 4;
-                GLCD_write_buf2((ChargeDelay / 10) + 0x30);
-                GLCD_write_buf2((ChargeDelay % 10) + 0x30);
+                GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
+                GLCD_write_buf2((ChargeDelay % 10u) + 0x30);
                 GLCD_sendbuf(5); // copy buffer to LCD
             }
         } else if (State == STATE_C) {
@@ -1080,7 +1080,7 @@ void delayus(int us) {
 }
 
 void GLCD_init(void) {
-    delay(200);
+    delay(200);                                                                 // transients on the line could have garbled the LCD, wait 200ms then re-init. (blocking)
     _A0_0;                                                                      // A0=0
     _RSTB_0;                                                                    // Reset GLCD module
     delayus(4);

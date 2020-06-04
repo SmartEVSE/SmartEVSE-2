@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=SmartEVSE2modbus_test.X
+PROJECTNAME=SmartEVSE2.X
 
 # Active Configuration
 DEFAULTCONF=default

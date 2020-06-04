@@ -1,0 +1,6 @@
+# Ignoring files according to http://microchip.wikidot.com/faq:72
+/SmartEVSE2.X/build/
+#Ingoring private Makefiles, to create them open the MPLAB IDE or use the C:\Program Files (x86)\Microchip\MPLABX\<VERSION>\mplab_ide\bin\prjMakefilesGenerator.bat script
+/SmartEVSE2.X/nbproject/Makefile-*
+/SmartEVSE2.X/nbproject/Package-*
+/SmartEVSE2.X/nbproject/private/

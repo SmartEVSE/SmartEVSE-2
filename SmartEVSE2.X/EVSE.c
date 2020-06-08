@@ -1,6 +1,6 @@
 /*
 ; Project:       Smart EVSE
-; Date:          4 June 2020
+; Date:          8 June 2020
 ;
 ; Changes:
 ;
@@ -64,7 +64,8 @@
 ; 2.16  Fixed Smart/Solar mode switch, it would force Solar or Smart mode, even in Normal mode.
 ;       Added GRID menu option. Configures the Sensorbox2 for use with 4Wire (L1,L2,L3 and Neutral) or 3Wire (L1,L2,L3 no Neutral)
 ;       Speeded up State C->B detection, by removing (blocking) delays. The Renault ZOE will show an error if this takes > 100ms.
-;       
+; 2.17  Fixed state switch bug while in solar mode.
+;       Hides CAL menu option when CT's are not used.
 ;
 ;
 ;   Build with MPLAB X v5.25 and XC8 compiler version 2.10
@@ -223,6 +224,7 @@ unsigned char unlockAA = 0;                                                     
 unsigned char Access_bit = 0;
 unsigned int serialnr = 0;
 unsigned char GridActive = 0;                                                   // When the CT's are used on Sensorbox2, it enables the GRID menu option.
+unsigned char CalActive = 0;                                                    // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 
 unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
@@ -1252,8 +1254,9 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 if (offset == 28) { 
                     var[x] = var[x] * ICal;
                     // very small negative currents are shown as zero.
-                    if ((var[x] > -0.01) && (var[x] < 0.01)) var[x] = 0.0;                             
-                }
+                    if ((var[x] > -0.01) && (var[x] < 0.01)) var[x] = 0.0;      
+                    CalActive = 1;                                              // Enable CAL option in Menu
+                } else CalActive = 0;                                           // No CAL option in Menu
             }
             // Set Sensorbox 2 to 3/4 Wire configuration (and phase Rotation) (v2.16)
             if (buf[1] >= 0x10 && offset == 28) {
@@ -1272,6 +1275,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 combineBytes(&dCombined, buf, ((x + 3) * 4), EMConfig[Meter].Endianness);
                 if (dCombined < 0) var[x] = -var[x];
             }
+            CalActive = 0;                                                      // No CAL option in Menu
             break;
         default:
             if (EMConfig[Meter].IDivisor == 8) {
@@ -1285,6 +1289,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                     var[x] = (signed double) lCombined / pow10(EMConfig[Meter].IDivisor - 1);
                 }
             }
+            CalActive = 0;                                                      // No CAL option in Menu
             break;
     }
     return 1;   // all OK
@@ -1330,7 +1335,7 @@ unsigned char getMenuItems (void) {
             #ifndef SPECIAL
             if (GridActive == 1) MenuItems[m++] = MENU_GRID;
             #endif
-            MenuItems[m++] = MENU_CAL;                                          // - - Sensorbox CT measurement calibration
+            if (CalActive == 1) MenuItems[m++] = MENU_CAL;                      // - - Sensorbox CT measurement calibration
         } else if(MainsMeter) {                                                 // - ? Other?
             MenuItems[m++] = MENU_MAINSMETERADDRESS;                            // - - Address of Mains electric meter (5 - 254)
             MenuItems[m++] = MENU_MAINSMETERMEASURE;                            // - - What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
@@ -2621,9 +2626,9 @@ void main(void) {
             RCSTA2bits.CREN = 1;                                                // Restart Uart
         }
 
-        // The following code will be executed every second, except when there is a state change happening
+        // The following code will be executed every second, except when there is a state change C->B happening
         x = TMR0L;
-        if (TMR0H >= 0x3d && NextState == 0)                                    // 1 second timer 
+        if (TMR0H >= 0x3d &&  (NextState == 0 || State != STATE_C) )            // 1 second timer 
         {
             TMR0H = 0;
             TMR0L = 0;

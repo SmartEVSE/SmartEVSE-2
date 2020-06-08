@@ -32,7 +32,7 @@
 #include "GLCD.h"
 
 
-#define VERSION "2.16"                                                          // SmartEVSE software version
+#define VERSION "2.17"                                                          // SmartEVSE software version
 //#define DEBUG_P                                                                 // Debug print enable/disable
 #define TRANSFORMER_COMP 1.00                                                   // Current calculation compensation option for use with 230V-400V transformers,
                                                                                 // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.

@@ -183,6 +183,7 @@ unsigned char NextState;
 
 unsigned int MaxCapacity;                                                       // Cable limit (A) (limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
 unsigned int ChargeCurrent;                                                     // Calculated Charge Current (Amps *10)
+unsigned int OverrideCurrent = 0;                                               // Temporary assigned current (Amps *10) (modbus)
 unsigned int Imeasured = 0;                                                     // Max of all Phases (Amps *10) of mains power
 signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
 signed int Isum = 0;                                                            // Sum of all measured Phases (Amps *10) (can be negative)
@@ -1033,6 +1034,9 @@ void CalcBalancedCurrent(char mod) {
                                                                                 // Do not modify MaxCurrent as it is a config setting. (fix 2.05)
     if (BalancedState[0] == 2 && MaxCurrent > MaxCapacity) ChargeCurrent = MaxCapacity * 10;
     else ChargeCurrent = MaxCurrent * 10;                                       // Instead use new variable ChargeCurrent.
+    
+    // Override current temporary if set (from Modbus)
+    if (OverrideCurrent) ChargeCurrent = OverrideCurrent;
 
     if (LoadBl < 2) BalancedMax[0] = ChargeCurrent;                             // Load Balancing Disabled or Master: 
                                                                                 // update BalancedMax[0] if the MAX current was adjusted using buttons or CLI
@@ -1446,6 +1450,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         }
     } else {
         switch (nav) {
+            case STATUS_CURRENT:
+                OverrideCurrent = val;
+                break;
             case STATUS_ACCESS:
                 if (val == 0 || val == 1) {
                     Access_bit = val;

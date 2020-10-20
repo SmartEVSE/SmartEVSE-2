@@ -1242,6 +1242,9 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     signed double dCombined;
     signed long lCombined;
 
+    // No CAL option in Menu
+    CalActive = 0;
+    
     switch(Meter) {
         case EM_SENSORBOX:
             // return immediately if the data contains no new P1 or CT measurement
@@ -1261,7 +1264,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                     // very small negative currents are shown as zero.
                     if ((var[x] > -0.01) && (var[x] < 0.01)) var[x] = 0.0;      
                     CalActive = 1;                                              // Enable CAL option in Menu
-                } else CalActive = 0;                                           // No CAL option in Menu
+                }
             }
             // Set Sensorbox 2 to 3/4 Wire configuration (and phase Rotation) (v2.16)
             if (buf[1] >= 0x10 && offset == 28) {
@@ -1280,7 +1283,6 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 combineBytes(&dCombined, buf, ((x + 3) * 4), EMConfig[Meter].Endianness);
                 if (dCombined < 0) var[x] = -var[x];
             }
-            CalActive = 0;                                                      // No CAL option in Menu
             break;
         default:
             if (EMConfig[Meter].IDivisor == 8) {
@@ -1294,10 +1296,10 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                     var[x] = (signed double) lCombined / pow10(EMConfig[Meter].IDivisor - 1);
                 }
             }
-            CalActive = 0;                                                      // No CAL option in Menu
             break;
     }
-    return 1;   // all OK
+    // all OK
+    return 1;
 }
 
 /**

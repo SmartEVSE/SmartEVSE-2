@@ -1567,7 +1567,7 @@ const far char * getMenuItemOption(unsigned char nav) {
                 sprintf(Str, "-%2u A", value);
                 return Str;
         case MENU_STOP:
-            if (StopTime) {
+            if (value) {
                 sprintf(Str, "%2u min", value);
                 return Str;
             } else return StrDisabled;

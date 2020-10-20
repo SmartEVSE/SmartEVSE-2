@@ -1346,7 +1346,7 @@ unsigned char getMenuItems (void) {
             MenuItems[m++] = MENU_MAINSMETERMEASURE;                            // - - What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
             if (MainsMeterMeasure) {                                            // - - ? PV not measured by Mains electric meter?
                 MenuItems[m++] = MENU_PVMETER;                                  // - - - Type of PV electric meter (0: Disabled / Constants EM_*)
-                MenuItems[m++] = MENU_PVMETERADDRESS;                           // - - - Address of PV electric meter (5 - 254)
+                if (PVMeter) MenuItems[m++] = MENU_PVMETERADDRESS;              // - - - - Address of PV electric meter (5 - 254)
             }
             if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM) {              // ? Custom electric meter used?
                 MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                       // - Byte order of custom electric meter

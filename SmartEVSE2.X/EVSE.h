@@ -202,10 +202,10 @@ extern char Grid;
 extern unsigned int StartCurrent;
 extern unsigned int StopTime;
 extern unsigned int ImportCurrent;
-extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / 3: sensorbox v2 / 10: Phoenix Contact / 20: Finder)
+extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / Constants EM_*)
 extern unsigned char MainsMeterAddress;
 extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
-extern unsigned char PVMeter;                                                   // Type of PV electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
+extern unsigned char PVMeter;                                                   // Type of PV electric meter (0: Disabled / Constants EM_*)
 extern unsigned char PVMeterAddress;
 extern unsigned char EVSEMeter;                                                 // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
 extern unsigned char EVSEMeterAddress;

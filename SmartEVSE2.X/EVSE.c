@@ -2326,7 +2326,11 @@ void main(void) {
                             }
                             break;
                         case 4: // Smart-Solar Switch
-                            if (Mode == MODE_SOLAR) Mode = MODE_SMART;          // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
+                            if (Mode == MODE_SOLAR) {
+                                Mode = MODE_SMART;
+                                SolarTimerEnable = 0;
+                            }
+                            // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
                             if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(0x00, 0xA8, Mode);
                             break;
                         default:

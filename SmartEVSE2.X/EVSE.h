@@ -286,15 +286,14 @@ struct {
     unsigned int IRegister;
     unsigned char IDivisor; // 10^x / 8:double (A)
     unsigned int ERegister;
-    unsigned char ERegCount;
     unsigned char EDivisor; // 10^x / 8:double (kWh)
 } EMConfig[6] = {
-    {"Disabled",  0,   0, 0,     0, 0, 0}, // First entry!
-    {"Sensorbox", 3,   0, 0,     0, 0, 0}, // Sensorbox (Own routine for request/receive)
-    {"Phoenix C", 2, 0xC, 3,  0x3E, 2, 1}, // PHOENIX CONTACT EEM-350-D-MCB
-    {"Finder",    3, 0xE, 3, 0x109, 3, 4}, // Finder 7E.78.8.400.0212
-    {"Eastron",   3, 0x6, 8, 0x156, 2, 8}, // Eastron SDM630 (Own routine for request/receive)
-    {"Custom",    0,   0, 0,     0, 0, 0}  // Last entry!
+    {"Disabled",  0,   0, 0,      0, 0}, // First entry!
+    {"Sensorbox", 3,   0, 0,      0, 0}, // Sensorbox (Own routine for request/receive)
+    {"Phoenix C", 2, 0xC, 3,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (mA / 0,1kWh)
+    {"Finder",    3, 0xE, 3, 0x1106, 8}, // Finder 7E.78.8.400.0212 (mA / Wh) | Also 3 Bytes at 0x109 (0,1Wh)
+    {"Eastron",   3, 0x6, 8,  0x156, 8}, // Eastron SDM630 (Own routine for request/receive) (A / kWh)
+    {"Custom",    0,   0, 0,      0, 0}  // Last entry!
 };
 
 void delay(unsigned int d);

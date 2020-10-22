@@ -443,47 +443,47 @@ void GLCD(void) {
         BacklightTimer = BACKLIGHT; // reset backlight timer
         
         if (Error & CT_NOCOMM) {
-            GLCD_print2(0, (const far char *) "ERROR NO");
-            GLCD_print2(2, (const far char *) "SERIAL COM");
-            GLCD_print2(4, (const far char *) "CHECK");
-            GLCD_print2(6, (const far char *) "WIRING");
+            GLCD_print_buf2(0, (const far char *) "ERROR NO");
+            GLCD_print_buf2(2, (const far char *) "SERIAL COM");
+            GLCD_print_buf2(4, (const far char *) "CHECK");
+            GLCD_print_buf2(6, (const far char *) "WIRING");
             return;
         } else if (Error & TEMP_HIGH) {
-            GLCD_print2(2, (const far char *) "ERROR");
-            GLCD_print2(4, (const far char *) "HIGH TEMP");
+            GLCD_print_buf2(2, (const far char *) "ERROR");
+            GLCD_print_buf2(4, (const far char *) "HIGH TEMP");
         } else if (Error & RCD_TRIPPED) {
             if (LCDTimer++ < 5) {
-                GLCD_print2(0, (const far char *) "RESIDUAL");
-                GLCD_print2(2, (const far char *) "FAULT");
-                GLCD_print2(4, (const far char *) "CURRENT");
-                GLCD_print2(6, (const far char *) "DETECTED");
+                GLCD_print_buf2(0, (const far char *) "RESIDUAL");
+                GLCD_print_buf2(2, (const far char *) "FAULT");
+                GLCD_print_buf2(4, (const far char *) "CURRENT");
+                GLCD_print_buf2(6, (const far char *) "DETECTED");
             } else {
-                GLCD_print2(0, (const far char *) "PRESS");
-                GLCD_print2(2, (const far char *) "BUTTON");
-                GLCD_print2(4, (const far char *) "TO");
-                GLCD_print2(6, (const far char *) "RESET");
+                GLCD_print_buf2(0, (const far char *) "PRESS");
+                GLCD_print_buf2(2, (const far char *) "BUTTON");
+                GLCD_print_buf2(4, (const far char *) "TO");
+                GLCD_print_buf2(6, (const far char *) "RESET");
             }
             return;
         } else if (Error & Test_IO) // Only used when testing the module
         {
-            GLCD_print2(2, (const far char *) "IO Test");
-            GLCD_print2(4, (const far char *) "FAILED!   ");
+            GLCD_print_buf2(2, (const far char *) "IO Test");
+            GLCD_print_buf2(4, (const far char *) "FAILED!   ");
             GLCDx = 12 * 8 + 4;
             GLCD_write_buf2((TestState / 10u) + 0x30);
             GLCD_write_buf2((TestState % 10u) + 0x30);
             GLCD_sendbuf(4); // copy buffer to LCD
             return;
         } else if (Error & BL_FLASH) {                                          // Bootloader update error
-            GLCD_print2(2, (const far char *) "BOOTLOADER");
-            GLCD_print2(4, (const far char *) "UPDATE ERR");
+            GLCD_print_buf2(2, (const far char *) "BOOTLOADER");
+            GLCD_print_buf2(4, (const far char *) "UPDATE ERR");
             return;
         }
     }
 
     if (TestState == 80)                                                        // Only used when testing the module
     {
-        GLCD_print2(2, (const far char *) "IO Test");
-        GLCD_print2(4, (const far char *) "Passed");
+        GLCD_print_buf2(2, (const far char *) "IO Test");
+        GLCD_print_buf2(4, (const far char *) "Passed");
         return;
     }
 
@@ -492,8 +492,8 @@ void GLCD(void) {
                                                                                 // MODE NORMAL
     if (Mode == MODE_NORMAL || !Access_bit) {
         if (Error & LESS_6A) {
-            GLCD_print2(2, (const far char *) "WAITING");
-            GLCD_print2(4, (const far char *) "FOR POWER");
+            GLCD_print_buf2(2, (const far char *) "WAITING");
+            GLCD_print_buf2(4, (const far char *) "FOR POWER");
         } 
         
         else if (State == STATE_C) {                                          // STATE C
@@ -501,7 +501,7 @@ void GLCD(void) {
             BACKLIGHT_ON;                                                       // LCD backlight on
             BacklightTimer = BACKLIGHT;
             
-            GLCD_print2(2, (const far char *) "CHARGING");
+            GLCD_print_buf2(2, (const far char *) "CHARGING");
 
             GLCDx = 4 + 30;
 
@@ -518,8 +518,8 @@ void GLCD(void) {
             glcd_clrln(1, 0x04); // horizontal line
 
             if (Access_bit) {
-                GLCD_print2(2, (const far char *) "READY TO");
-                GLCD_print2(4, (const far char *) "CHARGE  ");
+                GLCD_print_buf2(2, (const far char *) "READY TO");
+                GLCD_print_buf2(4, (const far char *) "CHARGE  ");
                 if (ChargeDelay) {                                              // show chargedelay
                     GLCDx = 12 * 8 + 4;
                     GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
@@ -527,8 +527,8 @@ void GLCD(void) {
                     GLCD_sendbuf(4); // copy buffer to LCD
                 }
             } else {
-                GLCD_print2(2, (const far char *) "ACCESS");
-                GLCD_print2(4, (const far char *) "DENIED");
+                GLCD_print_buf2(2, (const far char *) "ACCESS");
+                GLCD_print_buf2(4, (const far char *) "DENIED");
             }
             glcd_clrln(6, 0x10); // horizontal line
             glcd_clrln(7, 0x00);
@@ -637,14 +637,14 @@ void GLCD(void) {
         glcd_clrln(4, 0);                                                       // Clear line 4
         if (Error & LESS_6A) {
             if (LCDTimer < 5) {
-                GLCD_print2(5, (const far char *) "WAITING");
-            } else GLCD_print2(5, (const far char *) "FOR POWER");
+                GLCD_print_buf2(5, (const far char *) "WAITING");
+            } else GLCD_print_buf2(5, (const far char *) "FOR POWER");
         } else if (Error & NO_SUN) {
             if (LCDTimer < 5) {
-                GLCD_print2(5, (const far char *) "WAITING");
-            } else GLCD_print2(5, (const far char *) "FOR SOLAR");
+                GLCD_print_buf2(5, (const far char *) "WAITING");
+            } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
         } else if (State == STATE_A || State == STATE_B) {
-            GLCD_print2(5, (const far char *) "READY");                         // STATE A +B message
+            GLCD_print_buf2(5, (const far char *) "READY");                         // STATE A +B message
             if (ChargeDelay) {
                 GLCDx = 12 * 8 + 4;
                 GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
@@ -657,10 +657,10 @@ void GLCD(void) {
             
             if (LCDTimer < 7) {
                 if (LCDTimer < 4 && Mode != MODE_NORMAL ) {
-                    if (Mode == MODE_SOLAR) GLCD_print2(5, (const far char *) "SOLAR");
-                    else GLCD_print2(5, (const far char *) "SMART");
+                    if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
+                    else GLCD_print_buf2(5, (const far char *) "SMART");
                                         
-                } else GLCD_print2(5, (const far char *) "CHARGING");
+                } else GLCD_print_buf2(5, (const far char *) "CHARGING");
             } else {
                 GLCDx = 4 + 30;
 
@@ -799,8 +799,8 @@ void GLCDMenu(unsigned char Buttons) {                                          
         if (LCDNav == 1) {
             glcd_clrln(0, 0x00);
             glcd_clrln(1, 0x04);                                                // horizontal line
-            GLCD_print2(2, (const far char *) "Hold 2 sec");
-            GLCD_print2(4, (const far char *) "for Menu");
+            GLCD_print_buf2(2, (const far char *) "Hold 2 sec");
+            GLCD_print_buf2(4, (const far char *) "for Menu");
             glcd_clrln(6, 0x10);                                                // horizontal line
             glcd_clrln(7, 0x00);
 
@@ -975,80 +975,6 @@ void GLCD_write_buf2(unsigned int c) {
     GLCDx = GLCDx + 12;
 }
 
-/*void GLCD_write2(unsigned int c)
-{
-    unsigned char i,ch,z1;
-    goto_xy(GLCDx,GLCDy);
-    for(i=0;i<5;i++)
-    {
-        z1=0;
-        ch=font[(5*c)+i];
-        if (ch&0x01) z1=z1|0x3;
-        if (ch&0x02) z1=z1|0xc;
-        if (ch&0x04) z1=z1|0x30;
-        if (ch&0x08) z1=z1|0xc0;
-        st7565_data(z1);    
-        st7565_data(z1);    
-    }
-    goto_xy(GLCDx,GLCDy+1);
-    for(i=0;i<5;i++)
-    {
-        z1=0;
-        ch=font[(5*c)+i]>>4;
-        if (ch&0x01) z1=z1|0x3;
-        if (ch&0x02) z1=z1|0xc;
-        if (ch&0x04) z1=z1|0x30;
-        if (ch&0x08) z1=z1|0xc0;
-        st7565_data(z1);    
-        st7565_data(z1);    
-    }
-    GLCDx=GLCDx+12;
-}
- */
-//void GLCD_write3(unsigned int c)
-//{
-//	unsigned char i,ch,z1;
-//	goto_xy(GLCDx,GLCDy);
-//	for(i=0;i<5;i++)
-//	{
-//		z1=0;
-//		ch=font[(5*c)+i];
-//		if (ch&0x01) z1=z1|0x7;
-//		if (ch&0x02) z1=z1|0x38;
-//		if (ch&0x04) z1=z1|0xc0;
-//		st7565_data(z1);    
-//		st7565_data(z1);
-//		if (i!=2) st7565_data(z1);
-//	}
-//	goto_xy(GLCDx,GLCDy+1);
-//	for(i=0;i<5;i++)
-//	{
-//		z1=0;
-//		ch=font[(5*c)+i];
-//		if (ch&0x04) z1=z1|0x01;
-//		if (ch&0x08) z1=z1|0x0e;
-//		if (ch&0x10) z1=z1|0x70;
-//		if (ch&0x20) z1=z1|0x80;
-//		st7565_data(z1);    
-//		st7565_data(z1);
-//		if (i!=2) st7565_data(z1);
-//	}
-//	goto_xy(GLCDx,GLCDy+2);
-//	for(i=0;i<5;i++)
-//	{
-//		z1=0;
-//		ch=font[(5*c)+i];
-//		if (ch&0x20) z1=z1|0x03;
-//		if (ch&0x40) z1=z1|0x1c;
-//		if (ch&0x80) z1=z1|0xe0;
-//		st7565_data(z1);    
-//		st7565_data(z1);
-//		if (i!=2) st7565_data(z1);
-//	}
-//	GLCDx=GLCDx+16;
-//}
-//--------------------
-
 void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
     unsigned int i = 0;
     unsigned int ascii;
@@ -1063,7 +989,7 @@ void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
     }
 }
 
-void GLCD_print2(unsigned char y, const far char* data) {
+void GLCD_print_buf2(unsigned char y, const far char* data) {
     GLCD_buffer_clr();                                                          // Clear buffer
 
     GLCDx = 64 - (strlen(data)*6);                                              // calculate offset for centering text
@@ -1111,8 +1037,8 @@ void GLCD_init(void) {
 
 void GLCD_version(void) {
     glcd_clear();
-    GLCD_print2(2, (const far char *) "Smart EVSE");
-    GLCD_print2(4, (const far char *) "Ver "VERSION);
+    GLCD_print_buf2(2, (const far char *) "Smart EVSE");
+    GLCD_print_buf2(4, (const far char *) "Ver "VERSION);
 
     delay(2000);                                                                // show version for 2 seconds
 }

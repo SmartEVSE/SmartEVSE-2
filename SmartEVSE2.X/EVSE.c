@@ -171,8 +171,8 @@ unsigned char MainsMeterMeasure = MAINS_METER_MEASURE;                          
 unsigned char PVMeter = PV_METER;                                               // Type of PV electric meter (0: Disabled / Constants EM_*)
 unsigned char PVMeterAddress = PV_METER_ADDRESS;
 char Grid = GRID;                                                               // type of Grid connected to Sensorbox (0:4Wire / 1:3Wire )
-//unsigned char EVSEMeter;                                                      // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact)
-//unsigned char EVSEMeterAddress;
+unsigned char EVMeter;                                                          // Type of EVSE electric meter (0: Disabled / Constants EM_*)
+unsigned char EVMeterAddress;
 
 signed double Irms[3]={0, 0, 0};                                                // Momentary current per Phase (Amps *10) (23 = 2.3A)
                                                                                 // Max 3 phases supported
@@ -218,7 +218,7 @@ unsigned char LedUpdate = 0;                                                    
 unsigned char LedCount = 0;                                                     // Raw Counter before being converted to PWM value
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
 unsigned char ModbusRequest = 0;                                                // Flag to request Modbus information
-unsigned char MenuItems[25];
+unsigned char MenuItems[27];
 unsigned char unlockMagic = 0;
 unsigned char unlock55 = 0;                                                     // unlock bytes set to 0 to prevent flash write at por   
 unsigned char unlockAA = 0;                                                     // unlock bytes set to 0 to prevent flash write at por
@@ -230,6 +230,8 @@ unsigned char CalActive = 0;                                                    
 unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
 unsigned char DelayedRS485SendBuf = 0;
+signed double EnergyCharged = 0;                                                // kWh value energy charged. (*10) (will reset if state changes from A->B)
+signed double EnergyMeterStart = 0;                                             // kWh meter value is stored once EV is connected to EVSE (kWh)
 
 
 struct  {
@@ -809,6 +811,8 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
     eeprom_read_object(&ImportCurrent, sizeof ImportCurrent);
     eeprom_read_object(&Grid, sizeof Grid);
+    eeprom_read_object(&EVMeter, sizeof EVMeter);
+    eeprom_read_object(&EVMeterAddress, sizeof EVMeterAddress);
     
     validate_settings();
 
@@ -851,6 +855,8 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
     eeprom_write_object(&ImportCurrent, sizeof ImportCurrent);
     eeprom_write_object(&Grid, sizeof Grid);
+    eeprom_write_object(&EVMeter, sizeof EVMeter);
+    eeprom_write_object(&EVMeterAddress, sizeof EVMeterAddress);
     
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
@@ -1208,6 +1214,76 @@ void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned cha
     }
 }
 
+signed double receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, unsigned char Divisor) {
+    signed double dCombined;
+    unsigned long lCombined;
+
+    if (Divisor == 8) {
+        combineBytes(&dCombined, buf, pos, Endianness);
+    } else {
+        combineBytes(&lCombined, buf, pos, Endianness);
+        dCombined = (signed double) lCombined / pow10(Divisor);
+    }
+
+    return dCombined;
+}
+
+/**
+ * Send Energy measurement request over modbus
+ * 
+ * @param unsigned char Meter
+ * @param unsigned char Address
+ */
+void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
+    ModbusReadInputRequest(Address, EMConfig[Meter].ERegister, 2);
+}
+
+/**
+ * Read energy measurement from modbus
+ * 
+ * @param pointer to buf
+ * @param unsigned char Meter
+ * @return signed double Energy (kWh)
+ */
+signed double receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
+    signed double dCombined;
+
+    dCombined = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].EDivisor);
+
+    switch(Meter) {
+        case EM_FINDER:
+            dCombined = dCombined / 1000;
+            break;
+    }
+    
+    return dCombined;
+}
+
+/**
+ * Send Power measurement request over modbus
+ * 
+ * @param unsigned char Meter
+ * @param unsigned char Address
+ */
+void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
+    ModbusReadInputRequest(Address, EMConfig[Meter].PRegister, 2);
+}
+
+/**
+ * Read Power measurement from modbus
+ * 
+ * @param pointer to buf
+ * @param unsigned char Meter
+ * @return unsigned int Power (W)
+  */
+unsigned int receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
+    signed double dCombined;
+
+    dCombined = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor);
+    
+    return dCombined;
+}
+
 /**
  * Send current measurement request over modbus
  * 
@@ -1285,16 +1361,8 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             }
             break;
         default:
-            if (EMConfig[Meter].IDivisor == 8) {
-                for (x = 0; x < 3; x++) {
-                    combineBytes(&dCombined, buf, (x * 4), EMConfig[Meter].Endianness);
-                    var[x] = dCombined * 10.0;
-                }
-            } else {
-                for (x = 0; x < 3; x++) {
-                    combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
-                    var[x] = (signed double) lCombined / pow10(EMConfig[Meter].IDivisor - 1);
-                }
+            for (x = 0; x < 3; x++) {
+                var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IDivisor) * 10.0;
             }
             break;
     }
@@ -1356,6 +1424,10 @@ unsigned char getMenuItems (void) {
                 MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                        // - Divisor for current of custom electric meter
             }
         }
+    }
+    MenuItems[m++] = MENU_EVMETER;                                              // Type of EV electric meter (0: Disabled / Constants EM_*)
+    if (EVMeter) {                                                              // ? EV meter configured?
+        MenuItems[m++] = MENU_EVMETERADDRESS;                                   // - Address of EV electric meter (5 - 254)
     }
     MenuItems[m++] = MENU_EXIT;
 
@@ -1436,6 +1508,12 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                     break;
                 case MENU_PVMETERADDRESS:
                     PVMeterAddress = val;
+                    break;
+                case MENU_EVMETER:
+                    EVMeter = val;
+                    break;
+                case MENU_EVMETERADDRESS:
+                    EVMeterAddress = val;
                     break;
                 case MENU_EMCUSTOM_ENDIANESS:
                     EMConfig[EM_CUSTOM].Endianness = val;
@@ -1520,6 +1598,10 @@ unsigned int getItemValue(unsigned char nav) {
             return PVMeter;
         case MENU_PVMETERADDRESS:
             return PVMeterAddress;
+        case MENU_EVMETER:
+            return EVMeter;
+        case MENU_EVMETERADDRESS:
+            return EVMeterAddress;
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
         case MENU_EMCUSTOM_IREGISTER:
@@ -1593,11 +1675,13 @@ const far char * getMenuItemOption(unsigned char nav) {
             else return StrDisabled;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
+        case MENU_EVMETER:
             return EMConfig[value].Desc;
         case MENU_GRID:
             return StrGrid[Grid];
         case MENU_MAINSMETERADDRESS:
         case MENU_PVMETERADDRESS:
+        case MENU_EVMETERADDRESS:
         case MENU_EMCUSTOM_IREGISTER:
             sprintf(Str, "%u (%02X)", value, value);
             return Str;
@@ -2230,7 +2314,9 @@ void main(void) {
     unsigned char SlaveAdr, Broadcast = 0, RB2count = 0, RB2last = 1, Sens2s = 1;
     unsigned int BalancedReceived;
     signed double PV[3]={0, 0, 0};
+    signed double EnergyEV = 0;
     unsigned long RB2Timer = 0;                                                 // 1500ms
+    unsigned char ResetKwh = 2;                                                 // if set, reset EV kwh meter at state transition B->C
     
     init();                                                                     // initialize ports, ADC, UARTs etc
 
@@ -2422,6 +2508,7 @@ void main(void) {
                 Error &= ~LESS_6A;
                 ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
                 NextState = 0;
+                if (!ResetKwh) ResetKwh = 1;                                    // when set, reset EV kWh meter on state B->C change.
             } else if ( (pilot == PILOT_9V || pilot == STATE_A_TO_C) 
                 && Error == NO_ERROR && ChargeDelay == 0 && Access_bit) {       // switch to State B ?
                                                                                 // Allow to switch to state C directly if STATE_A_TO_C is set to PILOT_6V (see EVSE.h)
@@ -2515,6 +2602,10 @@ void main(void) {
                                         State = STATE_C;                        // switch to STATE_C
                                         LCDTimer = 0;
                                         Timer = 0;                              // reset msTimer and ChargeTimer
+                                        if (EVMeter && ResetKwh) {
+                                            EnergyMeterStart = EnergyEV;        // store kwh measurement at start of charging.
+                                            ResetKwh = 0;                       // clear flag, will be set when disconnected from EVSE (State A)
+                                        }
                                         if (!LCDNav)                            // Don't update the LCD if we are navigating the menu
                                         {
                                             GLCD();                             // immediately update LCD (20ms)
@@ -2717,10 +2808,15 @@ void main(void) {
 
             GLCD();                                                             // once a second, update LCD
 
-                                                                                // Request measurement data data from Sensorbox2
-            if (Mode && !Sens2s--)                                              // Smart or Solar mode
-            {
-                ModbusRequest = 1;
+            // Request measurement data data from Sensorbox2 or electric meter every 2 sec
+            if (!Sens2s--) {
+                // Smart or Solar mode
+                if (Mode) {
+                    ModbusRequest = 1;
+                // EVMeter configured
+                } else if (EVMeter) {
+                    ModbusRequest = 3;
+                }
                 Sens2s = 1; // reset to 2 sec
             }
             
@@ -2751,6 +2847,9 @@ void main(void) {
                     break;
                 case 2:
                     requestCurrentMeasurement(PVMeter, PVMeterAddress);
+                    break;
+                case 3:
+                    requestEnergyMeasurement(EVMeter, EVMeterAddress);
                     break;
             }
             ModbusRequest = 0;
@@ -2808,11 +2907,13 @@ void main(void) {
                             x = receiveCurrentMeasurement(Modbus.Data, MainsMeter, Irms);
                             if (x) timeout = 10;    // only reset timeout when data is ok
                             if (PVMeter) {
-                                ModbusRequest = 2;
                                 MainsReceived = 1;
-                            }
-                            else {
+                                ModbusRequest = 2;
+                            } else {
                                 UpdateCurrentData();
+                                if (EVMeter) {
+                                    ModbusRequest = 3;
+                                }
                             }
                         } else if (MainsReceived && PVMeter && Modbus.Address == PVMeterAddress && Modbus.Register == EMConfig[PVMeter].IRegister) {
                             // packet from PV electric meter
@@ -2823,6 +2924,15 @@ void main(void) {
                             timeout = 10;
                             MainsReceived = 0;
                             UpdateCurrentData();
+                            if (EVMeter) {
+                                ModbusRequest = 3;
+                            }
+                        } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].ERegister) {
+                            // packet from PV electric meter
+                            EnergyEV = receiveEnergyMeasurement(Modbus.Data, EVMeter);
+                            timeout = 10;
+                            if (ResetKwh == 2) EnergyMeterStart = EnergyEV;      // At powerup, set EnergyEV to kwh meter value
+                            if (EVMeter) EnergyCharged = EnergyEV - EnergyMeterStart; // Calculate Energy
                         }
                         break;
                     default:

@@ -69,6 +69,8 @@
 #define MAINS_METER_MEASURE 0
 #define PV_METER 0
 #define PV_METER_ADDRESS 11
+#define EV_METER 0
+#define EV_METER_ADDRESS 12
 #define EMCUSTOM_ENDIANESS 0
 #define EMCUSTOM_IREGISTER 0
 #define EMCUSTOM_IDIVISOR 0
@@ -145,10 +147,12 @@
 #define MENU_MAINSMETERMEASURE 19
 #define MENU_PVMETER 20
 #define MENU_PVMETERADDRESS 21
-#define MENU_EMCUSTOM_ENDIANESS 22
-#define MENU_EMCUSTOM_IREGISTER 23
-#define MENU_EMCUSTOM_IDIVISOR 24
-#define MENU_EXIT 25
+#define MENU_EVMETER 22
+#define MENU_EVMETERADDRESS 23
+#define MENU_EMCUSTOM_ENDIANESS 24
+#define MENU_EMCUSTOM_IREGISTER 25
+#define MENU_EMCUSTOM_IDIVISOR 26
+#define MENU_EXIT 27
 
 #define STATUS_STATE 64
 #define STATUS_ERROR 65
@@ -207,8 +211,8 @@ extern unsigned char MainsMeterAddress;
 extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
 extern unsigned char PVMeter;                                                   // Type of PV electric meter (0: Disabled / Constants EM_*)
 extern unsigned char PVMeterAddress;
-extern unsigned char EVSEMeter;                                                 // Type of EVSE electric meter (0: Disabled / 10: Phoenix Contact / 20: Finder)
-extern unsigned char EVSEMeterAddress;
+extern unsigned char EVMeter;                                                   // Type of EVSE electric meter (0: Disabled / Constants EM_*)
+extern unsigned char EVMeterAddress;
 
 extern signed double Irms[3];                                                   // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
@@ -241,8 +245,9 @@ extern unsigned char TestState;
 extern unsigned char Access_bit;
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
+extern signed double EnergyCharged;
 
-extern unsigned char MenuItems[25];
+extern unsigned char MenuItems[27];
 
 const far struct {
     char Key[8];
@@ -251,7 +256,7 @@ const far struct {
     unsigned int Min;
     unsigned int Max;
     unsigned int Default;
-} MenuStr[26] = {
+} MenuStr[28] = {
     {"",       "",         "Not in menu", 0, 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
@@ -273,7 +278,9 @@ const far struct {
     {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
     {"PVEM",   "PV METER", "Type of PV electric meter", 0, 5, PV_METER},
-    {"PVAD",   "PVADDR",   "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
+    {"PVAD",   "PV ADDR",  "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
+    {"EVEM",   "EV METER", "Type of EV electric meter", 0, 4, EV_METER},
+    {"EVAD",   "EV ADDR",  "Address of EV electric meter", 5, 255, EV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
     {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},
@@ -283,17 +290,19 @@ const far struct {
 struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
-    unsigned int IRegister;
-    unsigned char IDivisor; // 10^x / 8:double (A)
-    unsigned int ERegister;
-    unsigned char EDivisor; // 10^x / 8:double (kWh)
+    unsigned int IRegister; // Single phase current (A)
+    unsigned char IDivisor; // 10^x / 8:double
+    unsigned int ERegister; // Total energy (kWh)
+    unsigned char EDivisor; // 10^x / 8:double
+    unsigned int PRegister; // Total power (W)
+    unsigned char PDivisor; // 10^x / 8:double
 } EMConfig[6] = {
-    {"Disabled",  0,   0, 0,      0, 0}, // First entry!
-    {"Sensorbox", 3,   0, 0,      0, 0}, // Sensorbox (Own routine for request/receive)
-    {"Phoenix C", 2, 0xC, 3,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (mA / 0,1kWh)
-    {"Finder",    3, 0xE, 3, 0x1106, 8}, // Finder 7E.78.8.400.0212 (mA / Wh) | Also 3 Bytes at 0x109 (0,1Wh)
-    {"Eastron",   3, 0x6, 8,  0x156, 8}, // Eastron SDM630 (Own routine for request/receive) (A / kWh)
-    {"Custom",    0,   0, 0,      0, 0}  // Last entry!
+    {"Disabled",  0,      0, 0,      0, 0,      0, 0}, // First entry!
+    {"Sensorbox", 3,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
+    {"Phoenix C", 2,    0xC, 3,   0x3E, 1,   0x28, 1}, // PHOENIX CONTACT EEM-350-D-MCB (mA / 0,1kWh / 0,1W)
+    {"Finder",    3, 0x100E, 8, 0x1106, 8, 0x1026, 8}, // Finder 7E.78.8.400.0212 (A / Wh / W)
+    {"Eastron",   3,    0x6, 8,  0x156, 8,   0x34, 8}, // Eastron SDM630 (Own routine for request/receive) (A / kWh / W)
+    {"Custom",    0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}  // Last entry!
 };
 
 void delay(unsigned int d);

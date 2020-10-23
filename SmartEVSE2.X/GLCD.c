@@ -549,7 +549,7 @@ void GLCD(void) {
             minutes = seconds / 60;
             seconds = seconds % 60;
             sprintf(Str, "%02u:%02u", minutes, seconds);
-            GLCD_print_buf(100, 0, Str);                                         // print to buffer
+            GLCD_print_buf(100, 0, Str);                                        // print to buffer
         }
         
         
@@ -566,6 +566,10 @@ void GLCD(void) {
                                                                                 
         if (abs(Isum) >3 ) GLCD_write_buf(0xFE);                                // Show energy flow 'blob' between Grid and House
                                                                                 // If current flow is < 0.3A don't show the blob
+        if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
+            sprintfd(Str, "%2u.%1ukWh", EnergyCharged, 1);  
+            GLCD_print_buf(89,1, Str);                                          // print to buffer
+        }
 
         if (State == STATE_C) {
         
@@ -697,6 +701,13 @@ void GLCDMenu(unsigned char Buttons) {                                          
             switch (LCDNav) {
                 case MENU_CAL:
                     CT1 = MenuNavInt(Buttons, CT1, 100, 999);
+                    break;
+                case MENU_EVMETER:
+                    value = getItemValue(LCDNav);
+                    do {
+                        value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
+                    } while (EMConfig[value].ERegister == 0xFFFF);
+                    setItemValue(LCDNav, value);
                     break;
                 default:
                     value = getItemValue(LCDNav);

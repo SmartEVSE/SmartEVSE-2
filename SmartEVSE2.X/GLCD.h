@@ -31,6 +31,7 @@ void GLCD_write(unsigned int c);
 void GLCD_write_buf(unsigned int c);
 void GLCD_write_buf2(unsigned int c);
 void GLCD_print(unsigned char x,unsigned char y,const far char* str);
+void GLCD_print_buf(unsigned char x,unsigned char y,const far char* str);
 void GLCD_print_buf2(unsigned char y,const far char* str);
 void GLCD_print_menu(const far char *data,char RowAdr );
 void glcd_clrln(unsigned char ln,unsigned char data);

@@ -32,6 +32,7 @@
 #define	UTILS_H
 
 signed double pow10(signed char exp);
+void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision);
 unsigned char triwave8(unsigned char in);
 unsigned char scale8(unsigned char i, unsigned char scale);
 unsigned char ease8InOutQuad(unsigned char i);

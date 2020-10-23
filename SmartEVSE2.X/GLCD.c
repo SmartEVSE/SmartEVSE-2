@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include "EVSE.h"
 #include "GLCD.h"
+#include "utils.h"
 
 // LCD font 8x5
 const far unsigned char font[] = {
@@ -428,6 +429,7 @@ void GLCD(void) {
     unsigned int seconds, minutes;
     static unsigned char energy_mains = 20; // X position
     static unsigned char energy_ev = 74; // X position
+    unsigned char Str[10];
 
     if (LCDNav) {
         if (LCDTimer++ == 120) {
@@ -491,6 +493,12 @@ void GLCD(void) {
 
                                                                                 // MODE NORMAL
     if (Mode == MODE_NORMAL || !Access_bit) {
+
+        glcd_clrln(0, 0x00);
+        glcd_clrln(1, 0x04);                                                    // horizontal line
+        glcd_clrln(6, 0x10);                                                    // horizontal line
+        glcd_clrln(7, 0x00);
+
         if (Error & LESS_6A) {
             GLCD_print_buf2(2, (const far char *) "WAITING");
             GLCD_print_buf2(4, (const far char *) "FOR POWER");
@@ -502,21 +510,10 @@ void GLCD(void) {
             BacklightTimer = BACKLIGHT;
             
             GLCD_print_buf2(2, (const far char *) "CHARGING");
-
-            GLCDx = 4 + 30;
-
-            GLCD_buffer_clr(); // Clear buffer
-            GLCD_write_buf2((Balanced[0] / 100) + 0x30);
-            GLCD_write_buf2(((Balanced[0] / 10) % 10) + 0x30);
-            GLCD_write_buf2('.');
-            GLCD_write_buf2((Balanced[0] % 10) + 0x30);
-            GLCD_write_buf2('A');
-            GLCD_sendbuf(4); // copy buffer to LCD
+            sprintfd(Str, "%u.%uA", Balanced[0] / 10.0, 1);
+            GLCD_print_buf2(4, Str);
         } else                                                                  
         {                                                                       // STATE A and STATE B
-            glcd_clrln(0, 0x00);
-            glcd_clrln(1, 0x04); // horizontal line
-
             if (Access_bit) {
                 GLCD_print_buf2(2, (const far char *) "READY TO");
                 GLCD_print_buf2(4, (const far char *) "CHARGE  ");
@@ -530,9 +527,6 @@ void GLCD(void) {
                 GLCD_print_buf2(2, (const far char *) "ACCESS");
                 GLCD_print_buf2(4, (const far char *) "DENIED");
             }
-            glcd_clrln(6, 0x10); // horizontal line
-            glcd_clrln(7, 0x00);
-
         }
     }                                                                           // MODE SMART or SOLAR
     else if ((Mode == MODE_SMART) || (Mode == MODE_SOLAR)) {
@@ -550,19 +544,12 @@ void GLCD(void) {
                 GLCDbuf[x+92u] = 0;
             }    
         } else {                                                                // display remaining time before charging is stopped
-            GLCDx = 101;
-            GLCDy = 0;
             seconds = StopTime * 60;
             seconds = seconds - SolarStopTimer;
             minutes = seconds / 60;
             seconds = seconds % 60;
-            GLCD_write_buf((minutes / 10) + 0x30);
-            GLCD_write_buf((minutes % 10) + 0x30);
-            GLCDx --;                                                           // the colon doesn't need a lot of space
-            GLCD_write_buf(':');
-            GLCDx --;
-            GLCD_write_buf((seconds / 10) + 0x30);
-            GLCD_write_buf((seconds % 10) + 0x30);        
+            sprintf(Str, "%02u:%02u", minutes, seconds);
+            GLCD_print_buf(100, 0, Str);                                         // print to buffer
         }
         
         
@@ -592,44 +579,23 @@ void GLCD(void) {
             GLCDy = 3;
             GLCD_write_buf(0xFE);                                               // Show energy flow 'blob' between House and Car
 
-            GLCDy = 2;
-            GLCDx = 77;
-            GLCD_write_buf((Balanced[0] / 100u) + 0x30);
-            GLCD_write_buf(((Balanced[0] / 10u) % 10u) + 0x30);
-            GLCD_write_buf('A');
+            sprintfd(Str, "%2uA", Balanced[0] / 10.0, 0);
+            GLCD_print_buf(77, 2, Str);                                         // print to buffer
         }
 
         if (LCDTimer < 5 && Mode == MODE_SOLAR)                                 // Show Sum of currents when solar charging.
         {
-            GLCDx = 26 + 3;
+            GLCDx = 41;
             GLCDy = 1;
             GLCD_write_buf(0xE3);                                               // Sum 'E' sign
 
-            GLCDy = 2;
-            if (abs(Isum) > 1000) {
-                GLCDx = 14 + 3;                                                 // move first digit to left if Isum>100A
-                if (Isum < 0) GLCD_write_buf('-');
-                GLCDx = 20 + 3;
-                GLCD_write_buf((abs((int) (Isum / 1000)) + 0x30));
-            } else                                                              // Display sum of all phases (used for solar charging)
-            {
-                GLCDx = 20 + 3;
-                if (Isum < 0) GLCD_write_buf('-');
-            }
-            GLCDx = 26 + 3;
-            GLCD_write_buf((abs((int) (Isum / 100) % 10) + 0x30));
-            GLCD_write_buf((abs((int) ((Isum) / 10) % 10) + 0x30));
-            GLCD_write_buf('A');
+            sprintfd(Str, "%3dA", Isum / 10.0, 0);
+            GLCD_print_buf(23, 2, Str);                                         // print to buffer
         } else {                                                                // Displayed only in Smart and Solar modes
             for (x = 0; x < 3; x++)                                             // Display L1, L2 and L3 currents on LCD
             {
-                GLCDy = x;
-                GLCDx = 20 + 3;
-                if (Irms[x] < 0) GLCD_write_buf('-');
-                else GLCDx = 26 + 3;
-                GLCD_write_buf(abs((int) (Irms[x] / 100)) + 0x30);
-                GLCD_write_buf(abs((int) ((Irms[x]) / 10) % 10) + 0x30);
-                GLCD_write_buf('A');
+                sprintfd(Str, "%3dA", Irms[x] / 10.0, 0);
+                GLCD_print_buf(23, x, Str);                                     // print to buffer
             }
         }
         GLCD_sendbuf4(0);                                                       // Copy LCD buffer to GLCD
@@ -644,7 +610,7 @@ void GLCD(void) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
         } else if (State == STATE_A || State == STATE_B) {
-            GLCD_print_buf2(5, (const far char *) "READY");                         // STATE A +B message
+            GLCD_print_buf2(5, (const far char *) "READY");                     // STATE A +B message
             if (ChargeDelay) {
                 GLCDx = 12 * 8 + 4;
                 GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
@@ -661,17 +627,10 @@ void GLCD(void) {
                     else GLCD_print_buf2(5, (const far char *) "SMART");
                                         
                 } else GLCD_print_buf2(5, (const far char *) "CHARGING");
-            } else {
-                GLCDx = 4 + 30;
-
-                GLCD_buffer_clr(); // Clear buffer
-                GLCD_write_buf2((Balanced[0] / 100) + 0x30);
-                GLCD_write_buf2(((Balanced[0] / 10) % 10) + 0x30);
-                GLCD_write_buf2('.');
-                GLCD_write_buf2((Balanced[0] % 10) + 0x30);
-                GLCD_write_buf2('A');
+            } else {                                                            //LCDTimer 6-9 sec
+                sprintfd(Str, "%u.%uA", Balanced[0] / 10.0, 1);
+                GLCD_print_buf2(5, Str);
             }
-            GLCD_sendbuf(5); // copy buffer to LCD
         }
         glcd_clrln(7, 0x00);
     } // End Mode SMART or SOLAR
@@ -920,13 +879,23 @@ void glcd_clear(void) {
     }
 }
 
+void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
+    if(c >= '0' && c <='9') return;
+    if(c == ' ' && space) return;
+    if(font[(5 * c)] == 0) *start = 1;
+    if(font[(5 * c) + 4] == 0) *end = 4;
+}
+
 void GLCD_write(unsigned int c) {
-    unsigned char i;
+    unsigned char i=0, m=5;
     goto_xy(GLCDx, GLCDy);
-    for (i = 0; i < 5; i++) {
+
+    font_condense(c, &i , &m, 1);
+    GLCDx = GLCDx + (m - i) + 1;
+
+    do {
         st7565_data(font[(5 * c) + i]);
-    }
-    GLCDx = GLCDx + 6;
+    } while (++i < m);
 }
 
 void GLCD_buffer_clr(void) {
@@ -937,66 +906,89 @@ void GLCD_buffer_clr(void) {
 }
 
 void GLCD_write_buf(unsigned int c) {
-    unsigned int i, ch, x;
+    unsigned int x;
+    unsigned char i=0, m=5;
 
     x = 128 * GLCDy;
     x = x + GLCDx;
-    for (i = 0; i < 5; i++) {
-        ch = font[(5 * c) + i];
-        GLCDbuf[x++] = ch;
-    }
-    GLCDx = GLCDx + 6;
+
+    font_condense(c, &i, &m, 1);
+    GLCDx = GLCDx + (m - i) + 1;
+
+    do {
+        GLCDbuf[x++] = font[(5 * c) + i];
+    } while (++i < m);
 }
 
 void GLCD_write_buf2(unsigned int c) {
-    unsigned char i, ch, z1, x;
+    unsigned char i=0, m=5, ch, z1;
+    unsigned int x;
     x = GLCDx;
-    for (i = 0; i < 5; i++) {
+    
+    font_condense(c, &i, &m, 0);
+    GLCDx = GLCDx + ((m - i) * 2) +2;
+
+    do {
         z1 = 0;
         ch = font[(5 * c) + i];
         if (ch & 0x01) z1 = z1 | 0x3;
         if (ch & 0x02) z1 = z1 | 0xc;
         if (ch & 0x04) z1 = z1 | 0x30;
         if (ch & 0x08) z1 = z1 | 0xc0;
-        GLCDbuf[x++] = z1;
-        GLCDbuf[x++] = z1;
-    }
-    x = GLCDx + 128;
-    for (i = 0; i < 5; i++) {
+        GLCDbuf[x] = z1;
+        GLCDbuf[x + 1] = z1;
         z1 = 0;
-        ch = font[(5 * c) + i] >> 4;
+        ch = ch >> 4;
         if (ch & 0x01) z1 = z1 | 0x3;
         if (ch & 0x02) z1 = z1 | 0xc;
         if (ch & 0x04) z1 = z1 | 0x30;
         if (ch & 0x08) z1 = z1 | 0xc0;
-        GLCDbuf[x++] = z1;
-        GLCDbuf[x++] = z1;
-    }
-    GLCDx = GLCDx + 12;
+        GLCDbuf[x + 128] = z1;
+        GLCDbuf[x + 129] = z1;
+        x = x + 2;
+    } while (++i < 5);
 }
 
+// Write a string directly to LCD
+//
 void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
-    unsigned int i = 0;
-    unsigned int ascii;
+    unsigned char i = 0;
 
     GLCDx = x;
     GLCDy = y;
-    for (i = 0; i < 128; i++) {
-        if (str[i] == 0)
-            break;
-        ascii = str[i];
-        GLCD_write(ascii);
+    while (str[i]) {
+        GLCD_write(str[i++]);
     }
 }
 
-void GLCD_print_buf2(unsigned char y, const far char* data) {
+// Write a string to LCD buffer
+//
+void GLCD_print_buf(unsigned char x, unsigned char y, const far char* str) {
+    unsigned char i = 0;
+
+    GLCDx = x;
+    GLCDy = y;
+    while (str[i]) {
+        GLCD_write_buf(str[i++]);
+    }
+}
+
+void GLCD_print_buf2(unsigned char y, const far char* str) {
+    unsigned char i = 0, s, e;
     GLCD_buffer_clr();                                                          // Clear buffer
 
-    GLCDx = 64 - (strlen(data)*6);                                              // calculate offset for centering text
-    do {
-        GLCD_write_buf2(*data);
-    } while (*++data);
-
+    GLCDx = 64;
+    while (str[i]) {                                                            // calculate offset for centering text
+        s = 0;
+        e = 5;
+        font_condense(str[i], &s, &e, 0);
+        GLCDx -= (e - s) + 1;
+        i++;
+    }
+    i=0;
+    while (str[i]) {
+        GLCD_write_buf2(str[i++]);
+    }
     GLCD_sendbuf(y);                                                            // copy buffer to LCD
 }
 

@@ -6,6 +6,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "EVSE.h"
 
 
@@ -30,6 +31,16 @@ signed double pow10(signed char exp) {
     }
 
     return ret;
+}
+
+void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision) {
+    unsigned int pow10[] = {1, 10, 100};
+    signed double pow10n[] = {1, 0.1, 0.01};
+
+    if(value < 0) value = value - pow10n[precision]/2;
+    else value = value + pow10n[precision]/2;
+    if(precision > 0) sprintf(str, format, (signed int)value, (unsigned int)((abs(value * pow10[precision])) % pow10[precision]));
+    else sprintf(str, format, (unsigned int)value);
 }
 
 /* triwave8: triangle (sawtooth) wave generator.  Useful for

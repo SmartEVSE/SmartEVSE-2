@@ -441,22 +441,22 @@ void GLCD(void) {
     if (LCDTimer == 10) LCDTimer = 0;
 
     if (Error) {
-        BACKLIGHT_ON; // LCD backlight on
-        BacklightTimer = BACKLIGHT; // reset backlight timer
+        BACKLIGHT_ON;                                                           // We switch backlight on, as we exit after displaying the error
+        BacklightTimer = BACKLIGHT;                                             // Backlight timer is set to 60 seconds
         
-        if (Error & CT_NOCOMM) {
+        if (Error & CT_NOCOMM) {                                                // No serial communication for 10 seconds
             GLCD_print_buf2(0, (const far char *) "ERROR NO");
             GLCD_print_buf2(2, (const far char *) "SERIAL COM");
             GLCD_print_buf2(4, (const far char *) "CHECK");
             GLCD_print_buf2(6, (const far char *) "WIRING");
             return;
-        } else if (Error & TEMP_HIGH) {
+        } else if (Error & TEMP_HIGH) {                                         // Temperature reached 65C
             GLCD_print_buf2(0, (const far char *) "HIGH TEMP");
             GLCD_print_buf2(2, (const far char *) "ERROR");
             GLCD_print_buf2(4, (const far char *) "CHARGING");
             GLCD_print_buf2(6, (const far char *) "STOPPED");
             return;
-        } else if (Error & RCD_TRIPPED) {
+        } else if (Error & RCD_TRIPPED) {                                       // RCD sensor tripped
             if (LCDTimer++ < 5) {
                 GLCD_print_buf2(0, (const far char *) "RESIDUAL");
                 GLCD_print_buf2(2, (const far char *) "FAULT");
@@ -469,24 +469,19 @@ void GLCD(void) {
                 GLCD_print_buf2(6, (const far char *) "RESET");
             }
             return;
-        } else if (Error & Test_IO) // Only used when testing the module
-        {
+        } else if (Error & Test_IO) {                                           // Only used when testing the module
             GLCD_print_buf2(2, (const far char *) "IO Test");
-            GLCD_print_buf2(4, (const far char *) "FAILED!   ");
-            GLCDx = 12 * 8 + 4;
-            GLCD_write_buf2((TestState / 10u) + 0x30);
-            GLCD_write_buf2((TestState % 10u) + 0x30);
-            GLCD_sendbuf(4); // copy buffer to LCD
+            sprintf(Str, "FAILED! %u", TestState);
+            GLCD_print_buf2(4, Str);
             return;
         } else if (Error & BL_FLASH) {                                          // Bootloader update error
             GLCD_print_buf2(2, (const far char *) "BOOTLOADER");
             GLCD_print_buf2(4, (const far char *) "UPDATE ERR");
             return;
         }
-    }
+    }   // end of ERROR()                                                       // more specific error handling in the code below
 
-    if (TestState == 80)                                                        // Only used when testing the module
-    {
+    if (TestState == 80) {                                                      // Only used when testing the module
         GLCD_print_buf2(2, (const far char *) "IO Test");
         GLCD_print_buf2(4, (const far char *) "Passed");
         return;
@@ -505,27 +500,20 @@ void GLCD(void) {
         if (Error & LESS_6A) {
             GLCD_print_buf2(2, (const far char *) "WAITING");
             GLCD_print_buf2(4, (const far char *) "FOR POWER");
-        } 
-        
-        else if (State == STATE_C) {                                          // STATE C
+        } else if (State == STATE_C) {                                          // STATE C
             
-            BACKLIGHT_ON;                                                       // LCD backlight on
             BacklightTimer = BACKLIGHT;
             
             GLCD_print_buf2(2, (const far char *) "CHARGING");
             sprintfd(Str, "%u.%uA", Balanced[0] / 10.0, 1);
             GLCD_print_buf2(4, Str);
-        } else                                                                  
-        {                                                                       // STATE A and STATE B
+        } else {                                                                // STATE A and STATE B
             if (Access_bit) {
                 GLCD_print_buf2(2, (const far char *) "READY TO");
-                GLCD_print_buf2(4, (const far char *) "CHARGE  ");
-                if (ChargeDelay) {                                              // show chargedelay
-                    GLCDx = 12 * 8 + 4;
-                    GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
-                    GLCD_write_buf2((ChargeDelay % 10u) + 0x30);
-                    GLCD_sendbuf(4); // copy buffer to LCD
-                }
+                if (ChargeDelay) {
+                    sprintf(Str, "CHARGE %u", ChargeDelay);
+                    GLCD_print_buf2(4, Str);
+                } else GLCD_print_buf2(4, (const far char *) "CHARGE");
             } else {
                 GLCD_print_buf2(2, (const far char *) "ACCESS");
                 GLCD_print_buf2(4, (const far char *) "DENIED");
@@ -534,7 +522,7 @@ void GLCD(void) {
     }                                                                           // MODE SMART or SOLAR
     else if ((Mode == MODE_SMART) || (Mode == MODE_SOLAR)) {
         
-        GLCD_Flow_buf();                                                        // copy Flow Menu to LCD buffer
+        memcpy (GLCDbuf, LCD_Flow, 512);                                        // copy Flow Menu to LCD buffer
 
         if (Mode == MODE_SMART) {                                               // remove the Sun from the LCD buffer
             for (x=0; x<13; x++) {
@@ -575,11 +563,9 @@ void GLCD(void) {
         }
 
         if (State == STATE_C) {
-        
-            BACKLIGHT_ON;                                                       // LCD backlight on
             BacklightTimer = BACKLIGHT;
  
-            energy_ev += 3; // animate energy flow to EV
+            energy_ev += 3;                                                     // animate energy flow to EV
             if (energy_ev > 89) energy_ev = 74;
 
             GLCDx = energy_ev;
@@ -590,8 +576,7 @@ void GLCD(void) {
             GLCD_print_buf(77, 2, Str);                                         // print to buffer
         }
 
-        if (LCDTimer < 5 && Mode == MODE_SOLAR)                                 // Show Sum of currents when solar charging.
-        {
+        if (LCDTimer < 5 && Mode == MODE_SOLAR) {                               // Show Sum of currents when solar charging.
             GLCDx = 41;
             GLCDy = 1;
             GLCD_write_buf(0xE3);                                               // Sum 'E' sign
@@ -599,8 +584,7 @@ void GLCD(void) {
             sprintfd(Str, "%3dA", Isum / 10.0, 0);
             GLCD_print_buf(23, 2, Str);                                         // print to buffer
         } else {                                                                // Displayed only in Smart and Solar modes
-            for (x = 0; x < 3; x++)                                             // Display L1, L2 and L3 currents on LCD
-            {
+            for (x = 0; x < 3; x++) {                                           // Display L1, L2 and L3 currents on LCD
                 sprintfd(Str, "%3dA", Irms[x] / 10.0, 0);
                 GLCD_print_buf(23, x, Str);                                     // print to buffer
             }
@@ -616,15 +600,13 @@ void GLCD(void) {
             if (LCDTimer < 5) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
-        } else if (State == STATE_A || State == STATE_B) {                      // STATE A +B message
+        } else if (State == STATE_A || State == STATE_B) {                      // STATE A + B message
             if (ChargeDelay) {
+                BacklightTimer = BACKLIGHT;
                 sprintf(Str, "READY %u", ChargeDelay);
                 GLCD_print_buf2(5, Str);
             } else GLCD_print_buf2(5, (const far char *) "READY");
         } else if (State == STATE_C) {
-            BACKLIGHT_ON;                                                       // LCD backlight on
-            BacklightTimer = BACKLIGHT;
-            
             if (LCDTimer < 7) {
                 if (LCDTimer < 4 && Mode != MODE_NORMAL ) {
                     if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
@@ -639,8 +621,10 @@ void GLCD(void) {
         glcd_clrln(7, 0x00);
     } // End Mode SMART or SOLAR
 
-    if (BacklightTimer) BacklightTimer--;                                       // Decrease backlight counter every second.
-    else BACKLIGHT_OFF;                                                         // zero? switch LCD backlight off
+    if (BacklightTimer){
+        BACKLIGHT_ON;
+        BacklightTimer--;                                                       // Decrease backlight counter every second.
+    } else BACKLIGHT_OFF;                                                       // zero? switch LCD backlight off
 }
 
 
@@ -1048,9 +1032,4 @@ void GLCD_version(void) {
     GLCD_print_buf2(4, (const far char *) "Ver "VERSION);
 
     delay(2000);                                                                // show version for 2 seconds
-}
-
-void GLCD_Flow_buf(void) {
-    unsigned int x;
-    for (x = 0; x < 512; x++) GLCDbuf[x] = LCD_Flow[x];                         //copy picture data to LCD buffer
 }

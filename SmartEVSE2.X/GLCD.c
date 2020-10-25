@@ -616,14 +616,11 @@ void GLCD(void) {
             if (LCDTimer < 5) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
-        } else if (State == STATE_A || State == STATE_B) {
-            GLCD_print_buf2(5, (const far char *) "READY");                     // STATE A +B message
+        } else if (State == STATE_A || State == STATE_B) {                      // STATE A +B message
             if (ChargeDelay) {
-                GLCDx = 12 * 8 + 4;
-                GLCD_write_buf2((ChargeDelay / 10u) + 0x30);
-                GLCD_write_buf2((ChargeDelay % 10u) + 0x30);
-                GLCD_sendbuf(5); // copy buffer to LCD
-            }
+                sprintf(Str, "READY %u", ChargeDelay);
+                GLCD_print_buf2(5, Str);
+            } else GLCD_print_buf2(5, (const far char *) "READY");
         } else if (State == STATE_C) {
             BACKLIGHT_ON;                                                       // LCD backlight on
             BacklightTimer = BACKLIGHT;

@@ -203,7 +203,7 @@ unsigned long ModbusTimer;
 unsigned char BacklightTimer = 0;                                               // Backlight timer (sec)
 unsigned int ChargeTimer = 0;                                                   // Counts seconds in STATE C (Charging) (unused)
 unsigned char LCDTimer = 0;
-unsigned char TempEVSE = 0;                                                     // Temperature EVSE in deg C (0-125)
+signed char TempEVSE = 0;                                                       // Temperature EVSE in deg C (-50 to +125)
 unsigned char ButtonState = 0x0f;                                               // Holds latest push Buttons state (LSB 3:0)
 unsigned char OldButtonState = 0x0f;                                            // Holds previous push Buttons state (LSB 3:0)
 unsigned char LCDNav = 0;
@@ -925,8 +925,7 @@ void Temp(void)                                                                 
     ADCON1 = 0b00000000;                                                        // Use standard Voltage ref = VCC
     ADCON2 = 0b10100101;                                                        // Right justify, Tacq = 8 uS, FOSC/16
 
-    if (temp < 50) TempEVSE = 0;                                                // set to 0 deg C
-    else TempEVSE = temp - 50;                                                  // set Temp (1-125 deg C), and remove offset
+    TempEVSE = temp - 50;                                                       // set Temp (-50 to +125 deg C), and remove offset
 }
 
 
@@ -2012,7 +2011,7 @@ void RS232cli(void) {
             printf("\r\n----------------------------- SMART EVSE -----------------------------\r\n v");
             printf(VERSION);
             printf(" for detailed instructions, see www.smartevse.org\r\n");
-            printf(" Internal Temperature: %2u C\r\n", TempEVSE);
+            printf(" Internal Temperature: %i C\r\n", TempEVSE);
             printf("----------------------------------------------------------------------\r\n");
             for(i = 0; i < MenuItemsCount - 1; i++) {
                 printf("%-07s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);

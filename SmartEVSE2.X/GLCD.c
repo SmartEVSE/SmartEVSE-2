@@ -278,7 +278,7 @@ const far unsigned char font[] = {
     0x08, 0x08, 0x6B, 0x6B, 0x08, // 0xF5
     0x3A, 0x44, 0x44, 0x44, 0x3A, // 0xF6 ö 
     0x06, 0x0F, 0x09, 0x0F, 0x06, // 0xF7
-    0x00, 0x00, 0x18, 0x18, 0x00, // 0xF8
+    0x00, 0x00, 0x03, 0x03, 0x00, // 0xF8 °
     0x00, 0x00, 0x10, 0x10, 0x00, // 0xF9
     0x30, 0x40, 0xFF, 0x01, 0x01, // 0xFA
     0x00, 0x1F, 0x01, 0x01, 0x1E, // 0xFB
@@ -451,8 +451,11 @@ void GLCD(void) {
             GLCD_print_buf2(6, (const far char *) "WIRING");
             return;
         } else if (Error & TEMP_HIGH) {
+            GLCD_print_buf2(0, (const far char *) "HIGH TEMP");
             GLCD_print_buf2(2, (const far char *) "ERROR");
-            GLCD_print_buf2(4, (const far char *) "HIGH TEMP");
+            GLCD_print_buf2(4, (const far char *) "CHARGING");
+            GLCD_print_buf2(6, (const far char *) "STOPPED");
+            return;
         } else if (Error & RCD_TRIPPED) {
             if (LCDTimer++ < 5) {
                 GLCD_print_buf2(0, (const far char *) "RESIDUAL");
@@ -664,6 +667,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
     static unsigned char ButtonRelease = 0;                                     // keeps track of LCD Menu Navigation
     static unsigned int CT1, CT1old, value;
     static double Iold;
+    unsigned char Str[10];
 
     unsigned char MenuItemsCount = getMenuItems();
 
@@ -802,6 +806,9 @@ void GLCDMenu(unsigned char Buttons) {                                          
                     GLCD_print_menu(getMenuItemOption(LCDNav), 4);
                     break;
             }
+
+            sprintf(Str, "%3i\370C", TempEVSE);                                 // \370 is the octal representation of the ° symbol
+            GLCD_print(0,7, Str);
             GLCD_print(122-(strlen(VERSION)*6),7, (const far char *) "v"VERSION);// show software version in bottom right corner.
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once

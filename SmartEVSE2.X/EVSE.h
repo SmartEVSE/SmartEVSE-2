@@ -233,7 +233,7 @@ extern unsigned long Timer;                                                     
 extern unsigned int ChargeTimer;                                                // seconds counter
 extern unsigned char LCDTimer;
 extern unsigned char BacklightTimer;                                            // remaining seconds the LCD backlight is active
-extern unsigned char TempEVSE;                                                  // Temperature EVSE in deg C (0-125)
+extern signed char TempEVSE;                                                  // Temperature EVSE in deg C (0-125)
 extern unsigned char ButtonState;                                               // Holds latest push Buttons state (LSB 2:0)
 extern unsigned char OldButtonState;                                            // Holds previous push Buttons state (LSB 2:0)
 extern unsigned char LCDNav;

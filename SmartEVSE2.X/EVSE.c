@@ -2634,7 +2634,7 @@ void main(void) {
             if (TMR2 > 230)                                                     // PWM > 92%
             {
                 while (TMR2 < 242);                                             // wait till TMR2 is in range, otherwise we'll miss it (blocking)
-                if ((TMR2 > 241) && (TMR2 < 249));                              // PWM cycle >= 96% (should be low)
+                if ((TMR2 > 241) && (TMR2 < 249))                               // PWM cycle >= 96% (should be low)
                 {
                     pilot = ReadPilot();
                     if (pilot == PILOT_DIODE) DiodeCheck = 1;                   // Diode found, OK

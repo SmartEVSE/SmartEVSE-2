@@ -589,8 +589,8 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
             // CRC OK
         //    printf("\n  valid Modbus packet: Address %02x Function %02x", Modbus.Address, Modbus.Function);
             switch (Modbus.Function) {
-                case 0x04:
-                    // (Read input register)
+                case 0x03: // (Read holding register)
+                case 0x04: // (Read input register)
                     if (len == 8) {
                         // request packet
                         Modbus.Type = MODBUS_REQUEST;
@@ -670,7 +670,8 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                     // If address and function identical with last send or received request, it is a valid response
                     if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
                         Modbus.Requested = 1;
-                        if (Modbus.Function == 0x04) Modbus.Register = Modbus.RequestRegister;
+                        if (Modbus.Function == 0x03 || Modbus.Function == 0x04) 
+                            Modbus.Register = Modbus.RequestRegister;
                     } else {
                         Modbus.Requested = 0;
                     }
@@ -3190,6 +3191,7 @@ void main(void) {
             if (Modbus.Type == MODBUS_RESPONSE) {
                 //printf("\nModbus Response Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
                 switch (Modbus.Function) {
+                    case 0x03: // (Read holding register)
                     case 0x04: // (Read input register)
                         if (Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
                             // packet from Mains electric meter
@@ -3234,6 +3236,7 @@ void main(void) {
                 //printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
                                                                                 // No timeout reset here, as it is a request, no response!!!! 
                 switch (Modbus.Function) {
+                    case 0x03: // (Read holding register)
                     case 0x04: // (Read input register)
                         // Addressed to this device
                         if (Modbus.Address == LoadBl) {

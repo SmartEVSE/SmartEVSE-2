@@ -1215,13 +1215,13 @@ void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned cha
 
 signed double receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, unsigned char Divisor) {
     signed double dCombined;
-    unsigned long lCombined;
+    signed long lCombined;
 
     if (Divisor == 8) {
         combineBytes(&dCombined, buf, pos, Endianness);
     } else {
         combineBytes(&lCombined, buf, pos, Endianness);
-        dCombined = (signed double) lCombined / pow10(Divisor);
+        dCombined = (signed double) lCombined / pow10[Divisor];
     }
 
     return dCombined;
@@ -1698,7 +1698,7 @@ const far char * getMenuItemOption(unsigned char nav) {
             }
         case MENU_EMCUSTOM_IDIVISOR:
             if (value == 8) return "Double";
-            sprintf(Str, "%.0f", pow10(value));
+            sprintf(Str, "%lu", pow10[value]);
             return Str;
         case MENU_EXIT:
             return StrExitMenu;

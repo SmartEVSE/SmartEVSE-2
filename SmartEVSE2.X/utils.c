@@ -7,40 +7,19 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "EVSE.h"
-
-
-/**
- * Calculate 10 to the power of x
- * 
- * @param signed char exponent
- * @return signed double pow10
- */
-signed double pow10(signed char exp) {
-    signed char i;
-    signed double ret = 1;
-
-    if(exp > 0) {
-        for (i = 0; i < exp; i++) {
-            ret = ret * 10;
-        }
-    } else {
-        for (i = 0; i > exp; i--) {
-            ret = ret / 10;
-        }
-    }
-
-    return ret;
-}
+#include "utils.h"
 
 void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision) {
-    unsigned int pow10[] = {1, 10, 100};
-    signed double pow10n[] = {1, 0.1, 0.01};
+    signed long val;
 
-    if(value < 0) value = value - pow10n[precision]/2;
-    else value = value + pow10n[precision]/2;
-    if(precision > 0) sprintf(str, format, (signed int)value, (unsigned int)((abs(value * pow10[precision])) % pow10[precision]));
-    else sprintf(str, format, (unsigned int)value);
+    val = (signed long)(value * pow10[precision + 1]);
+    // Round value
+    if(val < 0) val -= 5;
+    else val += 5;
+    val /= 10;
+    // Split value
+    if(precision > 0) sprintf(str, format, (signed int) (val / (signed long) pow10[precision]), (unsigned int) (abs(val) % pow10[precision]));
+    else sprintf(str, format, (signed int) val);
 }
 
 /* triwave8: triangle (sawtooth) wave generator.  Useful for

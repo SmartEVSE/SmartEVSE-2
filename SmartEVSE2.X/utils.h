@@ -31,7 +31,7 @@
 #ifndef UTILS_H
 #define	UTILS_H
 
-signed double pow10(signed char exp);
+unsigned long pow10[10] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision);
 unsigned char triwave8(unsigned char in);
 unsigned char scale8(unsigned char i, unsigned char scale);

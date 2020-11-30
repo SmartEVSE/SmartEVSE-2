@@ -81,18 +81,20 @@
 #define MODE_SOLAR 2                    
 
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
+#define NR_SLAVES 8
 
-#define STATE_A 1                                                               // Vehicle not connected
-#define STATE_B 2                                                               // Vehicle connected / not ready to accept energy
-#define STATE_C 3                                                               // Vehicle connected / ready to accept energy / ventilation not required
-#define STATE_D 4                                                               // Vehicle connected / ready to accept energy / ventilation required
-#define STATE_COMM_A 5                                                          // Waiting for response from Master
-#define STATE_COMM_B 6                                                          // Waiting for response from Master
-#define STATE_COMM_C 7                                                          // Waiting for response from Master
-#define STATE_COMM_CB 8                                                         // Waiting for response from Master
+#define STATE_A 0                                                               // A Vehicle not connected
+#define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy
+#define STATE_C 2                                                               // C Vehicle connected / ready to accept energy / ventilation not required
+#define STATE_D 3                                                               // D Vehicle connected / ready to accept energy / ventilation required (not implemented)
+#define STATE_COMM_B 4                                                          // E State change request A->B (set by slave)
+#define STATE_COMM_B_OK 5                                                       // F State change A->B OK (set by master)
+#define STATE_COMM_C 6                                                          // G State change request B->C (set by slave)
+#define STATE_COMM_C_OK 7                                                       // H State change B->C OK (set by master)
+#define STATE_ACTSTART 8                                                        // I Activation mode in progress
+#define NOSTATE 255
 
-#define STATE_CB 10
-#define STATE_ACTSTART 20
+#define STATE_CB 10                                                             // Test code state
 
 #define PILOT_12V 1
 #define PILOT_9V 2
@@ -154,6 +156,8 @@
 #define MENU_EMCUSTOM_IDIVISOR 26
 #define MENU_EXIT 27
 
+#define MENU_STATE 50
+
 #define STATUS_STATE 64
 #define STATUS_ERROR 65
 #define STATUS_MAX 66
@@ -174,6 +178,7 @@
 #define MODBUS_OK 1
 #define MODBUS_REQUEST 2
 #define MODBUS_RESPONSE 3
+#define MODBUS_EXCEPTION 4
 
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 0x02
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
@@ -223,7 +228,7 @@ extern unsigned char NextState;
 extern unsigned int MaxCapacity;                                                // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
 extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps * 10) (23 = 2.3A)
 extern signed int Isum;
-extern unsigned int Balanced[4];                                                // Amps value per EVSE (max 4)
+extern unsigned int Balanced[NR_SLAVES];                                        // Amps value per EVSE
 
 extern unsigned char RX1byte;
 extern unsigned char idx2, ISR2FLAG;

@@ -31,6 +31,7 @@
 #include <string.h>
 #include "GLCD.h"
 
+#define _XTAL_FREQ 16000000L                                                    // 16Mhz Xtal frequency
 
 #define VERSION "2.17"                                                          // SmartEVSE software version
 //#define DEBUG_P                                                                 // Debug print enable/disable

@@ -165,7 +165,7 @@ const far unsigned char font[] = {
     0x21, 0x54, 0x54, 0x78, 0x41, // 0x84 ä
     0x21, 0x55, 0x54, 0x78, 0x40, // 0x85 à
     0x20, 0x54, 0x55, 0x79, 0x40, // 0x86 á
-    0x0C, 0x1E, 0x52, 0x72, 0x12, // 0x87 
+    0x0C, 0x1E, 0x52, 0x72, 0x12, // 0x87
     0x39, 0x55, 0x55, 0x55, 0x59, // 0x88 ê
     0x39, 0x54, 0x54, 0x54, 0x59, // 0x89
     0x39, 0x55, 0x54, 0x54, 0x58, // 0x8A è
@@ -186,7 +186,7 @@ const far unsigned char font[] = {
     0x39, 0x44, 0x44, 0x44, 0x39, // 0x99 Ö
     0x3D, 0x40, 0x40, 0x40, 0x3D, // 0x9A Ü
     0x3C, 0x24, 0xFF, 0x24, 0x24, // 0x9B ¢
-    0x48, 0x7E, 0x49, 0x43, 0x66, // 0x9C 
+    0x48, 0x7E, 0x49, 0x43, 0x66, // 0x9C
     0x2B, 0x2F, 0xFC, 0x2F, 0x2B, // 0x9D
     0xFF, 0x09, 0x29, 0xF6, 0x20, // 0x9E
     0xC0, 0x88, 0x7E, 0x09, 0x03, // 0x9F
@@ -276,7 +276,7 @@ const far unsigned char font[] = {
     0x00, 0x00, 0xFF, 0x01, 0x03, // 0xF3
     0xE0, 0x80, 0xFF, 0x00, 0x00, // 0xF4
     0x08, 0x08, 0x6B, 0x6B, 0x08, // 0xF5
-    0x3A, 0x44, 0x44, 0x44, 0x3A, // 0xF6 ö 
+    0x3A, 0x44, 0x44, 0x44, 0x3A, // 0xF6 ö
     0x06, 0x0F, 0x09, 0x0F, 0x06, // 0xF7
     0x00, 0x00, 0x03, 0x03, 0x00, // 0xF8 °
     0x00, 0x00, 0x10, 0x10, 0x00, // 0xF9
@@ -325,43 +325,55 @@ const unsigned char LCD_Flow [] = {
 unsigned int GLCDx, GLCDy;
 
 // uses buffer
-void GLCD_print_row(const far char *data)                                       // write 10 characters to LCD
+void GLCD_print_row(const far char *data)                                       // write 10+ characters to LCD
 {
-    unsigned char x = 0;
-    GLCDx = 4;
-
     GLCD_buffer_clr();                                                          // Clear buffer
+    GLCDx = 2;
+
     do {
         GLCD_write_buf2(*data++);
-    } while (x++ < 9);
-    GLCD_sendbuf(2);                                                            // copy buffer to LCD
+    } while (GLCDx < 118);
+    GLCD_sendbuf2(2);                                                           // copy buffer to LCD
 }
 
-void GLCD_print_arrows(void) {
-    GLCDx = 0;
-    GLCD_write_buf2('<');
-    GLCDx = 9 * 12 + 8;                                                         // last character of line
-    GLCD_write_buf2('>');
+void GLCD_print_buf2_noclr(unsigned char y, const far char* str) {
+    unsigned char i = 0, s, e;
+
+    GLCDx = 65;
+    while (str[i]) {                                                            // calculate offset for centering text
+        s = 0;
+        e = 5;
+        font_condense(str[i], &s, &e, 0);
+        GLCDx -= (e - s) + 1;
+        i++;
+    }
+    i=0;
+    while (str[i]) {
+        GLCD_write_buf2(str[i++]);
+    }
+    GLCD_sendbuf2(y);                                                            // copy buffer to LCD
 }
 
 
-// uses buffer
-void GLCD_print_menu(const far char *data, char RowAdr)                         // write string of data to LCD, with navigation arrows
-{
+// Write Menu to buffer, then send to GLCD
+void GLCD_print_menu(unsigned char y, const far char* str) {
     GLCD_buffer_clr();                                                          // Clear buffer
 
-    if ((SubMenu && RowAdr == 4) || (!SubMenu && RowAdr == 2))                  // navigation arrows
-    {
-        GLCD_print_arrows();
+    if ((SubMenu && y == 4) || (!SubMenu && y == 2)) {                          // navigation arrows
+        GLCDx = 0;
+        GLCD_write_buf2('<');
+        GLCDx = 9 * 12 + 8;                                                     // last character of line
+        GLCD_write_buf2('>');
     }
-
-    GLCDx = 64 - (strlen(data)*6);                                              // calculate offset for centering text
-    do {
-        GLCD_write_buf2(*data);
-    } while (*++data);
-
-    GLCD_sendbuf(RowAdr);                                                       // copy buffer to LCD
+    GLCD_print_buf2_noclr(y, str);
 }
+
+
+void GLCD_print_buf2(unsigned char y, const far char* str) {
+    GLCD_buffer_clr();                                                          // Clear buffer
+    GLCD_print_buf2_noclr(y, str);
+}
+
 
 /**
  * Increase or decrease int value
@@ -380,7 +392,7 @@ unsigned int MenuNavInt(unsigned char Buttons, unsigned int Value, unsigned int 
         if (Value <= Min) Value = Max;
         else Value--;
     }
-   
+
     return Value;
 }
 
@@ -408,7 +420,7 @@ unsigned char MenuNavCharArray(unsigned char Buttons, unsigned char Value, unsig
 void GLCDHelp(void)                                                             // Display/Scroll helptext on LCD 
 {
     unsigned int x;
-    
+
     x = strlen(MenuStr[LCDNav].Desc);
     GLCD_print_row(MenuStr[LCDNav].Desc + LCDpos);
 
@@ -421,9 +433,7 @@ void GLCDHelp(void)                                                             
 
 
 
-
 // called once a second
-
 void GLCD(void) {
     unsigned char x;
     unsigned int seconds, minutes;
@@ -431,14 +441,16 @@ void GLCD(void) {
     static unsigned char energy_ev = 74; // X position
     unsigned char Str[10];
 
+    LCDTimer++;
+
     if (LCDNav) {
-        if (LCDTimer++ == 120) {
+        if (LCDTimer == 120) {
             LCDNav = 0;                                                         // Exit Setup menu after 120 seconds.
             read_settings();                                                    // don't save, but restore settings
         } else return;                                                          // disable LCD status messages when navigating LCD Menu	
     }
 
-    if (LCDTimer == 10) LCDTimer = 0;
+    if (LCDTimer == 12) LCDTimer = 0;
 
     if (Error) {
         BACKLIGHT_ON;                                                           // We switch backlight on, as we exit after displaying the error
@@ -457,7 +469,7 @@ void GLCD(void) {
             GLCD_print_buf2(6, (const far char *) "STOPPED");
             return;
         } else if (Error & RCD_TRIPPED) {                                       // RCD sensor tripped
-            if (LCDTimer++ < 5) {
+            if (LCDTimer < 6) {
                 GLCD_print_buf2(0, (const far char *) "RESIDUAL");
                 GLCD_print_buf2(2, (const far char *) "FAULT");
                 GLCD_print_buf2(4, (const far char *) "CURRENT");
@@ -487,8 +499,6 @@ void GLCD(void) {
         return;
     }
 
-    LCDTimer++;
-
                                                                                 // MODE NORMAL
     if (Mode == MODE_NORMAL || !Access_bit) {
 
@@ -505,15 +515,16 @@ void GLCD(void) {
             BacklightTimer = BACKLIGHT;
             
             GLCD_print_buf2(2, (const far char *) "CHARGING");
-            sprintfd(Str, "%u.%uA", Balanced[0] / 10.0, 1);
+            sprintf(Str, "%u.%uA",Balanced[0] / 10, Balanced[0] % 10);
             GLCD_print_buf2(4, Str);
         } else {                                                                // STATE A and STATE B
             if (Access_bit) {
                 GLCD_print_buf2(2, (const far char *) "READY TO");
+                sprintf(Str, "CHARGE %u", ChargeDelay);
                 if (ChargeDelay) {
-                    sprintf(Str, "CHARGE %u", ChargeDelay);
-                    GLCD_print_buf2(4, Str);
-                } else GLCD_print_buf2(4, (const far char *) "CHARGE");
+                    BacklightTimer = BACKLIGHT;
+                } else Str[6] = '\0';
+                GLCD_print_buf2(4, Str);
             } else {
                 GLCD_print_buf2(2, (const far char *) "ACCESS");
                 GLCD_print_buf2(4, (const far char *) "DENIED");
@@ -528,12 +539,10 @@ void GLCD(void) {
             for (x=0; x<13; x++) {
                 GLCDbuf[x+74u] = 0;
                 GLCDbuf[x+74u+128u] = 0;
-            }    
+            }
         }
         if (!SolarTimerEnable) {                                                // remove the clock from the LCD buffer
-            for (x=0; x<8; x++) {
-                GLCDbuf[x+92u] = 0;
-            }    
+            for (x=0; x<8; x++) GLCDbuf[x+92u] = 0;
         } else {                                                                // display remaining time before charging is stopped
             seconds = StopTime * 60;
             seconds = seconds - SolarStopTimer;
@@ -557,14 +566,15 @@ void GLCD(void) {
                                                                                 
         if (abs(Isum) >3 ) GLCD_write_buf(0xFE);                                // Show energy flow 'blob' between Grid and House
                                                                                 // If current flow is < 0.3A don't show the blob
+
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
-            sprintfd(Str, "%2u.%1ukWh", EnergyCharged, 1);  
-            GLCD_print_buf(89,1, Str);                                          // print to buffer
+            sprintfd(Str, "%2u.%1ukWh", EnergyCharged, 1);                      // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
+            GLCD_print_buf(88, 1, Str);                                         // print to buffer
         }
 
         if (State == STATE_C) {
             BacklightTimer = BACKLIGHT;
- 
+
             energy_ev += 3;                                                     // animate energy flow to EV
             if (energy_ev > 89) energy_ev = 74;
 
@@ -583,6 +593,7 @@ void GLCD(void) {
 
             sprintfd(Str, "%3dA", Isum / 10.0, 0);
             GLCD_print_buf(23, 2, Str);                                         // print to buffer
+
         } else {                                                                // Displayed only in Smart and Solar modes
             for (x = 0; x < 3; x++) {                                           // Display L1, L2 and L3 currents on LCD
                 sprintfd(Str, "%3dA", Irms[x] / 10.0, 0);
@@ -593,28 +604,30 @@ void GLCD(void) {
 
         glcd_clrln(4, 0);                                                       // Clear line 4
         if (Error & LESS_6A) {
-            if (LCDTimer < 5) {
+            if (LCDTimer < 6) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR POWER");
         } else if (Error & NO_SUN) {
-            if (LCDTimer < 5) {
+            if (LCDTimer < 6) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
-        } else if (State == STATE_A || State == STATE_B) {                      // STATE A + B message
+        } else if (State != STATE_C) { 
+            sprintf(Str, "READY %u", ChargeDelay);
             if (ChargeDelay) {
                 BacklightTimer = BACKLIGHT;
-                sprintf(Str, "READY %u", ChargeDelay);
-                GLCD_print_buf2(5, Str);
-            } else GLCD_print_buf2(5, (const far char *) "READY");
+            } else Str[5] = '\0';
+            GLCD_print_buf2(5, Str);
         } else if (State == STATE_C) {
-            if (LCDTimer < 7) {
+
+            if (LCDTimer < 7) {                                                 //LCDtimer 0-5 sec
                 if (LCDTimer < 4 && Mode != MODE_NORMAL ) {
                     if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
                     else GLCD_print_buf2(5, (const far char *) "SMART");
-                                        
+
                 } else GLCD_print_buf2(5, (const far char *) "CHARGING");
             } else {                                                            //LCDTimer 6-9 sec
-                sprintfd(Str, "%u.%uA", Balanced[0] / 10.0, 1);
+                if (EVMeter && LCDTimer > 8) sprintfd(Str, "%u.%02u kWh", EnergyCharged, 2);
+                else sprintf(Str, "%u.%uA", Balanced[0] / 10, Balanced[0] % 10);
                 GLCD_print_buf2(5, Str);
             }
         }
@@ -656,38 +669,32 @@ void GLCDMenu(unsigned char Buttons) {                                          
     BacklightTimer = BACKLIGHT;                                                 // delay before LCD backlight turns off.
     BACKLIGHT_ON;                                                               // LCD backlight on	
 
-    if (RCmon == 1 && (Error & RCD_TRIPPED) && PORTBbits.RB1 == 0)              // RCD was tripped, but RCD level is back to normal
-    {
+    if (RCmon == 1 && (Error & RCD_TRIPPED) && PORTBbits.RB1 == 0) {            // RCD was tripped, but RCD level is back to normal
         Error &= ~RCD_TRIPPED;                                                  // Clear RCD error bit, by pressing any button
     }
         
-    if ((LCDNav == 0) && (Buttons == 0x5) && (ButtonRelease == 0))              // Button 2 pressed ?
-    {
+    if ((LCDNav == 0) && (Buttons == 0x5) && (ButtonRelease == 0)) {            // Button 2 pressed ?
         LCDNav = MENU_ENTER;                                                    // about to enter menu
         ButtonTimer = Timer;
-    } else if (LCDNav == MENU_ENTER && ((ButtonTimer + 2000) < Timer))          // <CONFIG>
-    {
+    } else if (LCDNav == MENU_ENTER && ((ButtonTimer + 2000) < Timer)) {        // <CONFIG>
         LCDNav = MENU_CONFIG;                                                   // Main Menu entered
         ButtonRelease = 1;
-    } else if ((LCDNav == MENU_ENTER) && (Buttons == 0x7))                      // Button 2 released before entering menu?
-    {
+    } else if ((LCDNav == MENU_ENTER) && (Buttons == 0x7)) {                    // Button 2 released before entering menu?
         LCDNav = 0;
         ButtonRelease = 0;
         GLCD();
-    } else if ((LCDNav == MENU_CAL) && (Buttons == 0x2) &&  SubMenu )           // Buttons 1> and 3< pressed ?
-    {                                                                           
+    } else if ((LCDNav == MENU_CAL) && (Buttons == 0x2) &&  SubMenu ) {         // Buttons 1> and 3< pressed ?
         ICal = ICAL;                                                            // reset Calibration value    
         SubMenu = 0;                                                            // Exit Submenu
         ButtonRelease = 1;
-    }    
-    else if ((LCDNav > 1) && (Buttons == 0x2 || Buttons == 0x3 || Buttons == 0x6) && (ButtonRelease == 0))
-    {
+    } else if ((LCDNav > 1) && (Buttons == 0x2 ||                               // Buttons < or > or both pressed
+            Buttons == 0x3 || Buttons == 0x6) && (ButtonRelease == 0)) {        // We are navigating between sub menu options
         if (SubMenu) {
             switch (LCDNav) {
                 case MENU_CAL:
                     CT1 = MenuNavInt(Buttons, CT1, 100, 999);
                     break;
-                case MENU_EVMETER:
+                case MENU_EVMETER:                                              // do not display the Sensorbox and custom meter here
                     value = getItemValue(LCDNav);
                     do {
                         value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
@@ -703,32 +710,24 @@ void GLCDMenu(unsigned char Buttons) {                                          
         } else {
             LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
         }
-
         ButtonRelease = 1;
-    } else if (LCDNav > 1 && Buttons == 0x5 && ButtonRelease == 0)              // Button 2 pressed?
-    {
+    } else if (LCDNav > 1 && Buttons == 0x5 && ButtonRelease == 0) {            // Button 2 pressed?
         ButtonRelease = 1;
-        if (SubMenu)                                                            // Are we in Submenu?
-        {
-            SubMenu = 0;                                                        // yes, exit Submenu
-            if (LCDNav == MENU_CAL)                                             // Exit CT1 calibration?
-            {
-                if (CT1 != CT1old)                                              // did the value change?
-                {
+        if (SubMenu) {                                                          // We are currently in Submenu
+            SubMenu = 0;                                                        // Exit Submenu now
+            if (LCDNav == MENU_CAL) {                                           // Exit CT1 calibration?
+                if (CT1 != CT1old) {                                            // did the value change?
                     Iold = (double) (CT1old / ICal);
                     ICal = (double) (CT1 / Iold);                               // Calculate new Calibration value
                     Irms[0] = CT1;                                              // Set the Irms value, so the LCD update is instant
                 }
             }
-        } else                                                                  // We are currently not in Submenu.
-        {
+        } else {                                                                // We are currently not in Submenu.
             SubMenu = 1;                                                        // Enter Submenu now
-            if (LCDNav == MENU_CAL)                                             // CT1 calibration start
-            {
+            if (LCDNav == MENU_CAL) {                                           // CT1 calibration start
                 CT1 = (unsigned int) abs(Irms[0]);                              // make working copy of CT1 value
                 CT1old = CT1;                                                   // and a backup
-            } else if (LCDNav == MENU_EXIT)                                     // Exit Main Menu
-            {
+            } else if (LCDNav == MENU_EXIT) {                                   // Exit Main Menu
                 LCDNav = 0;
                 SubMenu = 0;
                 Error = NO_ERROR;                                               // Clear All Errors when exiting the Main Menu
@@ -741,8 +740,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
             }
         }
         
-    } else if (Buttons == 0x7)                                                  // Buttons released
-    {
+    } else if (Buttons == 0x7) {                                                // Buttons released
         ButtonRelease = 0;
         delay(10);                                                              // debounce keys (blocking)
     }
@@ -760,36 +758,25 @@ void GLCDMenu(unsigned char Buttons) {                                          
             glcd_clrln(7, 0x00);
 
         } else {
-            GLCD_print_menu(MenuStr[LCDNav].LCD, 2);                            // add navigation arrows on both sides
+            GLCD_print_menu(2, MenuStr[LCDNav].LCD);                            // add navigation arrows on both sides
             switch (LCDNav) {
                 case MENU_CAL:
-                    GLCD_buffer_clr();                                          // Clear buffer
                     if (SubMenu) {
-                        GLCD_print_arrows();
-                        GLCDx = 4 + (12 * 3);
-                        GLCD_write_buf2((CT1 / 100) + 0x30);
-                        GLCD_write_buf2((CT1 % 100) / 10 + 0x30);
-                        GLCD_write_buf2('.');
-                        GLCD_write_buf2((CT1 % 10) + 0x30);
+                        sprintf(Str, "%u.%uA",CT1 / 10, CT1 % 10);
                     } else {
-                        GLCDx = 4 + (12 * 3);
-                        
-                        GLCD_write_buf2(((unsigned int) abs(Irms[0]) / 100) + 0x30);
-                        GLCD_write_buf2(((unsigned int) abs(Irms[0]) % 100 / 10) + 0x30);
-                        GLCD_write_buf2('.');
-                        GLCD_write_buf2(((unsigned int) abs(Irms[0]) % 10) + 0x30);
+                        sprintf(Str, "%u.%uA",((unsigned int) abs(Irms[0]) / 10), ((unsigned int) abs(Irms[0]) % 10) );
                     }
-                    GLCDx = 4 + (12 * 7);
-                    GLCD_write_buf2('A');
-                    GLCD_sendbuf(4);                                            // copy buffer to LCD
+                    GLCD_print_menu(4, Str);
                     break;
                 default:
-                    GLCD_print_menu(getMenuItemOption(LCDNav), 4);
+                    GLCD_print_menu(4, getMenuItemOption(LCDNav));              // print Menu
                     break;
             }
 
+            // Bottom row of the GLCD
+            glcd_clrln(7, 0x00);                                                // Clear line
             sprintf(Str, "%3i\370C", TempEVSE);                                 // \370 is the octal representation of the ° symbol
-            GLCD_print(0,7, Str);
+            GLCD_print(0,7, Str);                                               // show the internal temperature
             GLCD_print(122-(strlen(VERSION)*6),7, (const far char *) "v"VERSION);// show software version in bottom right corner.
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once
@@ -844,31 +831,28 @@ void glcd_clrln(unsigned char ln, unsigned char data) {
     }
 }
 
-void GLCD_sendbuf(unsigned char RowAdr) {
-    unsigned char i, x = 0;
+//
+// Write 2 rows of data in GLCD buffer to LCD
+//
+void GLCD_sendbuf2(unsigned char RowAdr) {
+    unsigned char i, x = 0, y = 0;
 
-    goto_xy(0, RowAdr);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port  
-
-    goto_xy(0, RowAdr + 1);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port  
+    do {
+        goto_xy(0, RowAdr + y);
+        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    //put data on data port
+    } while (++y < 2);
 }
 
+//
+// Write 4 rows of data in GLCD buffer to LCD
+//
 void GLCD_sendbuf4(unsigned char RowAdr) {
-    unsigned int i, x = 0;
+    unsigned int i, x = 0, y = 0;
 
-    goto_xy(0, RowAdr);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
-
-    goto_xy(0, RowAdr + 1);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
-
-    goto_xy(0, RowAdr + 2);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
-
-    goto_xy(0, RowAdr + 3);
-    for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                        //put data on data port
-
+    do {
+        goto_xy(0, RowAdr + y);
+        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    //put data on data port
+    } while (++y < 4);
 }
 
 void glcd_clear(void) {
@@ -900,7 +884,7 @@ void GLCD_write(unsigned int c) {
 void GLCD_buffer_clr(void) {
     unsigned char x = 0;
     do {
-        GLCDbuf[x++] = 0;                                                       // clear GLCD buffer
+        GLCDbuf[x++] = 0;                                                       // clear first 256 bytes of GLCD buffer
     } while (x != 0);
 }
 
@@ -911,7 +895,7 @@ void GLCD_write_buf(unsigned int c) {
     x = 128 * GLCDy;
     x = x + GLCDx;
 
-    font_condense(c, &i, &m, 1);
+    font_condense(c, &i, &m, 1);                                                // remove whitespace from font
     GLCDx = GLCDx + (m - i) + 1;
 
     do {
@@ -919,11 +903,13 @@ void GLCD_write_buf(unsigned int c) {
     } while (++i < m);
 }
 
+// Write one double height character to the GLCD buffer
+// special characters '.' and ' ' will use reduced width in the buffer
 void GLCD_write_buf2(unsigned int c) {
     unsigned char i=0, m=5, ch, z1;
     unsigned int x;
     x = GLCDx;
-    
+
     font_condense(c, &i, &m, 0);
     GLCDx = GLCDx + ((m - i) * 2) +2;
 
@@ -961,7 +947,6 @@ void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
 }
 
 // Write a string to LCD buffer
-//
 void GLCD_print_buf(unsigned char x, unsigned char y, const far char* str) {
     unsigned char i = 0;
 
@@ -972,37 +957,14 @@ void GLCD_print_buf(unsigned char x, unsigned char y, const far char* str) {
     }
 }
 
-void GLCD_print_buf2(unsigned char y, const far char* str) {
-    unsigned char i = 0, s, e;
-    GLCD_buffer_clr();                                                          // Clear buffer
-
-    GLCDx = 64;
-    while (str[i]) {                                                            // calculate offset for centering text
-        s = 0;
-        e = 5;
-        font_condense(str[i], &s, &e, 0);
-        GLCDx -= (e - s) + 1;
-        i++;
-    }
-    i=0;
-    while (str[i]) {
-        GLCD_write_buf2(str[i++]);
-    }
-    GLCD_sendbuf(y);                                                            // copy buffer to LCD
-}
-
-void delayus(int us) {
-    while (us--) {
-    };
-}
 
 void GLCD_init(void) {
     delay(200);                                                                 // transients on the line could have garbled the LCD, wait 200ms then re-init. (blocking)
     _A0_0;                                                                      // A0=0
     _RSTB_0;                                                                    // Reset GLCD module
-    delayus(4);
+    __delay_us(4);
     _RSTB_1;                                                                    // Reset line high
-    delayus(4);
+    __delay_us(4);
 
     st7565_command(0xA2);                                                       // set bias at duty cycle 1.65 (0xA2=1.9 0xA3=1.6)
     st7565_command(0xC8);                                                       // comm direction normal =0xC0 comm reverse= 0xC8
@@ -1027,7 +989,7 @@ void GLCD_init(void) {
 }
 
 void GLCD_version(void) {
-    glcd_clear();
+    glcd_clear();                                                               // Clear whole display
     GLCD_print_buf2(2, (const far char *) "Smart EVSE");
     GLCD_print_buf2(4, (const far char *) "Ver "VERSION);
 

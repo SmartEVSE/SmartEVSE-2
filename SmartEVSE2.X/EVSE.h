@@ -268,7 +268,7 @@ const far struct {
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
     {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-4 SmartEVSEs", 0, 4, LOADBL},
     {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
-    {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 80, MAX_CIRCUIT},
+    {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
@@ -277,7 +277,7 @@ const far struct {
     {"RCMON",  "RCMON",    "Residual Current Monitor on pin RCM", 0, 1, RC_MON},
     {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
-    {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 100, MAX_MAINS},
+    {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 200, MAX_MAINS},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
     {"GRID",   "GRID",     "Grid type to which the Sensorbox is connected", 0, 1, GRID},

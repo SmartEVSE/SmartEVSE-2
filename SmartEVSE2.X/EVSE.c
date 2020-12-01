@@ -795,7 +795,7 @@ void read_settings(void) {
     EEADRH = 0;                                                                 // we only use the first 256 bytes for now.
     
     eeprom_read_object(&MaxMains, sizeof MaxMains);
-    if (MaxMains > 100) {                                                       // check if the eeprom is uninitialized
+    if (MaxMains > 200) {                                                       // check if the eeprom is uninitialized
         MaxMains = MAX_MAINS;                                                   // set MaxMains back to default value    
         write_settings();                                                       // uninitialized, write default settings to eeprom   
         return;
@@ -1354,6 +1354,8 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) { 
                     var[x] = var[x] * ICal;
+                    // When MaxMains is set to >100A, it's assumed 200A:50ma CT's are used.
+                    if (MaxMains > 100) var[x] = var[x] * 2;                    // Multiply measured currents with 2
                     // very small negative currents are shown as zero.
                     if ((var[x] > -0.01) && (var[x] < 0.01)) var[x] = 0.0;      
                     CalActive = 1;                                              // Enable CAL option in Menu
@@ -2187,7 +2189,7 @@ void RS232cli(void) {
         case MENU_MAINS:
             printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
             printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-            printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-100): ", MaxMains);
+            printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-200): ", MaxMains);
             break;
         case MENU_MIN:
             printf("MIN Charge Current set to: %u A\r\nEnter new MIN Charge Current (6-16): ", MinCurrent);
@@ -2200,7 +2202,7 @@ void RS232cli(void) {
         case MENU_CIRCUIT:
             printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
             printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-            printf("EVSE Circuit Current limit set to: %u A\r\nEnter new limit (10-80): ", MaxCircuit);
+            printf("EVSE Circuit Current limit set to: %u A\r\nEnter new limit (10-160): ", MaxCircuit);
             break;
         case MENU_LOCK:
             printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));

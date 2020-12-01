@@ -91,21 +91,22 @@ unsigned char checkbootloader(void) {
     INTCONbits.GIE = 0;                                                         // Disable interrupts
     
     EECON1 = 0x80;                                                              // Access Flash program memory
-    TBLPTR = 0xFFD0;                                                            // Address unused by 1.05 bootloader, should be 0xff
-    asm("TBLRD*+");
-    if (TABLAT != 0xFF) {
-        INTCONbits.GIE = 1;                                                     // Enable interrupts
-        return 0;                                                               // already updated to 1.06 or higher
-    }
        
     TBLPTR = 0xFFF0;                                                            // set to serial nr.
     asm("TBLRD*+");
     serialnr = TABLAT;                                                          // first read LSB
     asm("TBLRD*+");
     serialnr |= TABLAT<<8;                                                      // then MSB
-   
+
+    TBLPTR = 0xFFD0;                                                            // Address unused by 1.05 bootloader, should be 0xff
+    asm("TBLRD*+");
+    if (TABLAT != 0xFF) {
+        INTCONbits.GIE = 1;                                                     // Enable interrupts
+        return 0;                                                               // already updated to 1.06 or higher
+    }
+
     // now erase and overwrite the bootloader @ FD00-FFFF, 12 blocks of 64 bytes
-    
+
     unlock55 = unlockMagic + 0x33;                                              // to protect against unintended flash writes/erase 
     unlockAA = unlockMagic + 0x88;                                              // we calculate the magic values
     

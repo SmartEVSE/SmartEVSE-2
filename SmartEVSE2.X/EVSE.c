@@ -2147,8 +2147,8 @@ void RS232cli(void) {
         case 0:
             printf("\r\n----------------------------- SMART EVSE -----------------------------\r\n v");
             printf(VERSION);
-            printf(" for detailed instructions, see www.smartevse.org\r\n");
-            printf(" Internal Temperature: %i C\r\n", TempEVSE);
+            printf(" for instructions, see www.smartevse.org\r\n");
+            printf(" Internal Temperature: %i C  SN: %06u\r\n", TempEVSE, serialnr);
             printf("----------------------------------------------------------------------\r\n");
             for(i = 0; i < MenuItemsCount - 1; i++) {
                 printf("%-07s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);

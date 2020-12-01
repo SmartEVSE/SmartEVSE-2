@@ -314,6 +314,7 @@ struct {
 void delay(unsigned int d);
 void read_settings(void);
 void write_settings(void);
+unsigned char GetPosInMenu(unsigned char count);
 unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);

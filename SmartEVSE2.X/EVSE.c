@@ -1501,6 +1501,17 @@ void processAllSlaveStates(unsigned char SlaveAdr) {
 }
 
 
+// Counts nr of menu options currently available
+unsigned char GetPosInMenu (unsigned char count) {
+    unsigned char i;
+
+    for (i = 0; i < count; i++) {
+        if (MenuItems[i] == LCDNav) return i+1;
+    }
+    return 0;
+}
+
+
 /**
  * Create an array of available menu items
  * Depends on configuration settings like CONFIG/MODE/LoadBL

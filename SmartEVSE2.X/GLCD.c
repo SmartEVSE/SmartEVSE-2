@@ -777,6 +777,8 @@ void GLCDMenu(unsigned char Buttons) {                                          
             glcd_clrln(7, 0x00);                                                // Clear line
             sprintf(Str, "%3i\370C", TempEVSE);                                 // \370 is the octal representation of the ° symbol
             GLCD_print(0,7, Str);                                               // show the internal temperature
+            sprintf(Str, "%2u/%u", GetPosInMenu(MenuItemsCount), MenuItemsCount);
+            GLCD_print(64-15,7, Str);                                           // show navigation position in the menu
             GLCD_print(122-(strlen(VERSION)*6),7, (const far char *) "v"VERSION);// show software version in bottom right corner.
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once

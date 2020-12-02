@@ -72,6 +72,8 @@
 #define PV_METER_ADDRESS 11
 #define EV_METER 0
 #define EV_METER_ADDRESS 12
+#define MIN_METER_ADDRESS 10
+#define MAX_METER_ADDRESS 247
 #define EMCUSTOM_ENDIANESS 0
 #define EMCUSTOM_IREGISTER 0
 #define EMCUSTOM_IDIVISOR 0
@@ -291,12 +293,12 @@ const far struct {
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
     {"GRID",   "GRID",     "Grid type to which the Sensorbox is connected", 0, 1, GRID},
-    {"MAINAD", "MAINSADR", "Address of mains electric meter", 5, 255, MAINS_METER_ADDRESS},
+    {"MAINAD", "MAINSADR", "Address of mains electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
     {"PVEM",   "PV METER", "Type of PV electric meter", 0, 5, PV_METER},
-    {"PVAD",   "PV ADDR",  "Address of PV electric meter", 5, 255, PV_METER_ADDRESS},
+    {"PVAD",   "PV ADDR",  "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
     {"EVEM",   "EV METER", "Type of EV electric meter", 0, 4, EV_METER},
-    {"EVAD",   "EV ADDR",  "Address of EV electric meter", 5, 255, EV_METER_ADDRESS},
+    {"EVAD",   "EV ADDR",  "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
     {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},

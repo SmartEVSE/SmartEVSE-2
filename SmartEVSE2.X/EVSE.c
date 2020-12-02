@@ -1453,7 +1453,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             }
             break;
         default:
-                for (x = 0; x < 3; x++) {
+            for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IDivisor) * 10.0;
             }
             break;
@@ -1640,10 +1640,10 @@ unsigned char getMenuItems (void) {
                 MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                        // - Divisor for current of custom electric meter
             }
         }
-    }
-    MenuItems[m++] = MENU_EVMETER;                                              // Type of EV electric meter (0: Disabled / Constants EM_*)
-    if (EVMeter) {                                                              // ? EV meter configured?
-        MenuItems[m++] = MENU_EVMETERADDRESS;                                   // - Address of EV electric meter (5 - 254)
+        MenuItems[m++] = MENU_EVMETER;                                          // - Type of EV electric meter (0: Disabled / Constants EM_*)
+        if (EVMeter) {                                                          // - ? EV meter configured?
+            MenuItems[m++] = MENU_EVMETERADDRESS;                               // - - Address of EV electric meter (5 - 254)
+        }
     }
     MenuItems[m++] = MENU_EXIT;
 
@@ -2206,8 +2206,9 @@ void RS232cli(void) {
                 break;
             case MENU_MAINSMETER:
             case MENU_PVMETER:
-                for(i = 0; i < EM_CUSTOM; i++){
-                    if (strcmp(U2buffer, EMConfig[i].Desc) == 0) {
+            case MENU_EVMETER:
+                for(i = 0; i <= EM_CUSTOM; i++){                                // Don't accept Sensorbox and Custom for EVMETER
+                    if ( (strcmp(U2buffer, EMConfig[i].Desc) == 0) && !(EMConfig[i].ERegister == 0xffff && menu == MENU_EVMETER) ) {
                         setItemValue(menu, i);
                         write_settings();
                     }
@@ -2243,7 +2244,7 @@ void RS232cli(void) {
     }
 
     // Show active item configuration
-    if (menu > 14) printf("%s is set to %s\r\n", MenuStr[menu].Desc, getMenuItemOption(menu));
+    if (menu > 14 && menu < MENU_EXIT) printf("%s is set to %s\r\n", MenuStr[menu].Desc, getMenuItemOption(menu));
 
     switch (menu) {
         case 0:
@@ -2325,9 +2326,10 @@ void RS232cli(void) {
             break;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
+        case MENU_EVMETER:    
             printf("Enter new type (%s", EMConfig[0].Desc);
-            for(i = 1; i <= EM_CUSTOM; i++) {
-                printf("/%s", EMConfig[i].Desc);
+            for(i = 1; i <= EM_CUSTOM; i++) {                                   // Don't show Sensorbox and Custom on EVMETER
+                if (!(EMConfig[i].ERegister == 0xffff && menu == MENU_EVMETER)) printf("/%s", EMConfig[i].Desc);
             }
             printf("): ");
             break;

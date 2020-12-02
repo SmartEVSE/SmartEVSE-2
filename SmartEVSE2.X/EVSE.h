@@ -225,7 +225,7 @@ extern unsigned char MainsMeterAddress;
 extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
 extern unsigned char PVMeter;                                                   // Type of PV electric meter (0: Disabled / Constants EM_*)
 extern unsigned char PVMeterAddress;
-extern unsigned char EVMeter;                                                   // Type of EVSE electric meter (0: Disabled / Constants EM_*)
+extern unsigned char EVMeter;                                                   // Type of EV electric meter (0: Disabled / Constants EM_*)
 extern unsigned char EVMeterAddress;
 extern unsigned char RFIDReader;
 
@@ -247,7 +247,7 @@ extern unsigned long Timer;                                                     
 extern unsigned int ChargeTimer;                                                // seconds counter
 extern unsigned char LCDTimer;
 extern unsigned char BacklightTimer;                                            // remaining seconds the LCD backlight is active
-extern signed char TempEVSE;                                                  // Temperature EVSE in deg C (0-125)
+extern signed char TempEVSE;                                                    // Temperature EVSE in deg C (0-125)
 extern unsigned char ButtonState;                                               // Holds latest push Buttons state (LSB 2:0)
 extern unsigned char OldButtonState;                                            // Holds previous push Buttons state (LSB 2:0)
 extern unsigned char LCDNav;

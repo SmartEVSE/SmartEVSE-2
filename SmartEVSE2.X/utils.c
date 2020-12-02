@@ -175,13 +175,14 @@ unsigned char ease8InOutQuad(unsigned char i) {
 // calculates 16-bit CRC of given data
 // used for Frame Check Sequence on data frame
 unsigned int crc16(unsigned char *buf, unsigned char len) {
-    unsigned int crc = 0xffff;
+    unsigned int pos, crc = 0xffff;
+    unsigned char i;
     
     // Poly used is x^16+x^15+x^2+x
-    for (int pos = 0; pos < len; pos++) {
+    for (pos = 0; pos < len; pos++) {
         crc ^= (unsigned int)buf[pos];                                          // XOR byte into least sig. byte of crc
 
-        for (int i = 8; i != 0; i--) {                                          // Loop over each bit
+        for (i = 8; i != 0; i--) {                                          // Loop over each bit
             if ((crc & 0x0001) != 0) {                                          // If the LSB is set
                 crc >>= 1;                                                      // Shift right and XOR 0xA001
                 crc ^= 0xA001;

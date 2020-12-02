@@ -75,6 +75,8 @@
 #define EMCUSTOM_ENDIANESS 0
 #define EMCUSTOM_IREGISTER 0
 #define EMCUSTOM_IDIVISOR 0
+#define RFID_READER 0
+
 
 // Mode settings
 #define MODE_NORMAL 0
@@ -121,13 +123,18 @@
 
 #define SOLENOID_LOCK   {LATAbits.LATA4 = 1;LATAbits.LATA5 = 0;}
 #define SOLENOID_UNLOCK {LATAbits.LATA4 = 0;LATAbits.LATA5 = 1;}
-#define SOLENOID_OFF    {LATAbits.LATA4 = 1;LATAbits.LATA5 = 1;}
+#define SOLENOID_OFF    {LATAbits.LATA4 = 1;LATAbits.LATA5 = 1;}                // both outputs 12V
+#define SOLENOID_0V     {LATAbits.LATA4 = 0;LATAbits.LATA5 = 0;}                // both outputs 0V
 
 #define CONTACTOR_OFF LATBbits.LATB4 = 0;                                       // Contactor OFF
 #define CONTACTOR_ON  LATBbits.LATB4 = 1;                                       // Contactor ON
 
 #define BACKLIGHT_OFF LATAbits.LATA3 = 0;                                       // LCD Backlight OFF
 #define BACKLIGHT_ON  LATAbits.LATA3 = 1;                                       // LCD Backlight ON
+
+#define ONEWIRE_LOW     {LATBbits.LATB2 = 0;TRISBbits.TRISB2 = 0;}              // RB2 set to 0, set to output (driven low)
+#define ONEWIRE_HIGH    {LATBbits.LATB2 = 1;TRISBbits.TRISB2 = 0;}              // RB2 set to 1, set to output (driven low)
+#define ONEWIRE_FLOATHIGH                  {TRISBbits.TRISB2 = 1;}              // RB2 input (floating high)
 
 #define MENU_ENTER 1
 #define MENU_CONFIG 2
@@ -155,7 +162,8 @@
 #define MENU_EMCUSTOM_ENDIANESS 24
 #define MENU_EMCUSTOM_IREGISTER 25
 #define MENU_EMCUSTOM_IDIVISOR 26
-#define MENU_EXIT 27
+#define MENU_RFIDREADER 27
+#define MENU_EXIT 28
 
 #define MENU_STATE 50
 
@@ -219,6 +227,7 @@ extern unsigned char PVMeter;                                                   
 extern unsigned char PVMeterAddress;
 extern unsigned char EVMeter;                                                   // Type of EVSE electric meter (0: Disabled / Constants EM_*)
 extern unsigned char EVMeterAddress;
+extern unsigned char RFIDReader;
 
 extern signed double Irms[3];                                                   // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
@@ -234,7 +243,6 @@ extern unsigned int Balanced[NR_SLAVES];                                        
 extern unsigned char RX1byte;
 extern unsigned char idx2, ISR2FLAG;
 extern unsigned char menu;
-extern unsigned int locktimer, unlocktimer;                                     // solenoid timers
 extern unsigned long Timer;                                                     // mS counter
 extern unsigned int ChargeTimer;                                                // seconds counter
 extern unsigned char LCDTimer;
@@ -252,8 +260,10 @@ extern unsigned char Access_bit;
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
 extern signed double EnergyCharged;
+extern unsigned char RFID[8];
+extern unsigned char RFIDstatus;
 
-extern unsigned char MenuItems[27];
+extern unsigned char MenuItems[28];
 
 const far struct {
     char Key[8];
@@ -262,7 +272,7 @@ const far struct {
     unsigned int Min;
     unsigned int Max;
     unsigned int Default;
-} MenuStr[28] = {
+} MenuStr[29] = {
     {"",       "",         "Not in menu", 0, 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
@@ -290,6 +300,7 @@ const far struct {
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
     {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},
+    {"RFID",   "RFID",     "Use RFID reader, learn/remove cards", 0, 4, RFID_READER},
     {"EXIT",   "EXIT",     "EXIT", 0, 0, 0}
 };
 
@@ -319,5 +330,6 @@ unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);
 const far char * getMenuItemOption(unsigned char nav);
+void WriteRFIDlist(void);
 
 #endif

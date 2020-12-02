@@ -32,6 +32,11 @@
 #define	UTILS_H
 
 unsigned long pow10[10] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+unsigned char OneWireReset(void);
+void OneWireWrite(unsigned char v);
+unsigned char OneWireRead(void);
+unsigned char OneWireReadCardId(void);
+unsigned char crc8(unsigned char *buf, unsigned char len);
 void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision);
 unsigned char triwave8(unsigned char in);
 unsigned char scale8(unsigned char i, unsigned char scale);

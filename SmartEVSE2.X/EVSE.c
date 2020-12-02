@@ -141,6 +141,7 @@ const far char StrEnabled[] = "Enabled";
 const far char StrExitMenu[] = "MENU";
 const far char StrMainsAll[] = "All"; // Everything
 const far char StrMainsHomeEVSE[] = "Home+EVSE";
+const far char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete", "DeleteAll"};
 
 // Global data
 char U1buffer[50],U1packet[50];                                                 // Uart1 Receive buffer /RS485
@@ -148,6 +149,7 @@ char U1TXbuffer[50];                                                            
 char U2buffer[50];                                                              // Uart2 buffer /Serial CLI
 char Tbuffer[50];                                                               // temp buffer
 char GLCDbuf[512];                                                              // GLCD buffer (half of the display)
+char RFIDlist[120];                                                             // holds up to 20 RFIDs
 
 
 // The following data will be updated by eeprom data at powerup:
@@ -170,9 +172,10 @@ unsigned char MainsMeterAddress = MAINS_METER_ADDRESS;
 unsigned char MainsMeterMeasure = MAINS_METER_MEASURE;                          // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
 unsigned char PVMeter = PV_METER;                                               // Type of PV electric meter (0: Disabled / Constants EM_*)
 unsigned char PVMeterAddress = PV_METER_ADDRESS;
-char Grid = GRID;                                                               // type of Grid connected to Sensorbox (0:4Wire / 1:3Wire )
-unsigned char EVMeter;                                                          // Type of EVSE electric meter (0: Disabled / Constants EM_*)
-unsigned char EVMeterAddress;
+char Grid = GRID;                                                               // Type of Grid connected to Sensorbox (0:4Wire / 1:3Wire )
+unsigned char EVMeter = EV_METER;                                               // Type of EV electric meter (0: Disabled / Constants EM_*)
+unsigned char EVMeterAddress = EV_METER_ADDRESS;
+unsigned char RFIDReader = RFID_READER;                                         // RFID Reader Disabled/Enabled (Learn / Delete, Delete All)
 
 signed double Irms[3]={0, 0, 0};                                                // Momentary current per Phase (Amps *10) (23 = 2.3A)
                                                                                 // Max 3 phases supported
@@ -198,6 +201,7 @@ unsigned char RX1byte;
 unsigned char idx = 0, idx2 = 0, ISRFLAG = 0, ISR2FLAG = 0, ISRTXFLAG = 0, ISRTXLEN = 0;
 unsigned char menu = 0;
 unsigned int locktimer = 0, unlocktimer = 0;                                    // solenoid timers
+unsigned char lock1 = 0, lock2 = 0;
 unsigned long Timer = 0;                                                        // mS counter
 unsigned long ModbusTimer;
 unsigned char BacklightTimer = 0;                                               // Backlight timer (sec)
@@ -218,7 +222,7 @@ unsigned char LedUpdate = 0;                                                    
 unsigned char LedCount = 0;                                                     // Raw Counter before being converted to PWM value
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
 unsigned char ModbusRequest = 0;                                                // Flag to request Modbus information
-unsigned char MenuItems[27];
+unsigned char MenuItems[28];
 unsigned char unlockMagic = 0;
 unsigned char unlock55 = 0;                                                     // unlock bytes set to 0 to prevent flash write at por   
 unsigned char unlockAA = 0;                                                     // unlock bytes set to 0 to prevent flash write at por
@@ -233,6 +237,8 @@ unsigned char DelayedRS485SendBuf = 0;
 signed double EnergyCharged = 0;                                                // kWh value energy charged. (*10) (will reset if state changes from A->B)
 signed double EnergyMeterStart = 0;                                             // kWh meter value is stored once EV is connected to EVSE (kWh)
 unsigned int PowerMeasured = 0;                                                 // Measured Charge power in Watt by kWh meter
+unsigned char RFID[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+unsigned char RFIDstatus = 0;
 
 
 struct  {
@@ -308,61 +314,25 @@ void interrupt high_isr(void)
     // Timer 4 interrupt, called 1000 times/sec
     while (PIR5bits.TMR4IF)                                                     
     {
-        if (Lock == 1)                                                          // Cable lock type Solenoid?
+        if (Lock)                                                               // Cable lock enabled?
         {
             if (Error || (State != STATE_C)) {
-                if (unlocktimer < 300)                                          // 300ms pulse		
-                {
-                    SOLENOID_UNLOCK;
-                } else SOLENOID_OFF;
-                if (unlocktimer++ > 400) {
-                    if (PORTCbits.RC1 == 0)                                     // still locked...
-                    {
-                        if (unlocktimer > 5000) unlocktimer = 0;                //try to unlock again in 5 seconds
-                    } else unlocktimer = 400;
-                }
-                locktimer = 0;
-            }
-            else                                                                // State C
-            {
-                if (locktimer < 300)                                            // 300ms pulse
-                {
-                    SOLENOID_LOCK;
-                }
-                else SOLENOID_OFF;
-                if (locktimer++ > 400) {
-                    if (PORTCbits.RC1 == 1)                                     // still unlocked...
-                    {
-                        if (locktimer > 5000) locktimer = 0;                    //try to lock again in 5 seconds
-                    } else locktimer = 400;
-                }
-                unlocktimer = 0;
-            }
-        }
-        else if (Lock == 2)                                                     // Cable lock type Motor?
-        {
-            if (Error || (State != STATE_C)) {
-                if (unlocktimer < 600)                                          // 600ms pulse		
-                {
+                if (unlocktimer < 600) {                                        // 600ms pulse
                     SOLENOID_UNLOCK;
                 } else SOLENOID_OFF;
                 if (unlocktimer++ > 700) {
-                    if (PORTCbits.RC1 == 1)                                     // still locked...
+                    if (PORTCbits.RC1 == lock1 )                                // still locked...
                     {
                         if (unlocktimer > 5000) unlocktimer = 0;                //try to unlock again in 5 seconds
                     } else unlocktimer = 700;
                 }
                 locktimer = 0;
-            }
-            else                                                                // State C
-            {
-                if (locktimer < 600)                                            // 600ms pulse
-                {
+            } else {                                                            // State C
+                if (locktimer < 600) {                                          // 600ms pulse
                     SOLENOID_LOCK;
-                }
-                else SOLENOID_OFF;
+                } else SOLENOID_OFF;
                 if (locktimer++ > 700) {
-                    if (PORTCbits.RC1 == 0)                                     // still unlocked...
+                    if (PORTCbits.RC1 == lock2 )                                // still unlocked...
                     {
                         if (locktimer > 5000) locktimer = 0;                    //try to lock again in 5 seconds
                     } else locktimer = 700;
@@ -787,6 +757,107 @@ void validate_settings(void) {
     if (Mode == MODE_NORMAL) { MainsMeter = 0; PVMeter = 0; }
     // Disable PV reception if not configured
     if (MainsMeterMeasure == 0) PVMeter = 0;
+    // set Lock variables for Solenoid or Motor
+    if (Lock == 1) { lock1=0; lock2=1; }
+    else if (Lock == 2) { lock1=1; lock2=0; }
+    // Erase all RFID cards from ram + eeprom if set to EraseAll
+    if (RFIDReader == 4) {                                                      // Erase ALL Cards
+        for (i = 0; i < 120; i++) RFIDlist[i] = 0xff;
+        WriteRFIDlist();
+        printf("All RFID cards erased!\n");
+        RFIDReader = 0;                                                         // RFID Reader Disabled
+    }
+}
+
+// Read a list of 20 RFID's from eeprom
+//
+void ReadRFIDlist(void) {
+    EEADR = 0;                                                                  // start from adr 256 in eeprom
+    EEADRH = 1;
+
+    eeprom_read_object(&RFIDlist, 120);
+}
+
+// Write a list of 20 RFID's to the eeprom
+//
+void WriteRFIDlist(void) {
+    char savint;
+
+    unlock55 = unlockMagic + 0x33;
+    unlockAA = unlockMagic + 0x88;                                              // set unlock variables to magic values
+
+    savint = INTCON;                                                            // Save interrupts state
+    INTCONbits.GIE = 0;                                                         // Disable interrupts
+
+    EEADR = 0;                                                                  // start from adr 256 in eeprom
+    EEADRH = 1;
+
+    eeprom_write_object(&RFIDlist, 120);                                        // write 120 bytes to eeprom
+
+    unlock55 = 0;                                                               // clear unlock values
+    unlockAA = 0;
+
+    INTCON = savint;                                                            // Restore interrupts
+    //DEBUG_PRINT(("\r\nrfid list saved\r\n"));
+}
+
+// scan for matching RFID in RFIDlist
+// returns offset+6 when found, 0 when not found
+unsigned char MatchRFID(void) {
+    unsigned char offset = 0, r;
+
+    do {
+        r = memcmp(RFID + 1, RFIDlist + offset, 6 );                            // compare read RFID with list of stored RFID's
+        offset += 6;
+    } while (r !=0 && offset < 114);
+
+    if (r == 0) return offset;                                                  // return offset + 6 in RFIDlist
+    else return 0;
+}
+
+
+// Store RFID card in memory and eeprom
+// returns 1 when successful
+// returns 2 when already stored
+// returns 0 when all slots are full.
+unsigned char StoreRFID(void) {
+    unsigned char offset = 0, r;
+    unsigned char empty[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
+
+    // first check if the Card ID was already stored.
+    if ( MatchRFID() ) return 2;                                                // already stored, that's ok.
+
+    do {
+        r = memcmp(empty, RFIDlist + offset, 6 );
+        offset += 6;
+    } while (r !=0 && offset < 120);
+    if (r != 0) return 0;                                                       // no more room to store RFID
+    offset -= 6;
+//    printf("offset %u ",offset);
+    memcpy(RFIDlist + offset, RFID+1, 6);
+
+    for (r=0; r<120; r++) printf("%02x",RFIDlist[r]);
+
+    WriteRFIDlist();
+    return 1;
+}
+
+// Delete RFID card in memory and eeprom
+// returns 1 when successful, 0 when RFID was not found
+unsigned char DeleteRFID(void) {
+    unsigned char offset = 0, r;
+    unsigned char empty[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
+
+    offset = MatchRFID();                                                       // find RFID in list
+    if (offset) {
+        offset -= 6;
+        memcpy(RFIDlist + offset, empty, 6);
+    } else return 0;
+
+//    printf("deleted %u ",offset);
+//    for (r=0; r<120; r++) printf("%02x",RFIDlist[r]);
+
+    return 1;
 }
 
 void read_settings(void) {
@@ -825,7 +896,8 @@ void read_settings(void) {
     eeprom_read_object(&Grid, sizeof Grid);
     eeprom_read_object(&EVMeter, sizeof EVMeter);
     eeprom_read_object(&EVMeterAddress, sizeof EVMeterAddress);
-    
+    eeprom_read_object(&RFIDReader, sizeof RFIDReader);
+
     validate_settings();
 
 }
@@ -869,6 +941,7 @@ void write_settings(void) {
     eeprom_write_object(&Grid, sizeof Grid);
     eeprom_write_object(&EVMeter, sizeof EVMeter);
     eeprom_write_object(&EVMeterAddress, sizeof EVMeterAddress);
+    eeprom_write_object(&RFIDReader, sizeof RFIDReader);
     
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
@@ -1544,8 +1617,9 @@ unsigned char getMenuItems (void) {
         MenuItems[m++] = MENU_CIRCUIT;                                          // - Max current of the EVSE circuit (A) (LoadBl:Master)
     }
     MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
-    MenuItems[m++] = MENU_SWITCH;                                               // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
-    MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
+    MenuItems[m++] = MENU_SWITCH;                                               // External Switch on SW (0:Disable / 1:Access / 2:Smart-Solar)
+    MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on RCM (0:Disable / 1:Enable)
+    MenuItems[m++] = MENU_RFIDREADER;                                           // RFID Reader connected to SW (0:Disable / 1:Enable / 2:Learn / 3:Delete / 4:Delate All)
     if (Mode && LoadBl < 2) {                                                   // ? Smart or Solar mode?
         MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / Constants EM_*)
         if (MainsMeter == EM_SENSORBOX) {                                       // - ? Sensorbox?
@@ -1666,6 +1740,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                 case MENU_EMCUSTOM_IDIVISOR:
                     EMConfig[EM_CUSTOM].IDivisor = val;
                     break;
+                case MENU_RFIDREADER:
+                    RFIDReader = val;
+                    break;
                 default:
                     break;
             }
@@ -1758,6 +1835,8 @@ unsigned int getItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].IRegister;
         case MENU_EMCUSTOM_IDIVISOR:
             return EMConfig[EM_CUSTOM].IDivisor;
+        case MENU_RFIDREADER:
+            return RFIDReader;
 
         case STATUS_STATE:
             return State;
@@ -1851,6 +1930,8 @@ const far char * getMenuItemOption(unsigned char nav) {
             if (value == 8) return "Double";
             sprintf(Str, "%lu", pow10[value]);
             return Str;
+        case MENU_RFIDREADER:
+            return StrRFIDReader[RFIDReader];
         case MENU_EXIT:
             return StrExitMenu;
         default:
@@ -2141,6 +2222,14 @@ void RS232cli(void) {
                     write_settings();
                 }
                 break;
+            case MENU_RFIDREADER:
+                for(i = 0; i < 5; i++) {
+                    if (strcmp(U2buffer, StrRFIDReader[i]) == 0) {
+                        RFIDReader = i;
+                        write_settings();
+                    }
+                }
+                break;
             default:
                 n = (unsigned int) atoi(U2buffer);
                 OK = setItemValue(menu, n);
@@ -2250,6 +2339,13 @@ void RS232cli(void) {
             break;
         case MENU_EMCUSTOM_IDIVISOR:
             printf("Enter new exponent of divisor (0-7) or 8 for double: ");
+            break;
+        case MENU_RFIDREADER:
+            printf("RFID reader is set to: %s\r\nEnter new RFID reader mode (%s", getMenuItemOption(menu), StrRFIDReader[0]);
+            for(i = 1; i < 5; i++) {
+                printf("/%s", StrRFIDReader[i]);
+            }
+            printf("): ");
             break;
         case MENU_STATE:
             for (n = 0; n < NR_SLAVES; n++) {
@@ -2482,6 +2578,7 @@ void main(void) {
 
     read_settings();                                                            // from EEprom
     IsetBalanced = MaxMains * 10;                                               // Initially set to MaxMains
+    ReadRFIDlist();                                                             // Read all stored RFID's from eeprom
 
     BACKLIGHT_ON;                                                               // so we can see the version nr at powerup
     GLCD_init();
@@ -2872,7 +2969,55 @@ void main(void) {
             TMR0L = 0;
             
             Temp();                                                             // once a second, measure temperature
-            
+
+//            printf("locktimer: %lu timer: %lu\r\n lockstatus: %u", locktimer, Timer, lockstatus);
+
+            // When RFID is enabled, a OneWire RFID reader is expected on the SW input
+            if (RFIDReader) {                                                   // RFID Reader set to Enabled, Learn or Delete
+                if (OneWireReadCardId() ) {                                     // Read card ID
+                    switch (RFIDReader) {
+                        case 1:                                                 // Enabled
+                            x = MatchRFID();
+                            if (x && !RFIDstatus) {
+                                //printf("RFID card found!\r\n");
+                                if (Access_bit) {
+                                    Access_bit = 0;                             // Toggle Access bit on/off
+                                    State = STATE_A;                            // Switch back to state A
+                                } else Access_bit = 1;
+
+                                RFIDstatus = 1;
+                            }  else if (!x) RFIDstatus = 7;                     // invalid card
+                            BacklightTimer = BACKLIGHT;
+                            break;
+                        case 2:                                                 // Learn Card
+                            x = StoreRFID();
+                            if (x == 1) {
+                                printf("RFID card Stored!\r\n");
+                                RFIDstatus = 2;
+                            } else if (x == 2 && !RFIDstatus) {
+                                printf("RFID card was already stored!\r\n");
+                                RFIDstatus = 4;
+                            } else if (!RFIDstatus) {
+                                printf("RFID storage full! Delete card first\r\n");
+                                RFIDstatus = 6;
+                            }
+                            break;
+                        case 3:                                                 // Delete Card
+                            x = DeleteRFID();
+                            if (x) {
+                                printf("RFID card Deleted!\r\n");
+                                RFIDstatus = 3;
+                            } else if (!RFIDstatus) {
+                                printf("RFID card not in list!\r\n");
+                                RFIDstatus = 5;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                } else RFIDstatus = 0;
+            }
+
             if (State == STATE_B && ActivationMode < 255) ActivationMode--;     // decrease 30 sec counter when in State B
             if (State == STATE_ACTSTART && ActivationTimer) ActivationTimer--;
             

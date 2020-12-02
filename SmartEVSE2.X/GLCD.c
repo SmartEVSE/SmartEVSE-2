@@ -444,6 +444,16 @@ void GLCD(void) {
     LCDTimer++;
 
     if (LCDNav) {
+        if (LCDNav == MENU_RFIDREADER && SubMenu) {
+            if (RFIDstatus == 2) GLCD_print(0,0, (const far char*) "Card Stored");
+            else if (RFIDstatus == 3) GLCD_print(0,0, (const far char*) "Card Deleted");
+            else if (RFIDstatus == 4) GLCD_print(0,0, (const far char*) "Card already stored!");
+            else if (RFIDstatus == 5) GLCD_print(0,0, (const far char*) "Card not in storage!");
+            else if (RFIDstatus == 6) GLCD_print(0,0, (const far char*) "Card storage full!");
+            else glcd_clrln(0, 0x00);                                           // Clear line
+            LCDTimer = 0;                                                       // reset timer, so it will not exit the menu when learning/deleting cards
+        }
+
         if (LCDTimer == 120) {
             LCDNav = 0;                                                         // Exit Setup menu after 120 seconds.
             read_settings();                                                    // don't save, but restore settings
@@ -526,8 +536,18 @@ void GLCD(void) {
                 } else Str[6] = '\0';
                 GLCD_print_buf2(4, Str);
             } else {
-                GLCD_print_buf2(2, (const far char *) "ACCESS");
-                GLCD_print_buf2(4, (const far char *) "DENIED");
+                if (RFIDReader) {
+                    if (RFIDstatus == 7) {
+                        GLCD_print_buf2(2, (const far char *) "INVALID");
+                        GLCD_print_buf2(4, (const far char *) "RFID CARD");
+                    } else {
+                        GLCD_print_buf2(2, (const far char *) "PRESENT");
+                        GLCD_print_buf2(4, (const far char *) "RFID CARD");
+                    }
+                } else {
+                    GLCD_print_buf2(2, (const far char *) "ACCESS");
+                    GLCD_print_buf2(4, (const far char *) "DENIED");
+                }
             }
         }
     }                                                                           // MODE SMART or SOLAR

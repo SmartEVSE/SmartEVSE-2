@@ -205,6 +205,11 @@
 #define _A0_0 LATCbits.LATC0 = 0;
 #define _A0_1 LATCbits.LATC0 = 1;
 
+#define ENDIANESS_LBF_LWF 0
+#define ENDIANESS_LBF_HWF 1
+#define ENDIANESS_HBF_LWF 2
+#define ENDIANESS_HBF_HWF 3
+
 extern char GLCDbuf[512];                                                       // GLCD buffer (half of the display)
 
 extern unsigned int MaxMains;                                                   // Max Mains Amps (hard limit, limited by the MAINS connection)
@@ -309,19 +314,22 @@ const far struct {
 struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
+    unsigned char Function; // 3: holding registers, 4: input registers
+    unsigned int URegister; // Single phase voltage (V)
+    unsigned char UDivisor; // 10^x / 8:double
     unsigned int IRegister; // Single phase current (A)
     unsigned char IDivisor; // 10^x / 8:double
-    unsigned int ERegister; // Total energy (kWh)
-    unsigned char EDivisor; // 10^x / 8:double
     unsigned int PRegister; // Total power (W)
     unsigned char PDivisor; // 10^x / 8:double
+    unsigned int ERegister; // Total energy (kWh)
+    unsigned char EDivisor; // 10^x / 8:double
 } EMConfig[6] = {
-    {"Disabled",  0,      0, 0,      0, 0,      0, 0}, // First entry!
-    {"Sensorbox", 3,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
-    {"Phoenix C", 2,    0xC, 3,   0x3E, 1,   0x28, 1}, // PHOENIX CONTACT EEM-350-D-MCB (mA / 0,1kWh / 0,1W)
-    {"Finder",    3, 0x100E, 8, 0x1106, 8, 0x1026, 8}, // Finder 7E.78.8.400.0212 (A / Wh / W)
-    {"Eastron",   3,    0x6, 8,  0x156, 8,   0x34, 8}, // Eastron SDM630 (Own routine for request/receive) (A / kWh / W)
-    {"Custom",    0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}  // Last entry!
+    {"Disabled",  ENDIANESS_LBF_LWF, 0,      0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
+    {"Sensorbox", ENDIANESS_HBF_HWF, 4, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
+    {"Phoenix C", ENDIANESS_HBF_LWF, 4,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)
+    {"Finder",    ENDIANESS_HBF_HWF, 4, 0x1000, 8, 0x100E, 8, 0x1026, 8, 0x1106, 8}, // Finder 7E.78.8.400.0212 (V / A / W / Wh)
+    {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (Own routine for request/receive) (V / A / W / kWh)
+    {"Custom",    ENDIANESS_LBF_LWF, 4, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}  // Last entry!
 };
 
 void delay(unsigned int d);

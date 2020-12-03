@@ -432,28 +432,30 @@ void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg
 }
 
 /**
- * Request read input register (FC=04) to a device over modbus
+ * Request read holding (FC=3) or read input register (FC=04) to a device over modbus
  * 
  * @param unsigned char address
+ * @param unsigned char function
  * @param unsigned int register
  * @param unsigned int quantity
  */
-void ModbusReadInputRequest(unsigned char address, unsigned int reg, unsigned int quantity) {
+void ModbusReadInputRequest(unsigned char address, unsigned char function, unsigned int reg, unsigned int quantity) {
     Modbus.RequestAddress = address;
-    Modbus.RequestFunction = 0x04;
+    Modbus.RequestFunction = function;
     Modbus.RequestRegister = reg;
-    ModbusSend8(address, 0x04, reg, quantity);
+    ModbusSend8(address, function, reg, quantity);
 }
 
 /**
- * Response read input register (FC=04) to a device over modbus
+ * Response read holding (FC=3) or read input register (FC=04) to a device over modbus
  * 
  * @param unsigned char address
+ * @param unsigned char function
  * @param unsigned int pointer to values
  * @param unsigned char count of values
  */
-void ModbusReadInputResponse(unsigned char address, unsigned int *values, unsigned char count) {
-    ModbusSend(address, 0x04, count * 2u, values, count);
+void ModbusReadInputResponse(unsigned char address, unsigned char function, unsigned int *values, unsigned char count) {
+    ModbusSend(address, function, count * 2u, values, count);
 }
 
 /**
@@ -1276,25 +1278,25 @@ void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned cha
     
     // XC8 is little endian
     switch(endianness) {
-        case 0: // low byte first, low word first (little endian)
+        case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)
             *pBytes++ = (unsigned char)buf[pos + 0];
             *pBytes++ = (unsigned char)buf[pos + 1];
             *pBytes++ = (unsigned char)buf[pos + 2];
             *pBytes   = (unsigned char)buf[pos + 3];   
             break;
-        case 1: // low byte first, high word first
+        case ENDIANESS_LBF_HWF: // low byte first, high word first
             *pBytes++ = (unsigned char)buf[pos + 2];
             *pBytes++ = (unsigned char)buf[pos + 3];
             *pBytes++ = (unsigned char)buf[pos + 0];
             *pBytes   = (unsigned char)buf[pos + 1];   
             break;
-        case 2: // high byte first, low word first
+        case ENDIANESS_HBF_LWF: // high byte first, low word first
             *pBytes++ = (unsigned char)buf[pos + 1];
             *pBytes++ = (unsigned char)buf[pos + 0];
             *pBytes++ = (unsigned char)buf[pos + 3];
             *pBytes   = (unsigned char)buf[pos + 2];   
             break;
-        case 3: // high byte first, high word first (big endian)
+        case ENDIANESS_HBF_HWF: // high byte first, high word first (big endian)
             *pBytes++ = (unsigned char)buf[pos + 3];
             *pBytes++ = (unsigned char)buf[pos + 2];
             *pBytes++ = (unsigned char)buf[pos + 1];
@@ -1326,7 +1328,7 @@ signed double receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned
  * @param unsigned char Address
  */
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].ERegister, 2);
+    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
 }
 
 /**
@@ -1357,7 +1359,7 @@ signed double receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) 
  * @param unsigned char Address
  */
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].PRegister, 2);
+    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, 2);
 }
 
 /**
@@ -1384,15 +1386,15 @@ unsigned int receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
     switch(Meter) {
         case EM_SENSORBOX:
-            ModbusReadInputRequest(Address, 0, 20);
+            ModbusReadInputRequest(Address, 4, 0, 20);
             break;
         case EM_EASTRON:
             // Phase 1-3 current: Register 0x06 - 0x0B (unsigned)
             // Phase 1-3 power:   Register 0x0C - 0x11 (signed)
-            ModbusReadInputRequest(Address, 0x06, 12);
+            ModbusReadInputRequest(Address, 4, 0x06, 12);
             break;
         default:
-            ModbusReadInputRequest(Address, EMConfig[Meter].IRegister, 6);
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, 6);
             break;
     }  
 }
@@ -1470,7 +1472,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
  * @param unsigned char SlaveNr (1-3)
  */
 void requestSlaveStatus(unsigned char SlaveNr) {
-    ModbusReadInputRequest(SlaveNr + 1, 0xA0 , 9);                              // Slave address, start register = 0xA0 , nr of registers 9
+    ModbusReadInputRequest(SlaveNr + 1, 4, 0xA0 , 9);                              // Slave address, start register = 0xA0 , nr of registers 9
 }
 
 
@@ -2032,7 +2034,7 @@ void ReadItemValueResponse(unsigned char ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
             values[i] = getItemValue(ItemID + i);
         }
-        ModbusReadInputResponse(Modbus.Address, values, Modbus.RegisterCount);
+        ModbusReadInputResponse(Modbus.Address, Modbus.Function, values, Modbus.RegisterCount);
     } else {
         ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
     }

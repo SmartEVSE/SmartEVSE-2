@@ -270,7 +270,7 @@ extern signed double EnergyCharged;
 extern unsigned char RFID[8];
 extern unsigned char RFIDstatus;
 
-extern unsigned char MenuItems[28];
+extern unsigned char MenuItems[MENU_EXIT];
 
 const far struct {
     char Key[8];
@@ -279,7 +279,7 @@ const far struct {
     unsigned int Min;
     unsigned int Max;
     unsigned int Default;
-} MenuStr[29] = {
+} MenuStr[MENU_EXIT + 1] = {
     {"",       "",         "Not in menu", 0, 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
@@ -296,13 +296,13 @@ const far struct {
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 200, MAX_MAINS},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value
-    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, 5, MAINS_METER},
+    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, EM_CUSTOM, MAINS_METER},
     {"GRID",   "GRID",     "Grid type to which the Sensorbox is connected", 0, 1, GRID},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 0, 5, PV_METER},
+    {"PVEM",   "PV METER", "Type of PV electric meter", 0, EM_CUSTOM, PV_METER},
     {"PVAD",   "PV ADDR",  "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
-    {"EVEM",   "EV METER", "Type of EV electric meter", 0, 4, EV_METER},
+    {"EVEM",   "EV METER", "Type of EV electric meter", 0, EM_CUSTOM, EV_METER},
     {"EVAD",   "EV ADDR",  "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
@@ -323,7 +323,7 @@ struct {
     unsigned char PDivisor; // 10^x / 8:double
     unsigned int ERegister; // Total energy (kWh)
     unsigned char EDivisor; // 10^x / 8:double
-} EMConfig[6] = {
+} EMConfig[EM_CUSTOM + 1] = {
     {"Disabled",  ENDIANESS_LBF_LWF, 0,      0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
     {"Sensorbox", ENDIANESS_HBF_HWF, 4, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
     {"Phoenix C", ENDIANESS_HBF_LWF, 4,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)

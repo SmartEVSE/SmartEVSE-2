@@ -222,7 +222,7 @@ unsigned char LedUpdate = 0;                                                    
 unsigned char LedCount = 0;                                                     // Raw Counter before being converted to PWM value
 unsigned char LedPwm = 0;                                                       // PWM value 0-255
 unsigned char ModbusRequest = 0;                                                // Flag to request Modbus information
-unsigned char MenuItems[28];
+unsigned char MenuItems[MENU_EXIT];
 unsigned char unlockMagic = 0;
 unsigned char unlock55 = 0;                                                     // unlock bytes set to 0 to prevent flash write at por   
 unsigned char unlockAA = 0;                                                     // unlock bytes set to 0 to prevent flash write at por

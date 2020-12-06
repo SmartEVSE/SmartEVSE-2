@@ -661,25 +661,17 @@ void GLCD(void) {
 }
 
 
-//##############################################################################################################################
-// 10 CONFIG			- Set to Fixed Cable or Type 2 Socket
-// 20 MODE  			- Set to Smart mode, or Normal EVSE mode
-// 25       START       - Start Surplus Current (Mode=Solar)
-// 27       STOP        - Stop time (Mode=Solar)
-// 30		MAINS 		- Set max MAINS Current (25-100) (Mode=Smart)
-// 40 MAX   			- Set MAX Charge Current for the EV (16-80)
-// 50		MIN   		- Set MIN Charge Current the EV will accept (Mode=Smart)
-// 60 LOCK				- Cable lock Enable/disable
-// 70 CABLE				- Set Fixed Cable Current limit 
-// 80 CAL 		  		- Calibrate CT1
-// 90 EXIT				- Exit Menu
-//100 LOADBL            - Load Balancing
-//110 ACCESS            - Access control on IO2
-
-void GLCDMenu(unsigned char Buttons) {                                          // Called when one of the SmartEVSE buttons is pressed
+/**
+ * Called when one of the SmartEVSE buttons is pressed
+ * 
+ * @param Buttons: < o >
+ *          Value: 1 2 4
+ *            Bit: 0:Pressed / 1:Released
+ */
+void GLCDMenu(unsigned char Buttons) {
     static unsigned long ButtonTimer = 0;
     static unsigned char ButtonRelease = 0;                                     // keeps track of LCD Menu Navigation
-    static unsigned int CT1, CT1old, value;
+    static unsigned int CT1, CT1old, value, ButtonRepeat = 0;
     static double Iold;
     unsigned char Str[10];
 
@@ -707,30 +699,41 @@ void GLCDMenu(unsigned char Buttons) {                                          
         ICal = ICAL;                                                            // reset Calibration value    
         SubMenu = 0;                                                            // Exit Submenu
         ButtonRelease = 1;
-    } else if ((LCDNav > 1) && (Buttons == 0x2 ||                               // Buttons < or > or both pressed
-            Buttons == 0x3 || Buttons == 0x6) && (ButtonRelease == 0)) {        // We are navigating between sub menu options
-        if (SubMenu) {
-            switch (LCDNav) {
-                case MENU_CAL:
-                    CT1 = MenuNavInt(Buttons, CT1, 100, 999);
-                    break;
-                case MENU_EVMETER:                                              // do not display the Sensorbox here
-                    value = getItemValue(LCDNav);
-                    do {
+    } else if ((LCDNav > 1) && (Buttons == 0x2 || Buttons == 0x3 || Buttons == 0x6)) { // Buttons < or > or both pressed
+        if (ButtonRelease == 0) {                                               // We are navigating between sub menu options
+            if (SubMenu) {
+                switch (LCDNav) {
+                    case MENU_CAL:
+                        CT1 = MenuNavInt(Buttons, CT1, 100, 999);
+                        break;
+                    case MENU_EVMETER:                                          // do not display the Sensorbox here
+                        value = getItemValue(LCDNav);
+                        do {
+                            value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
+                        } while (EMConfig[value].ERegister == 0xFFFF);
+                        setItemValue(LCDNav, value);
+                        break;
+                    default:
+                        value = getItemValue(LCDNav);
                         value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-                    } while (EMConfig[value].ERegister == 0xFFFF);
-                    setItemValue(LCDNav, value);
-                    break;
-                default:
-                    value = getItemValue(LCDNav);
-                    value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-                    setItemValue(LCDNav, value);
-                    break;
+                        setItemValue(LCDNav, value);
+                        break;
+                }
+            } else {
+                LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
             }
-        } else {
-            LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
+            ButtonRelease = 1;
+        // Repeat button after 1 second
+        } else if (ButtonRelease == 2 && ButtonRepeat == 0) {
+            ButtonRepeat = 1000;
+            ButtonTimer = Timer + ButtonRepeat;
+        } else if (ButtonRepeat && Timer > ButtonTimer) {
+            ButtonRelease = 0;
+            if (ButtonRepeat > 1) {
+                ButtonRepeat *= 0.9;
+                ButtonTimer = Timer + ButtonRepeat;
+            }
         }
-        ButtonRelease = 1;
     } else if (LCDNav > 1 && Buttons == 0x5 && ButtonRelease == 0) {            // Button 2 pressed?
         ButtonRelease = 1;
         if (SubMenu) {                                                          // We are currently in Submenu
@@ -762,6 +765,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
         
     } else if (Buttons == 0x7) {                                                // Buttons released
         ButtonRelease = 0;
+        ButtonRepeat = 0;
         delay(10);                                                              // debounce keys (blocking)
     }
 

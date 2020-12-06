@@ -362,7 +362,7 @@ void GLCD_print_menu(unsigned char y, const far char* str) {
     if ((SubMenu && y == 4) || (!SubMenu && y == 2)) {                          // navigation arrows
         GLCDx = 0;
         GLCD_write_buf2('<');
-        GLCDx = 9 * 12 + 8;                                                     // last character of line
+        GLCDx = 10 * 12;                                                        // last character of line
         GLCD_write_buf2('>');
     }
     GLCD_print_buf2_noclr(y, str);
@@ -589,7 +589,7 @@ void GLCD(void) {
 
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
             sprintfd(Str, "%2u.%1ukWh", EnergyCharged, 1);                      // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
-            GLCD_print_buf(88, 1, Str);                                         // print to buffer
+            GLCD_print_buf(89, 1, Str);                                         // print to buffer
         }
 
         if (State == STATE_C) {

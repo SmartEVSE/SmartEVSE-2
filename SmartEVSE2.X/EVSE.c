@@ -900,6 +900,12 @@ void read_settings(void) {
     eeprom_read_object(&EVMeter, sizeof EVMeter);
     eeprom_read_object(&EVMeterAddress, sizeof EVMeterAddress);
     eeprom_read_object(&RFIDReader, sizeof RFIDReader);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].URegister, sizeof EMConfig[EM_CUSTOM].URegister);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].UDivisor, sizeof EMConfig[EM_CUSTOM].UDivisor);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].PRegister, sizeof EMConfig[EM_CUSTOM].PRegister);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].PDivisor, sizeof EMConfig[EM_CUSTOM].PDivisor);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
 
     validate_settings();
 
@@ -945,7 +951,13 @@ void write_settings(void) {
     eeprom_write_object(&EVMeter, sizeof EVMeter);
     eeprom_write_object(&EVMeterAddress, sizeof EVMeterAddress);
     eeprom_write_object(&RFIDReader, sizeof RFIDReader);
-    
+    eeprom_write_object(&EMConfig[EM_CUSTOM].URegister, sizeof EMConfig[EM_CUSTOM].URegister);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].UDivisor, sizeof EMConfig[EM_CUSTOM].UDivisor);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].PRegister, sizeof EMConfig[EM_CUSTOM].PRegister);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].PDivisor, sizeof EMConfig[EM_CUSTOM].PDivisor);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
+
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
     
@@ -1637,15 +1649,21 @@ unsigned char getMenuItems (void) {
                 MenuItems[m++] = MENU_PVMETER;                                  // - - - Type of PV electric meter (0: Disabled / Constants EM_*)
                 if (PVMeter) MenuItems[m++] = MENU_PVMETERADDRESS;              // - - - - Address of PV electric meter (5 - 254)
             }
-            if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM) {              // ? Custom electric meter used?
-                MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                       // - Byte order of custom electric meter
-                MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                       // - Starting register for current of custom electric meter
-                MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                        // - Divisor for current of custom electric meter
-            }
         }
         MenuItems[m++] = MENU_EVMETER;                                          // - Type of EV electric meter (0: Disabled / Constants EM_*)
         if (EVMeter) {                                                          // - ? EV meter configured?
             MenuItems[m++] = MENU_EVMETERADDRESS;                               // - - Address of EV electric meter (5 - 254)
+        }
+        if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM || EVMeter == EM_CUSTOM) { // ? Custom electric meter used?
+            MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                           // - Byte order of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_UREGISTER;                           // - Starting register for voltage of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_UDIVISOR;                            // - Divisor for voltage of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                           // - Starting register for current of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                            // - Divisor for current of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_PREGISTER;                           // - Starting register for power of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_PDIVISOR;                            // - Divisor for power of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_EREGISTER;                           // - Starting register for energy of custom electric meter
+            MenuItems[m++] = MENU_EMCUSTOM_EDIVISOR;                            // - Divisor for energy of custom electric meter
         }
     }
     MenuItems[m++] = MENU_EXIT;
@@ -1737,11 +1755,29 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                 case MENU_EMCUSTOM_ENDIANESS:
                     EMConfig[EM_CUSTOM].Endianness = val;
                     break;
+                case MENU_EMCUSTOM_UREGISTER:
+                    EMConfig[EM_CUSTOM].URegister = val;
+                    break;
+                case MENU_EMCUSTOM_UDIVISOR:
+                    EMConfig[EM_CUSTOM].UDivisor = val;
+                    break;
                 case MENU_EMCUSTOM_IREGISTER:
                     EMConfig[EM_CUSTOM].IRegister = val;
                     break;
                 case MENU_EMCUSTOM_IDIVISOR:
                     EMConfig[EM_CUSTOM].IDivisor = val;
+                    break;
+                case MENU_EMCUSTOM_PREGISTER:
+                    EMConfig[EM_CUSTOM].PRegister = val;
+                    break;
+                case MENU_EMCUSTOM_PDIVISOR:
+                    EMConfig[EM_CUSTOM].PDivisor = val;
+                    break;
+                case MENU_EMCUSTOM_EREGISTER:
+                    EMConfig[EM_CUSTOM].ERegister = val;
+                    break;
+                case MENU_EMCUSTOM_EDIVISOR:
+                    EMConfig[EM_CUSTOM].EDivisor = val;
                     break;
                 case MENU_RFIDREADER:
                     RFIDReader = val;
@@ -1834,10 +1870,22 @@ unsigned int getItemValue(unsigned char nav) {
             return EVMeterAddress;
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
+        case MENU_EMCUSTOM_UREGISTER:
+            return EMConfig[EM_CUSTOM].URegister;
+        case MENU_EMCUSTOM_UDIVISOR:
+            return EMConfig[EM_CUSTOM].UDivisor;
         case MENU_EMCUSTOM_IREGISTER:
             return EMConfig[EM_CUSTOM].IRegister;
         case MENU_EMCUSTOM_IDIVISOR:
             return EMConfig[EM_CUSTOM].IDivisor;
+        case MENU_EMCUSTOM_PREGISTER:
+            return EMConfig[EM_CUSTOM].PRegister;
+        case MENU_EMCUSTOM_PDIVISOR:
+            return EMConfig[EM_CUSTOM].PDivisor;
+        case MENU_EMCUSTOM_EREGISTER:
+            return EMConfig[EM_CUSTOM].ERegister;
+        case MENU_EMCUSTOM_EDIVISOR:
+            return EMConfig[EM_CUSTOM].EDivisor;
         case MENU_RFIDREADER:
             return RFIDReader;
 
@@ -1914,8 +1962,12 @@ const far char * getMenuItemOption(unsigned char nav) {
         case MENU_MAINSMETERADDRESS:
         case MENU_PVMETERADDRESS:
         case MENU_EVMETERADDRESS:
+        case MENU_EMCUSTOM_UREGISTER:
         case MENU_EMCUSTOM_IREGISTER:
-            sprintf(Str, "%u (%02X)", value, value);
+        case MENU_EMCUSTOM_PREGISTER:
+        case MENU_EMCUSTOM_EREGISTER:
+            if(value < 0x1000) sprintf(Str, "%u (%02X)", value, value);
+            else sprintf(Str, "%u %X", value, value);
             return Str;
         case MENU_MAINSMETERMEASURE:
             if (MainsMeterMeasure) return StrMainsHomeEVSE;
@@ -1929,7 +1981,10 @@ const far char * getMenuItemOption(unsigned char nav) {
                 default:
                     break;
             }
+        case MENU_EMCUSTOM_UDIVISOR:
         case MENU_EMCUSTOM_IDIVISOR:
+        case MENU_EMCUSTOM_PDIVISOR:
+        case MENU_EMCUSTOM_EDIVISOR:
             if (value == 8) return "Double";
             sprintf(Str, "%lu", pow10[value]);
             return Str;
@@ -2342,7 +2397,10 @@ void RS232cli(void) {
         case MENU_EMCUSTOM_ENDIANESS:
             printf("Enter new Byte order (0: LBF & LWF, 1: LBF & HWF, 2: HBF & LWF, 3: HBF & HWF): ");
             break;
+        case MENU_EMCUSTOM_UDIVISOR:
         case MENU_EMCUSTOM_IDIVISOR:
+        case MENU_EMCUSTOM_PDIVISOR:
+        case MENU_EMCUSTOM_EDIVISOR:
             printf("Enter new exponent of divisor (0-7) or 8 for double: ");
             break;
         case MENU_RFIDREADER:
@@ -2361,7 +2419,7 @@ void RS232cli(void) {
             menu = 0;
             break;
         default:
-            printf("Enter new value (%i-%i): ", MenuStr[menu].Min, MenuStr[menu].Max);
+            printf("Enter new value (%u-%u): ", MenuStr[menu].Min, MenuStr[menu].Max);
             break;
     }
     ISR2FLAG = 0;                                                               // clear flag

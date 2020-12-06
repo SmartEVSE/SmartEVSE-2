@@ -75,8 +75,14 @@
 #define MIN_METER_ADDRESS 10
 #define MAX_METER_ADDRESS 247
 #define EMCUSTOM_ENDIANESS 0
+#define EMCUSTOM_UREGISTER 0
+#define EMCUSTOM_UDIVISOR 8
 #define EMCUSTOM_IREGISTER 0
-#define EMCUSTOM_IDIVISOR 0
+#define EMCUSTOM_IDIVISOR 8
+#define EMCUSTOM_PREGISTER 0
+#define EMCUSTOM_PDIVISOR 8
+#define EMCUSTOM_EREGISTER 0
+#define EMCUSTOM_EDIVISOR 8
 #define RFID_READER 0
 
 
@@ -162,10 +168,16 @@
 #define MENU_EVMETER 22
 #define MENU_EVMETERADDRESS 23
 #define MENU_EMCUSTOM_ENDIANESS 24
-#define MENU_EMCUSTOM_IREGISTER 25
-#define MENU_EMCUSTOM_IDIVISOR 26
-#define MENU_RFIDREADER 27
-#define MENU_EXIT 28
+#define MENU_EMCUSTOM_UREGISTER 25
+#define MENU_EMCUSTOM_UDIVISOR 26
+#define MENU_EMCUSTOM_IREGISTER 27
+#define MENU_EMCUSTOM_IDIVISOR 28
+#define MENU_EMCUSTOM_PREGISTER 29
+#define MENU_EMCUSTOM_PDIVISOR 30
+#define MENU_EMCUSTOM_EREGISTER 31
+#define MENU_EMCUSTOM_EDIVISOR 32
+#define MENU_RFIDREADER 33
+#define MENU_EXIT 34
 
 #define MENU_STATE 50
 
@@ -305,8 +317,14 @@ const far struct {
     {"EVEM",   "EV METER", "Type of EV electric meter", 0, EM_CUSTOM, EV_METER},
     {"EVAD",   "EV ADDR",  "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
-    {"EMIREG", "CUR REGI", "Register for Current of custom electric meter", 0, 255, EMCUSTOM_IREGISTER},
-    {"ENIDIV", "CUR DIVI", "Divisor for Current of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},
+    {"EMUREG", "VOL REGI", "Register for Voltage (V) of custom electric meter", 0, 65530, EMCUSTOM_UREGISTER},
+    {"ENUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 8, EMCUSTOM_UDIVISOR},
+    {"EMIREG", "CUR REGI", "Register for Current (A) of custom electric meter", 0, 65530, EMCUSTOM_IREGISTER},
+    {"ENIDIV", "CUR DIVI", "Divisor for Current (A) of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},
+    {"EMPREG", "POW REGI", "Register for Power (W) of custom electric meter", 0, 65534, EMCUSTOM_PREGISTER},
+    {"ENPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 8, EMCUSTOM_PDIVISOR},
+    {"EMEREG", "ENE REGI", "Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
+    {"ENEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 8, EMCUSTOM_EDIVISOR},
     {"RFID",   "RFID",     "Use RFID reader, learn/remove cards", 0, 4, RFID_READER},
     {"EXIT",   "EXIT",     "EXIT", 0, 0, 0}
 };

@@ -347,7 +347,7 @@ struct {
     {"Phoenix C", ENDIANESS_HBF_LWF, 4,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)
     {"Finder",    ENDIANESS_HBF_HWF, 4, 0x1000, 8, 0x100E, 8, 0x1026, 8, 0x1106, 8}, // Finder 7E.78.8.400.0212 (V / A / W / Wh)
     {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (Own routine for request/receive) (V / A / W / kWh)
-    {"Custom",    ENDIANESS_LBF_LWF, 4, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}  // Last entry!
+    {"Custom",    ENDIANESS_LBF_LWF, 4,      0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
 };
 
 void delay(unsigned int d);

@@ -351,7 +351,7 @@ void GLCD_print_buf2_noclr(unsigned char y, const far char* str) {
     while (str[i]) {
         GLCD_write_buf2(str[i++]);
     }
-    GLCD_sendbuf2(y);                                                            // copy buffer to LCD
+    GLCD_sendbuf2(y);                                                           // copy buffer to LCD
 }
 
 
@@ -639,13 +639,13 @@ void GLCD(void) {
             GLCD_print_buf2(5, Str);
         } else if (State == STATE_C) {
 
-            if (LCDTimer < 7) {                                                 //LCDtimer 0-5 sec
+            if (LCDTimer < 7) {                                                 // LCDtimer 0-5 sec
                 if (LCDTimer < 4 && Mode != MODE_NORMAL ) {
                     if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
                     else GLCD_print_buf2(5, (const far char *) "SMART");
 
                 } else GLCD_print_buf2(5, (const far char *) "CHARGING");
-            } else {                                                            //LCDTimer 6-9 sec
+            } else {                                                            // LCDTimer 6-9 sec
                 if (EVMeter && LCDTimer > 8) sprintfd(Str, "%u.%02u kWh", EnergyCharged, 2);
                 else sprintf(Str, "%u.%uA", Balanced[0] / 10, Balanced[0] % 10);
                 GLCD_print_buf2(5, Str);
@@ -714,7 +714,7 @@ void GLCDMenu(unsigned char Buttons) {                                          
                 case MENU_CAL:
                     CT1 = MenuNavInt(Buttons, CT1, 100, 999);
                     break;
-                case MENU_EVMETER:                                              // do not display the Sensorbox and custom meter here
+                case MENU_EVMETER:                                              // do not display the Sensorbox here
                     value = getItemValue(LCDNav);
                     do {
                         value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
@@ -826,7 +826,7 @@ void st7565_data(unsigned char data) {
 
 void goto_row(unsigned char y) {
     unsigned char pattern;
-    pattern = 0xB0 | (y & 0xBF);                                                //put row address on data port set command     
+    pattern = 0xB0 | (y & 0xBF);                                                // put row address on data port set command
     st7565_command(pattern);
 }
 //--------------------
@@ -834,9 +834,9 @@ void goto_row(unsigned char y) {
 void goto_col(unsigned char x) {
     unsigned char pattern;
     pattern = ((0xF0 & x) >> 4) | 0x10;
-    st7565_command(pattern);                                                    //set high byte column command
+    st7565_command(pattern);                                                    // set high byte column command
     pattern = ((0x0F & x)) | 0x00;
-    st7565_command(pattern);                                                    //set low byte column command;
+    st7565_command(pattern);                                                    // set low byte column command;
 }
 //--------------------
 
@@ -849,7 +849,7 @@ void glcd_clrln(unsigned char ln, unsigned char data) {
     unsigned char i;
     goto_xy(0, ln);
     for (i = 0; i < 128; i++) {
-        st7565_data(data);                                                      //put data on data port  
+        st7565_data(data);                                                      // put data on data port
     }
 }
 
@@ -861,7 +861,7 @@ void GLCD_sendbuf2(unsigned char RowAdr) {
 
     do {
         goto_xy(0, RowAdr + y);
-        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    //put data on data port
+        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
     } while (++y < 2);
 }
 
@@ -873,7 +873,7 @@ void GLCD_sendbuf4(unsigned char RowAdr) {
 
     do {
         goto_xy(0, RowAdr + y);
-        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    //put data on data port
+        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
     } while (++y < 4);
 }
 

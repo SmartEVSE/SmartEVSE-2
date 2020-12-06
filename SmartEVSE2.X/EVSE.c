@@ -334,7 +334,7 @@ void interrupt high_isr(void)
                 if (locktimer++ > 700) {
                     if (PORTCbits.RC1 == lock2 )                                // still unlocked...
                     {
-                        if (locktimer > 5000) locktimer = 0;                    //try to lock again in 5 seconds
+                        if (locktimer > 5000) locktimer = 0;                    // try to lock again in 5 seconds
                     } else locktimer = 700;
                 }
                 unlocktimer = 0;
@@ -1071,7 +1071,7 @@ void SetCurrent(unsigned int current)                                           
     CCP1CON = (((DutyCycle & 0x03) << 4) | 0x0C);                               // PWM Pilot signal enabled
 }
 
-// Is there atleast 6A(configurable MinCurrent) available for a EVSE?
+// Is there at least 6A(configurable MinCurrent) available for a EVSE?
 // returns 1 if there is 6A available
 // returns 0 if there is no current available
 //
@@ -1484,7 +1484,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
  * @param unsigned char SlaveNr (1-3)
  */
 void requestSlaveStatus(unsigned char SlaveNr) {
-    ModbusReadInputRequest(SlaveNr + 1, 4, 0xA0 , 9);                              // Slave address, start register = 0xA0 , nr of registers 9
+    ModbusReadInputRequest(SlaveNr + 1, 4, 0xA0 , 9);                           // Slave address, start register = 0xA0 , nr of registers 9
 }
 
 
@@ -1583,7 +1583,7 @@ void processAllSlaveStates(unsigned char SlaveAdr) {
 
     if (write) {
         printf("SlaveAdr %u, BalancedError:%u \r\n",SlaveAdr, BalancedError[SlaveAdr]);
-        ModbusWriteMultipleRequest(SlaveAdr+1 , 0xA0, values, 2);     // Write State and Error to Slave
+        ModbusWriteMultipleRequest(SlaveAdr+1 , 0xA0, values, 2);               // Write State and Error to Slave
     }
 
 }
@@ -2010,7 +2010,7 @@ unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterC
         return 255;
     }
 
-    else if (Modbus.Register == 0xA8 && (Mode == 0 || LoadBl == 0) ) {               // Do not change Charge Mode when set to Normal or Load Balancing is disabled
+    else if (Modbus.Register == 0xA8 && (Mode == 0 || LoadBl == 0) ) {          // Do not change Charge Mode when set to Normal or Load Balancing is disabled
         return 255;
     }
 
@@ -2188,7 +2188,7 @@ void RS232cli(void) {
         switch (menu) {
             case MENU_CAL:
                 Inew = atof(U2buffer);
-                if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with atleast 6A\r\n");
+                if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with at least 6A\r\n");
                 else {
                     Iold = abs(Irms[0]) / ICal;
                     ICal = (Inew * 10) / Iold;                                  // Calculate new Calibration value
@@ -2248,7 +2248,7 @@ void RS232cli(void) {
             case MENU_GRID:
                 for(i = 0; i < 2; i++){
                     if (strcmp(U2buffer, StrGrid[i]) == 0) {
-                        Grid = i;                                               //4Wire=0, 3Wire=1
+                        Grid = i;                                               // 4Wire=0, 3Wire=1
                         write_settings();
                     }
                 }
@@ -2265,7 +2265,7 @@ void RS232cli(void) {
             case MENU_MAINSMETER:
             case MENU_PVMETER:
             case MENU_EVMETER:
-                for(i = 0; i <= EM_CUSTOM; i++){                                // Don't accept Sensorbox and Custom for EVMETER
+                for(i = 0; i <= EM_CUSTOM; i++){                                // Don't accept Sensorbox for EVMETER
                     if ( (strcmp(U2buffer, EMConfig[i].Desc) == 0) && !(EMConfig[i].ERegister == 0xffff && menu == MENU_EVMETER) ) {
                         setItemValue(menu, i);
                         write_settings();
@@ -2931,7 +2931,7 @@ void main(void) {
                         PORTCbits.RC2 = 0;                                      // Control pilot static -12V
                         printf("Activation Mode Triggered\r\n");
                     }
-                    NextState = NOSTATE;                                     // no State to switch to
+                    NextState = NOSTATE;                                        // no State to switch to
                 }
             }
             if (TMR2 > 230)                                                     // PWM > 92%
@@ -2982,7 +2982,7 @@ void main(void) {
                             State = STATE_A;                                    // switch back to STATE_A
                             printf("STATE C->A\r\n");
                             GLCD_init();                                        // Re-init LCD
-                            if (LoadBl < 2) BalancedState[0] = 0;              // Load Balancing : Master or Disabled
+                            if (LoadBl < 2) BalancedState[0] = 0;               // Load Balancing : Master or Disabled
                                                                                 // Mark EVSE as disconnected
                         }
                     } else {
@@ -3235,7 +3235,7 @@ void main(void) {
         // Receive data from modbus
         // last reception more then 3ms ago? // complete packet detected?
 
-        if (idx && (ModbusTimer > 3) ) {                                        //if (idx && Timer > (ModbusTimer + 3)) {
+        if (idx && (ModbusTimer > 3) ) {                                        // if (idx && Timer > (ModbusTimer + 3)) {
             memcpy(U1packet, U1buffer, idx);                                    // store received data packet
             ISRFLAG = idx;                                                      // set flag to length of data packet
             idx = 0;                                                            // ready to receive a new packet    

@@ -33,16 +33,21 @@
 
 #define _XTAL_FREQ 16000000L                                                    // 16Mhz Xtal frequency
 
+#define LOG_DEBUG 3                                                             // Debug messages including measurement data
+#define LOG_INFO 2                                                              // Information messages without measurement data
+#define LOG_WARN 1                                                              // Warning or error messages
+#define LOG_OFF 0
+
+#define LOG_EVSE LOG_INFO                                                       // Default: LOG_INFO
+#define LOG_MODBUS LOG_WARN                                                     // Default: LOG_WARN
+
 #define VERSION "2.17"                                                          // SmartEVSE software version
-//#define DEBUG_P                                                                 // Debug print enable/disable
 #define TRANSFORMER_COMP 1.00                                                   // Current calculation compensation option for use with 230V-400V transformers,
                                                                                 // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.
                                                                                 // set to 1.00 for normal use, and to 1.73 for use with a transformer.
 
 //#define SPECIAL                                                                 // if defined, it will modify program so that some menu options are not shown
                                                                                 // should be undefined by default
-
-//#define MODBUSPRINT                                                             // debug print the modbus messages
 
 #define ICAL 1.00                                                               // Irms Calibration value (for Current transformers) 
 #define MAX_MAINS 25                                                            // max Current the Mains connection can supply
@@ -206,11 +211,24 @@
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 0x02
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
-#ifdef DEBUG_P
-#define DEBUG_PRINT(x) printf x
-#else
-#define DEBUG_PRINT(x)
-#endif 
+#if LOG_EVSE >= LOG_DEBUG
+#define LOG_DEBUG_EVSE
+#endif
+#if LOG_EVSE >= LOG_INFO
+#define LOG_INFO_EVSE
+#endif
+#if LOG_EVSE >= LOG_WARN
+#define LOG_WARN_EVSE
+#endif
+#if LOG_MODBUS >= LOG_DEBUG
+#define LOG_DEBUG_MODBUS
+#endif
+#if LOG_MODBUS >= LOG_INFO
+#define LOG_INFO_MODBUS
+#endif
+#if LOG_MODBUS >= LOG_WARN
+#define LOG_WARN_MODBUS
+#endif
 
 #define _RSTB_0 LATCbits.LATC4 = 0;
 #define _RSTB_1 LATCbits.LATC4 = 1;

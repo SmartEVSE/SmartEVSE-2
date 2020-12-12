@@ -362,7 +362,7 @@ struct {
     unsigned char EDivisor; // 10^x / 8:double
 } EMConfig[EM_CUSTOM + 1] = {
     {"Disabled",  ENDIANESS_LBF_LWF, 0,      0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
-    {"Sensorbox", ENDIANESS_HBF_HWF, 4, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
+    {"Sensorbox", ENDIANESS_HBF_HWF, 4, 0xFFFF, 0,      0, 8, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
     {"Phoenix C", ENDIANESS_HBF_LWF, 4,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)
     {"Finder",    ENDIANESS_HBF_HWF, 4, 0x1000, 8, 0x100E, 8, 0x1026, 8, 0x1106, 8}, // Finder 7E.78.8.400.0212 (V / A / W / Wh)
     {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (V / A / W / kWh)

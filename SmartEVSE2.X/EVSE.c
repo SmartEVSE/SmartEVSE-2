@@ -1445,8 +1445,6 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
  */
 unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var) {
     unsigned char x, offset;
-    signed double dCombined;
-    signed long lCombined;
 
     // No CAL option in Menu
     CalActive = 0;
@@ -1460,12 +1458,10 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             else offset = 28;                                                   // Use CTs
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
-                // combine big endian
-                combineBytes(&dCombined, buf, offset + (x * 4), 3);
                 // SmartEVSE works with Amps * 10
-                var[x] = dCombined * 10.0;
+                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IDivisor) * 10.0;
                 // When using CT's , adjust the measurements with calibration value
-                if (offset == 28) { 
+                if (offset == 28) {
                     var[x] = var[x] * ICal;
                     // When MaxMains is set to >100A, it's assumed 200A:50ma CT's are used.
                     if (MaxMains > 100) var[x] = var[x] * 2;                    // Multiply measured currents with 2
@@ -1484,28 +1480,27 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 #endif
             } else GridActive = 0;
             break;
-        case EM_EASTRON:
-            for (x = 0; x < 3; x++) {
-                combineBytes(&dCombined, buf, (x * 4), EMConfig[Meter].Endianness);
-                var[x] = dCombined * 10.0;
-                combineBytes(&dCombined, buf, ((x + 3) * 4), EMConfig[Meter].Endianness);
-                if (dCombined < 0) var[x] = -var[x];
-            }
-            break;
-        case EM_ABB:
-            for (x = 0; x < 3; x++) {
-                combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
-                var[x] = lCombined / 10.0;
-                combineBytes(&lCombined, buf, ((x + 5) * 4), EMConfig[Meter].Endianness);
-                if (lCombined < 0) var[x] = -var[x];
-            }
-            break;
         default:
             for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IDivisor) * 10.0;
             }
             break;
     }
+
+    // Get sign from power measurement on some electric meters
+    switch(Meter) {
+        case EM_EASTRON:
+            for (x = 0; x < 3; x++) {
+                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+            }
+            break;
+        case EM_ABB:
+            for (x = 0; x < 3; x++) {
+                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+            }
+            break;
+    }
+
     // all OK
     return 1;
 }

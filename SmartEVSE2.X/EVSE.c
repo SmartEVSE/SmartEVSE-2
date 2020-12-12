@@ -1425,6 +1425,11 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
             // Phase 1-3 power:   Register 0x0C - 0x11 (signed)
             ModbusReadInputRequest(Address, 4, 0x06, 12);
             break;
+        case EM_ABB:
+            // Phase 1-3 current: Register 0x5B0C - 0x5B11 (unsigned)
+            // Phase 1-3 power:   Register 0x5B16 - 0x5B1B (signed)
+            ModbusReadInputRequest(Address, 3, 0x5B0C, 16);
+            break;
         default:
             ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, 6);
             break;
@@ -1485,6 +1490,14 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 var[x] = dCombined * 10.0;
                 combineBytes(&dCombined, buf, ((x + 3) * 4), EMConfig[Meter].Endianness);
                 if (dCombined < 0) var[x] = -var[x];
+            }
+            break;
+        case EM_ABB:
+            for (x = 0; x < 3; x++) {
+                combineBytes(&lCombined, buf, (x * 4), EMConfig[Meter].Endianness);
+                var[x] = lCombined / 10.0;
+                combineBytes(&lCombined, buf, ((x + 5) * 4), EMConfig[Meter].Endianness);
+                if (lCombined < 0) var[x] = -var[x];
             }
             break;
         default:

@@ -200,7 +200,8 @@
 #define EM_PHOENIX_CONTACT 2
 #define EM_FINDER 3
 #define EM_EASTRON 4
-#define EM_CUSTOM 5
+#define EM_ABB 5
+#define EM_CUSTOM 6
 
 #define MODBUS_INVALID 0
 #define MODBUS_OK 1
@@ -364,7 +365,8 @@ struct {
     {"Sensorbox", ENDIANESS_HBF_HWF, 4, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
     {"Phoenix C", ENDIANESS_HBF_LWF, 4,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)
     {"Finder",    ENDIANESS_HBF_HWF, 4, 0x1000, 8, 0x100E, 8, 0x1026, 8, 0x1106, 8}, // Finder 7E.78.8.400.0212 (V / A / W / Wh)
-    {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (Own routine for request/receive) (V / A / W / kWh)
+    {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (V / A / W / kWh)
+    {"ABB",       ENDIANESS_HBF_HWF, 3, 0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed
     {"Custom",    ENDIANESS_LBF_LWF, 4,      0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
 };
 

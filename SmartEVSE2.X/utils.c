@@ -103,6 +103,45 @@ unsigned char crc8(unsigned char *buf, unsigned char len) {
 	return crc;
 }
 
+/**
+ * Calculates 16-bit CRC of given data
+ * used for Frame Check Sequence on data frame
+ * 
+ * @param unsigned char pointer to buffer
+ * @param unsigned char length of buffer
+ * @return unsigned int CRC
+ */
+unsigned int crc16(unsigned char *buf, unsigned char len) {
+    unsigned int pos, crc = 0xffff;
+    unsigned char i;
+
+    // Poly used is x^16+x^15+x^2+x
+    for (pos = 0; pos < len; pos++) {
+        crc ^= (unsigned int)buf[pos];                                          // XOR byte into least sig. byte of crc
+
+        for (i = 8; i != 0; i--) {                                              // Loop over each bit
+            if ((crc & 0x0001) != 0) {                                          // If the LSB is set
+                crc >>= 1;                                                      // Shift right and XOR 0xA001
+                crc ^= 0xA001;
+            } else                                                              // Else LSB is not set
+                crc >>= 1;                                                      // Just shift right
+        }
+    }
+
+    return crc;
+}
+
+/**
+ * Delay for number of mS (blocking)
+ * 
+ * @param unsigned int d: Number or milliseconds
+ */
+void delay(unsigned int d) {
+    unsigned long x;
+    x = Timer;                                                                  // read Timer value (increased every ms)
+    while (Timer < (x + d));
+}
+
 unsigned char OneWireReadCardId(void) {
     unsigned char x;
 
@@ -170,26 +209,4 @@ unsigned char ease8InOutQuad(unsigned char i) {
         jj2 = 255u - jj2;
     }
     return jj2;
-}
-
-// calculates 16-bit CRC of given data
-// used for Frame Check Sequence on data frame
-unsigned int crc16(unsigned char *buf, unsigned char len) {
-    unsigned int pos, crc = 0xffff;
-    unsigned char i;
-    
-    // Poly used is x^16+x^15+x^2+x
-    for (pos = 0; pos < len; pos++) {
-        crc ^= (unsigned int)buf[pos];                                          // XOR byte into least sig. byte of crc
-
-        for (i = 8; i != 0; i--) {                                          // Loop over each bit
-            if ((crc & 0x0001) != 0) {                                          // If the LSB is set
-                crc >>= 1;                                                      // Shift right and XOR 0xA001
-                crc ^= 0xA001;
-            } else                                                              // Else LSB is not set
-                crc >>= 1;                                                      // Just shift right
-        }
-    }        
-
-    return crc;
 }

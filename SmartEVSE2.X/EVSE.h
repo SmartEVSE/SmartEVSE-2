@@ -295,6 +295,8 @@ extern unsigned char LCDpos;
 extern unsigned char ChargeDelay;                                               // Delays charging at least 60 seconds in case of not enough current available.
 extern unsigned char TestState;
 extern unsigned char Access_bit;
+extern unsigned char GridActive;                                                // When the CT's are used on Sensorbox2, it enables the GRID menu option.
+extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
 extern signed double EnergyCharged;
@@ -370,7 +372,7 @@ struct {
     {"Custom",    ENDIANESS_LBF_LWF, 4,      0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
 };
 
-void delay(unsigned int d);
+void RS485SendBuf(char *buffer, unsigned char len);
 void read_settings(void);
 void write_settings(void);
 unsigned char GetPosInMenu(unsigned char count);

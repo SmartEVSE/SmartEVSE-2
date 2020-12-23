@@ -457,7 +457,7 @@ void GLCD(void) {
         if (LCDTimer == 120) {
             LCDNav = 0;                                                         // Exit Setup menu after 120 seconds.
             read_settings();                                                    // don't save, but restore settings
-        } else return;                                                          // disable LCD status messages when navigating LCD Menu	
+        } else return;                                                          // disable LCD status messages when navigating LCD Menu
     }
 
     if (LCDTimer == 12) LCDTimer = 0;
@@ -465,7 +465,7 @@ void GLCD(void) {
     if (Error) {
         BACKLIGHT_ON;                                                           // We switch backlight on, as we exit after displaying the error
         BacklightTimer = BACKLIGHT;                                             // Backlight timer is set to 60 seconds
-        
+
         if (Error & CT_NOCOMM) {                                                // No serial communication for 10 seconds
             GLCD_print_buf2(0, (const far char *) "ERROR NO");
             GLCD_print_buf2(2, (const far char *) "SERIAL COM");
@@ -552,7 +552,7 @@ void GLCD(void) {
         }
     }                                                                           // MODE SMART or SOLAR
     else if ((Mode == MODE_SMART) || (Mode == MODE_SOLAR)) {
-        
+
         memcpy (GLCDbuf, LCD_Flow, 512);                                        // copy Flow Menu to LCD buffer
 
         if (Mode == MODE_SMART) {                                               // remove the Sun from the LCD buffer
@@ -571,8 +571,8 @@ void GLCD(void) {
             sprintf(Str, "%02u:%02u", minutes, seconds);
             GLCD_print_buf(100, 0, Str);                                        // print to buffer
         }
-        
-        
+
+
         if (Isum < 0) {
             energy_mains -= 3;                                                  // animate the flow of Mains energy on LCD.
             if (energy_mains < 20) energy_mains = 44;                           // Only in Mode: Smart or Solar
@@ -583,7 +583,7 @@ void GLCD(void) {
 
         GLCDx = energy_mains;
         GLCDy = 3;
-                                                                                
+
         if (abs(Isum) >3 ) GLCD_write_buf(0xFE);                                // Show energy flow 'blob' between Grid and House
                                                                                 // If current flow is < 0.3A don't show the blob
 
@@ -631,7 +631,7 @@ void GLCD(void) {
             if (LCDTimer < 6) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
-        } else if (State != STATE_C) { 
+        } else if (State != STATE_C) {
             sprintf(Str, "READY %u", ChargeDelay);
             if (ChargeDelay) {
                 BacklightTimer = BACKLIGHT;
@@ -679,12 +679,12 @@ void GLCDMenu(unsigned char Buttons) {
 
     // Main Menu Navigation
     BacklightTimer = BACKLIGHT;                                                 // delay before LCD backlight turns off.
-    BACKLIGHT_ON;                                                               // LCD backlight on	
+    BACKLIGHT_ON;                                                               // LCD backlight on
 
     if (RCmon == 1 && (Error & RCD_TRIPPED) && PORTBbits.RB1 == 0) {            // RCD was tripped, but RCD level is back to normal
         Error &= ~RCD_TRIPPED;                                                  // Clear RCD error bit, by pressing any button
     }
-        
+
     if ((LCDNav == 0) && (Buttons == 0x5) && (ButtonRelease == 0)) {            // Button 2 pressed ?
         LCDNav = MENU_ENTER;                                                    // about to enter menu
         ButtonTimer = Timer;
@@ -696,7 +696,7 @@ void GLCDMenu(unsigned char Buttons) {
         ButtonRelease = 0;
         GLCD();
     } else if ((LCDNav == MENU_CAL) && (Buttons == 0x2) &&  SubMenu ) {         // Buttons 1> and 3< pressed ?
-        ICal = ICAL;                                                            // reset Calibration value    
+        ICal = ICAL;                                                            // reset Calibration value
         SubMenu = 0;                                                            // Exit Submenu
         ButtonRelease = 1;
     } else if ((LCDNav > 1) && (Buttons == 0x2 || Buttons == 0x3 || Buttons == 0x6)) { // Buttons < or > or both pressed
@@ -757,12 +757,12 @@ void GLCDMenu(unsigned char Buttons) {
                 TestState = 0;                                                  // Clear TestState
                 ChargeDelay = 0;                                                // Clear ChargeDelay
                 SolarTimerEnable = 0;                                           // Disable Solar Timer
-                GLCD();                                             
+                GLCD();
                 write_settings();                                               // Write to eeprom
                 ButtonRelease = 2;                                              // Skip updating of the LCD 
             }
         }
-        
+
     } else if (Buttons == 0x7) {                                                // Buttons released
         ButtonRelease = 0;
         ButtonRepeat = 0;
@@ -1010,7 +1010,7 @@ void GLCD_init(void) {
 
     goto_row(0x00);                                                             // Set page address
     goto_col(0x00);                                                             // Set column addr LSB
-    st7565_command(0xAF);                                                       // ON command  
+    st7565_command(0xAF);                                                       // ON command
 
 }
 

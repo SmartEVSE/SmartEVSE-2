@@ -49,7 +49,7 @@
 //#define SPECIAL                                                                 // if defined, it will modify program so that some menu options are not shown
                                                                                 // should be undefined by default
 
-#define ICAL 1.00                                                               // Irms Calibration value (for Current transformers) 
+#define ICAL 1.00                                                               // Irms Calibration value (for Current transformers)
 #define MAX_MAINS 25                                                            // max Current the Mains connection can supply
 #define MAX_CURRENT 13                                                          // max charging Current for the EV
 #define MIN_CURRENT 6                                                           // minimum Current the EV will accept
@@ -94,7 +94,7 @@
 // Mode settings
 #define MODE_NORMAL 0
 #define MODE_SMART 1
-#define MODE_SOLAR 2                    
+#define MODE_SOLAR 2
 
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
 #define NR_SLAVES 8

@@ -599,70 +599,35 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
  * 
  * @return unsigned char ItemID
  */
-unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterCount
+unsigned char mapModbusRegister2ItemID() {
     unsigned int RegisterStart, ItemStart, Count;
 
     // Register 0x0*: Slave -> Master
-    if (Modbus.Register == BROADCAST_ADR) {// && Modbus.Register <= 0x04) {
+    if (Modbus.Register == 0x01) {
         return 255;
-    }
-
-    else if (Modbus.Register == 0xA8 && (Mode == 0 || LoadBl == 0) ) {          // Do not change Charge Mode when set to Normal or Load Balancing is disabled
+    // Do not change Charge Mode when set to Normal or Load Balancing is disabled
+    } else if (Modbus.Register == 0xA8 && (Mode == 0 || LoadBl == 0) ) {
         return 255;
-    }
 
     // Register 0xA*: Status
-    // 0xA0: State
-    // 0xA1: Error
-    // 0xA2: Maximum charging current
-    // 0xA3: Minimum charging current
-    // 0xA4: Number of used phases (ToDo)
-    // 0xA5: Real charging current (ToDo)
-    // 0xA6: Charging current (A * 10)
-    // 0xA7: Access bit
-    // 0xA8: EVSE Mode
-    else if (Modbus.Register >= 0xA0 && Modbus.Register <= 0xA8) {
-        RegisterStart = 0xA0;
+    } else if (Modbus.Register >= MODBUS_EVSE_STATUS_START && Modbus.Register <= MODBUS_EVSE_STATUS_END) {
+        RegisterStart = MODBUS_EVSE_STATUS_START;
         ItemStart = STATUS_STATE;
-        Count = 9;
-    }
+        Count = MODBUS_EVSE_STATUS_END - MODBUS_EVSE_STATUS_START + 1;
 
     // Register 0xC*: Configuration
-    // 0xC0: Configuration
-    // 0xC1: Load Balance
-    // 0xC2: Minimal current the EV is happy with
-    // 0xC3: Fixed Cable Current limit
-    // 0xC4: Cable lock
-    // 0xC5: Surplus energy start Current
-    // 0xC6: Stop solar charging at 6A after this time
-    // 0xC7: External Start/Stop button
-    // 0xC8: Residual Current Monitor
-    else if (Modbus.Register >= 0xC0 && Modbus.Register <= 0xC8) {
-        RegisterStart = 0xC0;
+    } else if (Modbus.Register >= MODBUS_EVSE_CONFIG_START && Modbus.Register <= MODBUS_EVSE_CONFIG_END) {
+        RegisterStart = MODBUS_EVSE_CONFIG_START;
         ItemStart = MENU_CONFIG;
-        Count = 9;
-    }
+        Count = MODBUS_EVSE_CONFIG_END - MODBUS_EVSE_CONFIG_START + 1;
 
     // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-    // 0xE0: Max Charge Current of the system
-    // 0xE1: EVSE mode
-    // 0xE2: Max Mains Current
-    // 0xE3: CT calibration value
-    // 0xE4: Type of Mains electric meter
-    // 0xE5: Address of Mains electric meter
-    // 0xE6: What does Mains electric meter measure
-    // 0xE7: Type of PV electric meter
-    // 0xE8: Address of PV electric meter
-    // 0xE9: Byte order of custom electric meter
-    // 0xEA: Register for Current of custom electric meter
-    // 0xEB: Divisor for Current of custom electric meter (10^x)
-    else if (Modbus.Register >= 0xE0 && Modbus.Register <= 0xEB) {
-        RegisterStart = 0xE0;
+    } else if (Modbus.Register >= MODBUS_SYS_CONFIG_START && Modbus.Register <= MODBUS_SYS_CONFIG_END) {
+        RegisterStart = MODBUS_SYS_CONFIG_START;
         ItemStart = MENU_MAX;
-        Count = 12;
-    }
+        Count = MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1;
 
-    else {
+    } else {
         return 0;
     }
     

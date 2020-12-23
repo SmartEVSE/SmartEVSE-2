@@ -635,14 +635,14 @@ void write_settings(void) {
     printf("\r\nsettings saved\r\n");
 #endif
 
-   /* if (LoadBl == 1) {                                                          // Master mode
-        unsigned int i, values[12];
-        for (i = 0; i < 12; i++) {
+    if (LoadBl == 1) {                                                          // Master mode
+        unsigned int i, values[MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1];
+        for (i = 0; i < (MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1); i++) {
             values[i] = getItemValue(MENU_MAX + i);
         }
-        ModbusWriteMultipleRequest(0x00, 0xE0, values, 12);                     // Broadcast settings to other controllers (NEEDS FIX!)
+        // Broadcast settings to other controllers
+        ModbusWriteMultipleRequest(BROADCAST_ADR, MODBUS_SYS_CONFIG_START, values, MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1);
     }
-    */
 }
 
 void putch(unsigned char byte)                                                  // user defined printf support on uart2

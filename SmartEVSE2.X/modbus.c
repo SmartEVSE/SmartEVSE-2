@@ -603,7 +603,7 @@ unsigned char mapModbusRegister2ItemID() { // Modbus.Register / Modbus.RegisterC
     unsigned int RegisterStart, ItemStart, Count;
 
     // Register 0x0*: Slave -> Master
-    if (Modbus.Register == 0x01) {// && Modbus.Register <= 0x04) {
+    if (Modbus.Register == BROADCAST_ADR) {// && Modbus.Register <= 0x04) {
         return 255;
     }
 

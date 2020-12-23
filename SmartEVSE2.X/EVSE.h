@@ -41,7 +41,7 @@
 #define LOG_EVSE LOG_INFO                                                       // Default: LOG_INFO
 #define LOG_MODBUS LOG_WARN                                                     // Default: LOG_WARN
 
-#define VERSION "2.17"                                                          // SmartEVSE software version
+#define VERSION "2.20"                                                          // SmartEVSE software version
 #define TRANSFORMER_COMP 1.00                                                   // Current calculation compensation option for use with 230V-400V transformers,
                                                                                 // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.
                                                                                 // set to 1.00 for normal use, and to 1.73 for use with a transformer.
@@ -98,6 +98,7 @@
 
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
 #define NR_SLAVES 8
+#define BROADCAST_ADR 0x09
 
 #define STATE_A 0                                                               // A Vehicle not connected
 #define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy

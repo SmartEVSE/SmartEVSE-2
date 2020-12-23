@@ -893,10 +893,6 @@ void CalcBalancedCurrent(char mod) {
 
         MaxBalanced = IsetBalanced;                                             // convert to Amps
 
-#ifdef LOG_DEBUG_EVSE
-        printf("Imeasured:%.1f A IsetBalanced:%.1f A Baseload:%.1f A ", (double)Imeasured/10, (double)IsetBalanced/10, (double)Baseload/10);
-#endif
-
         // Calculate average current per EVSE
         n = 0;
         do {
@@ -934,8 +930,11 @@ void CalcBalancedCurrent(char mod) {
     
 #ifdef LOG_DEBUG_EVSE
     if (LoadBl == 1) {
-        for (n = 0; n < NR_SLAVES; n++) printf("EVSE%u[%u]:%u.%1u A ", n, BalancedState[n], Balanced[n]/10, Balanced[n]%10);
-        printf("\n\r");
+        for (n = 0; n < NR_SLAVES; n++) { 
+            printf("EVSE%u:%c(%u.%1uA)", n, BalancedState[n]+'A', Balanced[n]/10, Balanced[n]%10);
+            if (n < NR_SLAVES-1) printf(",");
+            else printf("\r\n");
+        }
     }
 #endif
 }
@@ -944,7 +943,7 @@ void CalcBalancedCurrent(char mod) {
  * Broadcast momentary currents to all Slave EVSE's
  */
 void BroadcastCurrent(void) {
-    ModbusWriteMultipleRequest(0x01, 0x01, Balanced, NR_SLAVES);
+    ModbusWriteMultipleRequest(BROADCAST_ADR, 0x01, Balanced, NR_SLAVES);
 }
 
 /**
@@ -993,19 +992,6 @@ void processAllSlaveStates(unsigned char SlaveAdr) {
 
     // Check EVSE for request to charge states
     switch (BalancedState[SlaveAdr]) {
-        case STATE_B:
-            if (current == 0) {
-                Balanced[SlaveAdr] = 0;                                         // Make sure the Slave does not start charging by setting current to 0
-                BalancedState[SlaveAdr] = STATE_A;
-                values[0] = STATE_A;
-                if (Mode == MODE_SOLAR) BalancedError[SlaveAdr] |= NO_SUN;      // Solar mode: No Solar Power available
-                else BalancedError[SlaveAdr] |= LESS_6A;                        // Normal or Smart Mode: Not enough current available 
-                write = 1;
-#ifdef LOG_INFO_EVSE
-                printf("State B->A - Not enough current!\r\n");
-#endif
-            }
-            break;
 
         case STATE_COMM_B:                                                      // Request to charge A->B
 #ifdef LOG_INFO_EVSE
@@ -1934,7 +1920,7 @@ void UpdateCurrentData(void) {
             ResetBalancedStates();
 
             // Broadcast Error code over RS485
-            ModbusWriteSingleRequest(0x01, 0x02, LESS_6A);
+            ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, LESS_6A);
             NoCurrent = 0;
         } else if (LoadBl) BroadcastCurrent();                                  // Master sends current to all connected EVSE's
 
@@ -2026,7 +2012,7 @@ void main(void) {
                 SolarTimerEnable = 0;                                           // Also make sure the SolarTimer is disabled.
                 LCDTimer = 0;
                                                                                 // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
-                if (LoadBl == 1) ModbusWriteSingleRequest(0x01, 0xA8, Mode);
+                if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                 leftbutton = 5;
         } else if (leftbutton && ButtonState == 0x7) leftbutton--;
         
@@ -2070,7 +2056,7 @@ void main(void) {
                                 Mode = MODE_SMART;
                                 SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
                             }                                                   // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
-                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(0x01, 0xA8, Mode);
+                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
@@ -2109,13 +2095,13 @@ void main(void) {
                                 SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
                                 LCDTimer = 0;
                                                                                 // Broadcast change of Charging mode (Solar/Smart) to slave EVSE's
-                                if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(0x01, 0xA8, Mode);
+                                if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                             }
                             RB2low = 0;
                             break;    
                         case 4: // Smart-Solar Switch
                             if (Mode == MODE_SMART) Mode = MODE_SOLAR;
-                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(0x01, 0xA8, Mode);
+                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                             break;
                         default:
                             break;
@@ -2448,7 +2434,7 @@ void main(void) {
                      Error |= NO_SUN; 
                                           
                      ResetBalancedStates();                                     // reset all states
-                     ModbusWriteSingleRequest(0x01, 0x02, NO_SUN);
+                     ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, NO_SUN);
                      
                 }   
             } else SolarStopTimer=0;   
@@ -2466,7 +2452,7 @@ void main(void) {
 #ifdef LOG_DEBUG_EVSE
                 printf("No sun/current Errors Cleared.\r\n");
 #endif
-                ModbusWriteSingleRequest(0x01, 0x02, Error);                    // Broadcast
+                ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, Error);                    // Broadcast
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
@@ -2668,7 +2654,7 @@ void main(void) {
                             break;
                         }    
                         // Broadcast or addressed to this device
-                        if (Modbus.Address == 0x01 || Modbus.Address == LoadBl) {
+                        if (Modbus.Address == BROADCAST_ADR|| Modbus.Address == LoadBl) {
                             
                             ItemID = mapModbusRegister2ItemID();
                             if (ItemID < 255) WriteItemValueResponse(ItemID);
@@ -2677,7 +2663,7 @@ void main(void) {
                         break;
                     case 0x10: // (Write multiple register))
                         // Broadcast or addressed to this device
-                        if (Modbus.Address == 0x01 || Modbus.Address == LoadBl) {
+                        if (Modbus.Address == BROADCAST_ADR|| Modbus.Address == LoadBl) {
                             // 0x01: Balance currents
                             if (Modbus.Register == 0x01 && LoadBl > 1) {        // Message for Slave(s)
                                 BalancedReceived = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
@@ -2706,7 +2692,7 @@ void main(void) {
 
         // Process received data on Slaves
         if (DataReceived) {                                                     // Master -> Slave
-            if (Modbus.Address == 0x01 && LoadBl > 1)                           // Broadcast message from Master->Slaves, Set Charge current
+            if (Modbus.Address == BROADCAST_ADR && LoadBl > 1)                           // Broadcast message from Master->Slaves, Set Charge current
             {
                 switch (Modbus.Register) {
                     case 0x01:

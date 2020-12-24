@@ -359,11 +359,13 @@ void interrupt high_isr(void)
 // Copy modbus frame to output buffer
 // Start RS485 transmission, by enabling TX interrupt
 void RS485SendBuf(char *buffer, unsigned char len) {
-    unsigned char i,index = 0;
+    unsigned char index = 0;
 
+#ifdef LOG_INFO_MODBUS
+    printf("\nSend packet");
+#endif
 #ifdef LOG_DEBUG_MODBUS
-    for (i=0;i<len;i++) printf("%02X ",buffer[i]);
-    printf("\r\n");
+    for (unsigned char i=0; i<len; i++) printf(" %02X", buffer[i]);
 #endif
     while (ISRTXFLAG) {}                                                        // wait if we are already transmitting on the RS485 bus (blocking, does not occur?)
     ISRTXLEN = len;                                                             // number of bytes to transfer
@@ -2526,6 +2528,9 @@ void main(void) {
 
         // Every 2 seconds, request measurements from modbus meters
         if (ModbusRequest && ModbusTimer >= 100 ) {
+#ifdef LOG_DEBUG_MODBUS
+            printf("\nModbusRequest %u", ModbusRequest);
+#endif
             switch (ModbusRequest++) {                                          // State
                 case 1:                                                         // PV kwh meter
                     if (PVMeter) {
@@ -2599,11 +2604,6 @@ void main(void) {
             idx = 0;                                                            // ready to receive a new packet
 
             ModbusDecode(U1packet, ISRFLAG);
-#ifdef LOG_DEBUG_MODBUS
-                printf("Received packet (%i bytes) ",ISRFLAG);
-                for (x=0; x<ISRFLAG; x++) printf("%02x ",U1packet[x]);
-                printf("\n\r");
-#endif
 
             // Data received is a response to an earlier request from the master.
             if (Modbus.Type == MODBUS_RESPONSE) {

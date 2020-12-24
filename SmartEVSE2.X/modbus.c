@@ -269,6 +269,14 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
     Modbus.Type = MODBUS_INVALID;
     Modbus.Exception = 0;
 
+#ifdef LOG_INFO_MODBUS
+    printf("\nReceived packet");
+#endif
+#ifdef LOG_DEBUG_MODBUS
+    printf(" (%i bytes) ", len);
+    for (unsigned char x=0; x<len; x++) printf("%02x ", buf[x]);
+#endif
+
     // Modbus error packets length is 5 bytes
     if (len == 5) {
         // calculate checksum over all data (including crc16)
@@ -315,7 +323,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                             Modbus.Type = MODBUS_RESPONSE;
 #ifdef LOG_WARN_MODBUS
                         } else {
-                            printf("\nInvalid modbus packet");
+                            printf("\nInvalid modbus FC=04 packet");
 #endif
                         }
                     }
@@ -333,7 +341,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                         Modbus.Value = (buf[4] <<8) | buf[5];
 #ifdef LOG_WARN_MODBUS
                     } else {
-                        printf("\nInvalid modbus packet");
+                        printf("\nInvalid modbus FC=06 packet");
 #endif
                     }
                     break;
@@ -355,7 +363,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                             Modbus.Type = MODBUS_REQUEST;
 #ifdef LOG_WARN_MODBUS
                         } else {
-                            printf("\nInvalid modbus packet");
+                            printf("\nInvalid modbus FC=16 packet");
 #endif
                         }
                     }
@@ -413,6 +421,21 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
             }
         }
     }
+#ifdef LOG_DEBUG_MODBUS
+    if(Modbus.Type) {
+        printf(" Register %04x", Modbus.Register);
+    }
+#endif
+#ifdef LOG_INFO_MODBUS
+    switch (Modbus.Type) {
+        case MODBUS_REQUEST:
+            printf(" Request");
+            break;
+        case MODBUS_RESPONSE:
+            printf(" Response");
+            break;
+    }
+#endif
 }
 
 

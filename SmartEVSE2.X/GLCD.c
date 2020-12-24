@@ -662,6 +662,22 @@ void GLCD(void) {
 
 
 /**
+ * Counts nr of menu options currently available
+ * 
+ * @param unsigned char count
+ * @return unsigned char postion
+ */
+unsigned char GetPosInMenu (unsigned char count) {
+    unsigned char i;
+
+    for (i = 0; i < count; i++) {
+        if (MenuItems[i] == LCDNav) return i+1;
+    }
+    return 0;
+}
+
+
+/**
  * Called when one of the SmartEVSE buttons is pressed
  * 
  * @param Buttons: < o >

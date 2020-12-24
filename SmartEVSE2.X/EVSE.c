@@ -1957,7 +1957,7 @@ void UpdateCurrentData(void) {
 
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
-    unsigned char pilot, count = 0, timeout = 5, DataReceived = 0, MainsReceived = 0;
+    unsigned char pilot, count = 0, timeout = 5, DataReceived = 0;
     unsigned char DiodeCheck = 0, ItemID, ActivationMode = 0, ActivationTimer = 0;
     unsigned char SlaveAdr, Broadcast = 1, RB2count = 0, RB2last = 1;
     unsigned int BalancedReceived;
@@ -2527,15 +2527,15 @@ void main(void) {
         // Every 2 seconds, request measurements from modbus meters
         if (ModbusRequest && ModbusTimer >= 100 ) {
             switch (ModbusRequest++) {                                          // State
-                case 1:
-                    requestCurrentMeasurement(MainsMeter, MainsMeterAddress);   // Sensorbox or kWh meter that measures -all- currents
-                    break;
-                case 2:                                                         // PV kwh meter
+                case 1:                                                         // PV kwh meter
                     if (PVMeter) {
                         requestCurrentMeasurement(PVMeter, PVMeterAddress);
                         break;
                     }
                     ModbusRequest++;
+                case 2:                                                         // Sensorbox or kWh meter that measures -all- currents
+                    requestCurrentMeasurement(MainsMeter, MainsMeterAddress);
+                    break;
                 case 3:                                                         // EV kWh meter, Energy measurement (total charged kWh)
                     if (EVMeter) {
                         requestEnergyMeasurement(EVMeter, EVMeterAddress);
@@ -2611,23 +2611,23 @@ void main(void) {
                 switch (Modbus.Function) {
                     case 0x03: // (Read holding register)
                     case 0x04: // (Read input register)
-                        if (Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
+                        if (PVMeter && Modbus.Address == PVMeterAddress && Modbus.Register == EMConfig[PVMeter].IRegister) {
+                            // packet from PV electric meter
+                            receiveCurrentMeasurement(Modbus.Data, PVMeter, PV);
+
+                        } else if (Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
                             // packet from Mains electric meter
                             x = receiveCurrentMeasurement(Modbus.Data, MainsMeter, Irms);
                             if (x && LoadBl <2) timeout = 10;                   // only reset timeout when data is ok, and Master/Disabled
-                            if (!PVMeter) {
-                                Isum = 0;                                       // Calculate Isum (for slaves and master)
+                            if (PVMeter) {
+                                // Calculate difference of Mains and PV electric meter
                                 for (x = 0; x < 3; x++) {
-                                    Isum = Isum + (int) Irms[x];
+                                    Irms[x] = Irms[x] - PV[x];
                                 }
                             }
-
-                        } else if (PVMeter && Modbus.Address == PVMeterAddress && Modbus.Register == EMConfig[PVMeter].IRegister) {
-                            // packet from PV electric meter
-                            receiveCurrentMeasurement(Modbus.Data, PVMeter, PV);
+                            // Calculate Isum (for slaves and master)
                             Isum = 0;
-                            for (x = 0; x < 3; x++) {                           // Calculate Isum (for slaves and master)
-                                Irms[x] = Irms[x] - PV[x];
+                            for (x = 0; x < 3; x++) {
                                 Isum = Isum + (int) Irms[x];
                             }
 

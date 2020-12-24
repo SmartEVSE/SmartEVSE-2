@@ -66,6 +66,21 @@
 ;       Speeded up State C->B detection, by removing (blocking) delays. The Renault ZOE will show an error if this takes > 100ms.
 ; 2.17  Fixed state switch bug while in solar mode.
 ;       Hides CAL menu option when CT's are not used.
+; 2.18  Fixed Temp Error, >65C stopped charging, but did not show any error message on the LCD.
+;       Internal temperature is now displayed on the LCD while in the setup menu.
+;       Added setup menu navigation indicator, which shows how many menu options are available, and which one is currently selected.
+;       Fixed MAX current adjustment above initial setting, while charging and a FIXED cable is used.
+;       Added EVMETER and EVADR option to the menu. Use a modbus kwh meter to measure the charged energy.
+;       Added charged energy to the LCD (Smart/Solar mode, master only)
+;       Uses condensed characters on the LCD, so the 'i' will not use the same space as the 'w'
+;       Increased MaxMains to 200A, and Circuit to 160A.
+;       Allows the use of 200A:50ma CT's with the Sensorbox. Will adjust (x2) measurement when MAINS setting is >100A
+;       Increased the nr of slaves to 7.
+;       Added slave polling..
+;       Added RFID reader option. Learn up to 20 RFID cards.
+;           Enabling the RFID reader will lock/unlock the SmartEVSE with a valid RFID card.
+;           Status messages when learning/deleting cards are displayed on the LCD.
+;           Erase all cards by selecting EraseAll from the menu, and then Exit Menu.
 ;
 ;
 ;   Build with MPLAB X v5.25 and XC8 compiler version 2.10

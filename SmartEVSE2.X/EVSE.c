@@ -487,7 +487,7 @@ void WriteRFIDlist(void) {
 
     INTCON = savint;                                                            // Restore interrupts
 #ifdef LOG_DEBUG_EVSE
-    printf("\r\nrfid list saved\r\n");
+    printf("\nrfid list saved\n");
 #endif
 }
 
@@ -652,7 +652,7 @@ void write_settings(void) {
 
     INTCON = savint;                                                            // Restore interrupts
 #ifdef LOG_INFO_EVSE
-    printf("\r\nsettings saved\r\n");
+    printf("\nsettings saved\n");
 #endif
 
     if (LoadBl == 1) {                                                          // Master mode
@@ -953,7 +953,7 @@ void CalcBalancedCurrent(char mod) {
         for (n = 0; n < NR_EVSES; n++) {
             printf("EVSE%u:%c(%u.%1uA)", n, BalancedState[n]+'A', Balanced[n]/10, Balanced[n]%10);
             if (n < NR_EVSES-1) printf(",");
-            else printf("\r\n");
+            else printf("\n");
         }
     }
 #endif
@@ -1009,7 +1009,7 @@ void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
     BalancedError[NodeNr] = buf[3];                                             // Node Error status
     BalancedMax[NodeNr] = buf[5] * 10;                                          // Node Max ChargeCurrent (0.1A)
     EVSEOnline[NodeNr] = true;
-    //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \r\n", NodeAdr, BalancedState[NodeAdr], BalancedError[NodeAdr], BalancedMax[NodeAdr] );
+    //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \n", NodeAdr, BalancedState[NodeAdr], BalancedError[NodeAdr], BalancedMax[NodeAdr] );
 }
 
 /**
@@ -1046,7 +1046,7 @@ void processAllNodeStates(unsigned char NodeNr) {
                 values[0] = STATE_COMM_B_OK;
                 write = 1;
 #ifdef LOG_INFO_EVSE
-                printf("- OK!\r\n");
+                printf("- OK!\n");
 #endif
             } else {                                                            // We do not have enough current to start charging
                 Balanced[NodeNr] = 0;                                           // Make sure the Node does not start charging by setting current to 0
@@ -1056,7 +1056,7 @@ void processAllNodeStates(unsigned char NodeNr) {
                     write = 1;
                 }
 #ifdef LOG_INFO_EVSE
-                printf("- Not enough current!\r\n");
+                printf("- Not enough current!\n");
 #endif
             }
             break;
@@ -1073,7 +1073,7 @@ void processAllNodeStates(unsigned char NodeNr) {
                 values[0] = STATE_COMM_C_OK;
                 write = 1;
 #ifdef LOG_INFO_EVSE
-                printf("- OK!\r\n");
+                printf("- OK!\n");
 #endif
             } else {                                                            // We do not have enough current to start charging
                 if ((BalancedError[NodeNr] & (LESS_6A|NO_SUN)) == 0) {          // Error flags cleared?
@@ -1082,7 +1082,7 @@ void processAllNodeStates(unsigned char NodeNr) {
                     write = 1;
                 }
 #ifdef LOG_INFO_EVSE
-                printf("- Not enough current!\r\n");
+                printf("- Not enough current!\n");
 #endif
             }
             break;
@@ -1095,7 +1095,7 @@ void processAllNodeStates(unsigned char NodeNr) {
 
     if (write) {
 #ifdef LOG_DEBUG_EVSE
-        printf("NodeAdr %u, BalancedError:%u \r\n",NodeNr, BalancedError[NodeNr]);
+        printf("NodeAdr %u, BalancedError:%u \n",NodeNr, BalancedError[NodeNr]);
 #endif
         ModbusWriteMultipleRequest(NodeNr+1 , 0xA0, values, 2);                 // Write State and Error to Node
     }
@@ -1530,7 +1530,7 @@ void RS232cli(void) {
     double Inew, Iold;
     unsigned char MenuItemsCount = getMenuItems();
 
-    printf("\r\n");
+    printf("\n");
     if (menu == 0)                                                              // menu = Main Menu
     {
         for(i = 0; i < MenuItemsCount - 1; i++) {
@@ -1544,7 +1544,7 @@ void RS232cli(void) {
         switch (menu) {
             case MENU_CAL:
                 Inew = atof(U2buffer);
-                if ((Inew < 6) || (Inew > 80)) printf("\r\nError! please calibrate with at least 6A\r\n");
+                if ((Inew < 6) || (Inew > 80)) printf("\nError! please calibrate with at least 6A\n");
                 else {
                     Iold = abs(Irms[0]) / ICal;
                     ICal = (Inew * 10) / Iold;                                  // Calculate new Calibration value
@@ -1649,7 +1649,7 @@ void RS232cli(void) {
                 n = (unsigned int) atoi(U2buffer);
                 OK = setItemValue(menu, n);
                 write_settings();
-                if(!OK) printf("\r\nError! please check limits\r\n");
+                if(!OK) printf("\nError! please check limits\n");
                 break;
         }
 
@@ -1658,15 +1658,15 @@ void RS232cli(void) {
     }
 
     // Show active item configuration
-    if (menu > 14 && menu < MENU_EXIT) printf("%s is set to %s\r\n", MenuStr[menu].Desc, getMenuItemOption(menu));
+    if (menu > 14 && menu < MENU_EXIT) printf("%s is set to %s\n", MenuStr[menu].Desc, getMenuItemOption(menu));
 
     switch (menu) {
         case 0:
-            printf("\r\n----------------------------- SMART EVSE -----------------------------\r\n v");
+            printf("\n----------------------------- SMART EVSE -----------------------------\n v");
             printf(VERSION);
-            printf(" for instructions, see www.smartevse.org\r\n");
-            printf(" Internal Temperature: %i C  SN: %06u\r\n", TempEVSE, serialnr);
-            printf("----------------------------------------------------------------------\r\n");
+            printf(" for instructions, see www.smartevse.org\n");
+            printf(" Internal Temperature: %i C  SN: %06u\n", TempEVSE, serialnr);
+            printf("----------------------------------------------------------------------\n");
             for(i = 0; i < MenuItemsCount - 1; i++) {
                 printf("%-07s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
                 if (MenuItems[i] == MENU_CAL) {
@@ -1674,69 +1674,69 @@ void RS232cli(void) {
                 } else {
                     printf(getMenuItemOption(MenuItems[i]));
                 }
-                printf("\r\n");
+                printf("\n");
             }
 
             printf(">");
             break;
         case MENU_CONFIG:
-            printf("Configuration : %s\r\nEnter new Configuration (FIXED/SOCKET): ", getMenuItemOption(menu));
+            printf("Configuration : %s\nEnter new Configuration (FIXED/SOCKET): ", getMenuItemOption(menu));
             break;
         case MENU_MODE:
-            printf("EVSE set to : %s\r\nEnter new EVSE Mode (NORMAL/SMART/SOLAR): ", getMenuItemOption(menu));
+            printf("EVSE set to : %s\nEnter new EVSE Mode (NORMAL/SMART/SOLAR): ", getMenuItemOption(menu));
             break;
         case MENU_START:
-            printf("Surplus energy start Current set to: %u A\r\nEnter new Surplus start Current (1-16): -", StartCurrent);
+            printf("Surplus energy start Current set to: %u A\nEnter new Surplus start Current (1-16): -", StartCurrent);
             break;
         case MENU_STOP:
-            printf("Stop solar charging at 6A after %u min.\r\nEnter new time (0-60) min: ", StopTime);
+            printf("Stop solar charging at 6A after %u min.\nEnter new time (0-60) min: ", StopTime);
             break;
         case MENU_IMPORT:
-            printf("Allow Import from grid. Current set to: %u A\r\nEnter new Import Current (0-6): ", ImportCurrent);
+            printf("Allow Import from grid. Current set to: %u A\nEnter new Import Current (0-6): ", ImportCurrent);
             break;
         case MENU_LOADBL:
-            printf("Load Balancing set to : %s\r\nEnter Load Balancing mode (%s", getMenuItemOption(menu), StrLoadBl[0]);
+            printf("Load Balancing set to : %s\nEnter Load Balancing mode (%s", getMenuItemOption(menu), StrLoadBl[0]);
             for(i = 1; i < 5; i++) {
                 printf("/%s", StrLoadBl[i]);
             }
             printf("): ");
             break;
         case MENU_MAINS:
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-            printf("MAINS Current set to: %u A\r\nEnter new max MAINS Current (10-200): ", MaxMains);
+            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
+            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
+            printf("MAINS Current set to: %u A\nEnter new max MAINS Current (10-200): ", MaxMains);
             break;
         case MENU_MIN:
-            printf("MIN Charge Current set to: %u A\r\nEnter new MIN Charge Current (6-16): ", MinCurrent);
+            printf("MIN Charge Current set to: %u A\nEnter new MIN Charge Current (6-16): ", MinCurrent);
             break;
         case MENU_MAX:
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-            printf("MAX Current set to: %u A\r\nEnter new MAX Charge Current (6-80): ", MaxCurrent);
+            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
+            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
+            printf("MAX Current set to: %u A\nEnter new MAX Charge Current (6-80): ", MaxCurrent);
             break;
         case MENU_CIRCUIT:
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\r\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\r\n");
-            printf("EVSE Circuit Current limit set to: %u A\r\nEnter new limit (10-160): ", MaxCircuit);
+            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
+            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
+            printf("EVSE Circuit Current limit set to: %u A\nEnter new limit (10-160): ", MaxCircuit);
             break;
         case MENU_LOCK:
-            printf("Cable lock set to : %s\r\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
+            printf("Cable lock set to : %s\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
             break;
         case MENU_SWITCH:
-            printf("Access Control on pin SW set to : %s\r\nAccess Control on SW (%s", getMenuItemOption(menu), StrSwitch[0]);
+            printf("Access Control on pin SW set to : %s\nAccess Control on SW (%s", getMenuItemOption(menu), StrSwitch[0]);
             for(i = 1; i < 5; i++) {
                 printf("/%s", StrSwitch[i]);
             }
             printf("): ");
             break;
         case MENU_RCMON:
-            printf("Residual Current Monitor on pin RCM set to : %s\r\nResidual Current Monitor (DISABLE/ENABLE): ", getMenuItemOption(menu));
+            printf("Residual Current Monitor on pin RCM set to : %s\nResidual Current Monitor (DISABLE/ENABLE): ", getMenuItemOption(menu));
             break;
         case MENU_GRID:
-            printf("GRID connection (for correct Sensorbox measurement) set to : %s\r\nGrid set to (4Wire/3Wire): ", getMenuItemOption(menu));
+            printf("GRID connection (for correct Sensorbox measurement) set to : %s\nGrid set to (4Wire/3Wire): ", getMenuItemOption(menu));
             break;
         case MENU_CAL:
-            printf("CT1 reads: %d.%u A\r\nEnter new Measured Current for CT1: ", (int)Irms[0]/10, (unsigned int)abs(Irms[0])%10);
+            printf("CT1 reads: %d.%u A\nEnter new Measured Current for CT1: ", (int)Irms[0]/10, (unsigned int)abs(Irms[0])%10);
             break;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
@@ -1760,7 +1760,7 @@ void RS232cli(void) {
             printf("Enter new exponent of divisor (0-7) or 8 for double: ");
             break;
         case MENU_RFIDREADER:
-            printf("RFID reader is set to: %s\r\nEnter new RFID reader mode (%s", getMenuItemOption(menu), StrRFIDReader[0]);
+            printf("RFID reader is set to: %s\nEnter new RFID reader mode (%s", getMenuItemOption(menu), StrRFIDReader[0]);
             for(i = 1; i < 5; i++) {
                 printf("/%s", StrRFIDReader[i]);
             }
@@ -1770,7 +1770,7 @@ void RS232cli(void) {
             for (n = 0; n < NR_EVSES; n++) {
                 printf("EVSE%u:%c(%u.%1uA)", n, BalancedState[n]+'A', Balanced[n]/10, Balanced[n]%10);
                 if (n < NR_EVSES-1) printf(",");
-                else printf("\r\n");
+                else printf("\n");
             }
             menu = 0;
             break;
@@ -1919,7 +1919,7 @@ void init(void) {
     CCP2CON = 0x0C;                                                             // LED PWM on
 
     unlockMagic = 0x22;
-    printf("\r\nSmart EVSE powerup.\r\n");
+    printf("\nSmart EVSE powerup.\n");
 
 }
 
@@ -1964,12 +1964,12 @@ void UpdateCurrentData(void) {
             SetCurrent(Balanced[0]);
         }
 #ifdef LOG_DEBUG_EVSE
-        printf("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A\r\n", State +'A', Error, StartCurrent,
+        printf("STATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A\n", State +'A', Error, StartCurrent,
                                                                         (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent,
                                                                         (double)Imeasured/10,
                                                                         (double)IsetBalanced/10);
 
-        printf("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\r\n", (Irms[0]/10), Irms[1]/10, Irms[2]/10, (double)Isum/10);
+        printf("L1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A\n", (Irms[0]/10), Irms[1]/10, Irms[2]/10, (double)Isum/10);
 #endif
     } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
 }
@@ -2018,7 +2018,7 @@ void main(void) {
             PIE1bits.TX1IE = 1;                                                 // enable transmit Interrupt for RS485
             DelayedRS485SendBuf = 0;                                            // reset delayed transmission flag
 #ifdef LOG_INFO_MODBUS
-            printf ("delayed transmission \r\n");
+            printf ("delayed transmission \n");
 #endif
         }
 
@@ -2188,7 +2188,7 @@ void main(void) {
                         DiodeCheck = 0;
                         ProximityPin();                                         // Sample Proximity Pin
 #ifdef LOG_DEBUG_EVSE
-                        printf("Cable limit: %uA  Max: %uA \r\n", MaxCapacity, MaxCurrent);
+                        printf("Cable limit: %uA  Max: %uA \n", MaxCapacity, MaxCurrent);
 #endif
                         if (MaxCurrent > MaxCapacity) ChargeCurrent = MaxCapacity * 10; // Do not modify Max Cable Capacity or MaxCurrent (fix 2.05)
                         else ChargeCurrent = MaxCurrent * 10;                   // Instead use new variable ChargeCurrent
@@ -2197,7 +2197,7 @@ void main(void) {
                         {                                                       // Send command to Master, followed by Max Charge Current
                             State = STATE_COMM_B;                               // Node wants to switch to State B
 #ifdef LOG_INFO_EVSE
-                            printf("STATE COMM B\r\n");
+                            printf("STATE COMM B\n");
 #endif
                         } else {                                                // Load Balancing: Master or Disabled
                             BalancedMax[0] = MaxCapacity * 10;
@@ -2207,7 +2207,7 @@ void main(void) {
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
                             BacklightTimer = BACKLIGHT;                         // Backlight ON
 #ifdef LOG_INFO_EVSE
-                            printf("STATE A->B\r\n");
+                            printf("STATE A->B\n");
 #endif
                         }
                    }
@@ -2223,7 +2223,7 @@ void main(void) {
             ActivationMode = 30;                                                // Activation mode is triggered if state C is not entered in 30 seconds.
             BacklightTimer = BACKLIGHT;                                         // Backlight ON
 #ifdef LOG_DEBUG_EVSE
-            printf("State A->B OK\r\n");
+            printf("State A->B OK\n");
 #endif
         }
 
@@ -2241,7 +2241,7 @@ void main(void) {
                         {
                             State = STATE_A;                                    // switch to STATE_A
 #ifdef LOG_INFO_EVSE
-                            printf("STATE B->A\r\n");
+                            printf("STATE B->A\n");
 #endif
                         }
                     } else {
@@ -2276,7 +2276,7 @@ void main(void) {
                                         if (!LCDNav) GLCD();                    // Don't update the LCD if we are navigating the menu
                                                                                 // immediately update LCD (20ms)
 #ifdef LOG_INFO_EVSE
-                                        printf("STATE B->C\r\n");
+                                        printf("STATE B->C\n");
 #endif
                                     }
                                     else Error |= LESS_6A;//NOCURRENT;
@@ -2295,7 +2295,7 @@ void main(void) {
                         CCP1CON = 0;                                            // PWM off
                         PORTCbits.RC2 = 0;                                      // Control pilot static -12V
 #ifdef LOG_DEBUG_EVSE
-                        printf("Activation Mode Triggered\r\n");
+                        printf("Activation Mode Triggered\n");
 #endif
                     }
                     NextState = NOSTATE;                                        // no State to switch to
@@ -2330,7 +2330,7 @@ void main(void) {
                                                                                 // Don't update the LCD if we are navigating the menu
             if (!LCDNav) GLCD();                                                // immediately update LCD
 #ifdef LOG_DEBUG_EVSE
-            printf("State C OK \r\n");
+            printf("State C OK \n");
 #endif
         }
 
@@ -2349,7 +2349,7 @@ void main(void) {
                             CONTACTOR_OFF;                                      // Contactor OFF
                             State = STATE_A;                                    // switch back to STATE_A
 #ifdef LOG_INFO_EVSE
-                            printf("STATE C->A\r\n");
+                            printf("STATE C->A\n");
 #endif
                             GLCD_init();                                        // Re-init LCD
                             if (LoadBl < 2) BalancedState[0] = 0;               // Load Balancing : Master or Disabled
@@ -2366,7 +2366,7 @@ void main(void) {
                             CONTACTOR_OFF;                                      // Contactor OFF
                             State = STATE_B;                                    // switch back to STATE_B
 #ifdef LOG_INFO_EVSE
-                            printf("STATE C->B\r\n");
+                            printf("STATE C->B\n");
 #endif
                             GLCD_init();                                        // Re-init LCD (200ms delay)
                             DiodeCheck = 0;
@@ -2405,7 +2405,7 @@ void main(void) {
 
             Temp();                                                             // once a second, measure temperature
 
-//            printf("locktimer: %lu timer: %lu\r\n lockstatus: %u", locktimer, Timer, lockstatus);
+//            printf("locktimer: %lu timer: %lu\n lockstatus: %u", locktimer, Timer, lockstatus);
 
             // When RFID is enabled, a OneWire RFID reader is expected on the SW input
             if (RFIDReader) {                                                   // RFID Reader set to Enabled, Learn or Delete
@@ -2414,7 +2414,7 @@ void main(void) {
                         case 1:                                                 // Enabled
                             x = MatchRFID();
                             if (x && !RFIDstatus) {
-                                //printf("RFID card found!\r\n");
+                                //printf("RFID card found!\n");
                                 if (Access_bit) {
                                     Access_bit = 0;                             // Toggle Access bit on/off
                                     State = STATE_A;                            // Switch back to state A
@@ -2427,23 +2427,23 @@ void main(void) {
                         case 2:                                                 // Learn Card
                             x = StoreRFID();
                             if (x == 1) {
-                                printf("RFID card Stored!\r\n");
+                                printf("RFID card Stored!\n");
                                 RFIDstatus = 2;
                             } else if (x == 2 && !RFIDstatus) {
-                                printf("RFID card was already stored!\r\n");
+                                printf("RFID card was already stored!\n");
                                 RFIDstatus = 4;
                             } else if (!RFIDstatus) {
-                                printf("RFID storage full! Delete card first\r\n");
+                                printf("RFID storage full! Delete card first\n");
                                 RFIDstatus = 6;
                             }
                             break;
                         case 3:                                                 // Delete Card
                             x = DeleteRFID();
                             if (x) {
-                                printf("RFID card Deleted!\r\n");
+                                printf("RFID card Deleted!\n");
                                 RFIDstatus = 3;
                             } else if (!RFIDstatus) {
-                                printf("RFID card not in list!\r\n");
+                                printf("RFID card not in list!\n");
                                 RFIDstatus = 5;
                             }
                             break;
@@ -2486,7 +2486,7 @@ void main(void) {
                 Error &= ~LESS_6A;                                              // Clear Errors if there is enough current available, and Load Balancing is disabled or we are Master
                 Error &= ~NO_SUN;
 #ifdef LOG_DEBUG_EVSE
-                printf("No sun/current Errors Cleared.\r\n");
+                printf("No sun/current Errors Cleared.\n");
 #endif
                 ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, Error);           // Broadcast
             }
@@ -2496,7 +2496,7 @@ void main(void) {
                 Error |= CT_NOCOMM;
                 State = STATE_A;                                                // switch back to state A
 #ifdef LOG_WARN_EVSE
-                printf("Error, communication error!\r\n");
+                printf("Error, communication error!\n");
 #endif
                 ResetBalancedStates();
             } else if (timeout) timeout--;
@@ -2506,7 +2506,7 @@ void main(void) {
                 Error |= TEMP_HIGH;
                 State = STATE_A;                                                // ERROR, switch back to STATE_A
 #ifdef LOG_WARN_EVSE
-                printf("Error, temperature %i C !\r\n", TempEVSE);
+                printf("Error, temperature %i C !\n", TempEVSE);
 #endif
                 ResetBalancedStates();
             }
@@ -2515,10 +2515,10 @@ void main(void) {
                 //Error &= ~NOCURRENT;                                            // Clear NO_CURRENT from error register
 #ifdef LOG_INFO_EVSE
                 if (Mode == MODE_SOLAR) {
-                    if (ChargeDelay == 0) printf("Waiting for Solar power..\r\n");
+                    if (ChargeDelay == 0) printf("Waiting for Solar power..\n");
             //        Error |= NO_SUN;                                            // Set new Error
                 } else {
-                    if (ChargeDelay == 0) printf("Not enough current available!\r\n");
+                    if (ChargeDelay == 0) printf("Not enough current available!\n");
             //        Error |= LESS_6A;
                 }
 #endif
@@ -2673,7 +2673,7 @@ void main(void) {
                         } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].PRegister) {
                             // packet from EV kWh meter
                             PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
-//                            printf("Power measured %u W \r\n",PowerMeasured);
+//                            printf("Power measured %u W \n",PowerMeasured);
 
                         }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0xA0) {
                             // Status packet from Node EVSE received
@@ -2732,11 +2732,11 @@ void main(void) {
                 }
             } else if (Modbus.Type == MODBUS_EXCEPTION) {
 #ifdef LOG_DEBUG_MODBUS
-                printf("Modbus Address %02x exception %u received\r\n", Modbus.Address, Modbus.Exception);
+                printf("Modbus Address %02x exception %u received\n", Modbus.Address, Modbus.Exception);
 #endif
 #ifdef LOG_WARN_MODBUS
             } else {
-                printf("\r\nCRC invalid\r\n");
+                printf("\nCRC invalid\n");
 #endif
             }
         } // (ISRFLAG > 1) 	 complete packet detected?
@@ -2752,7 +2752,7 @@ void main(void) {
                         if (Balanced[0] == 0 && State == STATE_C) State = STATE_A;                  // Stop charging if charge current is zero
                         else if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
 #ifdef LOG_DEBUG_MODBUS
-                        printf("Broadcast received, Node %u.%1u A \r\n", Balanced[0]/10, Balanced[0]%10);
+                        printf("Broadcast received, Node %u.%1u A \n", Balanced[0]/10, Balanced[0]%10);
 #endif
                         timeout = 10;                                           // reset 10 second timeout
                         break;
@@ -2762,9 +2762,9 @@ void main(void) {
                             State = STATE_A;                                    // We received an error; switch to State A, and wait 60 seconds
                             ChargeDelay = CHARGEDELAY;
 #ifdef LOG_DEBUG_MODBUS
-                            printf("Broadcast Error message received!\r\n");
+                            printf("Broadcast Error message received!\n");
                         } else {
-                            printf("Broadcast Errors Cleared received!\r\n");
+                            printf("Broadcast Errors Cleared received!\n");
 #endif
                         }
                         break;

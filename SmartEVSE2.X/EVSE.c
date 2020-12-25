@@ -113,6 +113,7 @@
 ; THE SOFTWARE.
 */
 #include <xc.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -211,6 +212,8 @@ unsigned int Balanced[NR_SLAVES] = {0, 0, 0, 0, 0, 0, 0, 0};                    
 unsigned int BalancedMax[NR_SLAVES] = {0, 0, 0, 0, 0, 0, 0, 0};                 // Max Amps value per EVSE
 char BalancedState[NR_SLAVES] = {0, 0, 0, 0, 0, 0, 0, 0};                       // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C)
 unsigned int BalancedError[NR_SLAVES] = {0, 0, 0, 0, 0, 0, 0, 0};               // Error state of EVSE
+bool EVSEOnline[NR_SLAVES];                                                     // 0: Master / 1: Slave 1 ...
+unsigned char PollEVMeter, PollEVAddress;
 
 unsigned char RX1byte;
 unsigned char idx = 0, idx2 = 0, ISRFLAG = 0, ISR2FLAG = 0, ISRTXFLAG = 0, ISRTXLEN = 0;
@@ -964,15 +967,36 @@ void BroadcastCurrent(void) {
 }
 
 /**
+ * Master requests Slave configuration over modbus
+ * Master -> Slave
+ * 
+ * @param unsigned char SlaveNr (1-7)
+ */
+void requestSlaveConfig(unsigned char SlaveNr) {
+    ModbusReadInputRequest(SlaveNr + 1, 4, 0xCB , 2);                           // Slave address, start register = 0xCB , nr of registers 2
+}
+
+/**
+ * Master receives Slave configuration over modbus
+ * Slave -> Master
+ * 
+ * @param unsigned char SlaveNr (1-7)
+ */
+void receiveSlaveConfig(unsigned char *buf, unsigned char SlaveNr) {
+    PollEVMeter = buf[1];
+    PollEVAddress = buf[3];
+}
+
+/**
  * Master requests Slave status over modbus
  * Master -> Slave
  *
  * @param unsigned char SlaveNr (1-3)
  */
 void requestSlaveStatus(unsigned char SlaveNr) {
+    EVSEOnline[SlaveNr + 1] = false;
     ModbusReadInputRequest(SlaveNr + 1, 4, 0xA0 , 9);                           // Slave address, start register = 0xA0 , nr of registers 9
 }
-
 
 /**
  * Master receives Slave status over modbus
@@ -984,6 +1008,7 @@ void receiveSlaveStatus(unsigned char *buf, unsigned char SlaveAdr) {
     BalancedState[SlaveAdr] = buf[1];                                           // Slave State
     BalancedError[SlaveAdr] = buf[3];                                           // Slave Error status
     BalancedMax[SlaveAdr] = buf[5] * 10;                                        // Slave Max ChargeCurrent (0.1A)
+    EVSEOnline[SlaveAdr] = true;
     //printf("ReceivedSlave[%u]Status State:%u Error:%u, BalancedMax:%u \r\n", SlaveAdr, BalancedState[SlaveAdr], BalancedError[SlaveAdr], BalancedMax[SlaveAdr] );
 }
 
@@ -1113,35 +1138,39 @@ unsigned char getMenuItems (void) {
     MenuItems[m++] = MENU_SWITCH;                                               // External Switch on SW (0:Disable / 1:Access / 2:Smart-Solar)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on RCM (0:Disable / 1:Enable)
     MenuItems[m++] = MENU_RFIDREADER;                                           // RFID Reader connected to SW (0:Disable / 1:Enable / 2:Learn / 3:Delete / 4:Delate All)
-    if (Mode && LoadBl < 2) {                                                   // ? Smart or Solar mode?
-        MenuItems[m++] = MENU_MAINSMETER;                                       // - Type of Mains electric meter (0: Disabled / Constants EM_*)
-        if (MainsMeter == EM_SENSORBOX) {                                       // - ? Sensorbox?
-            #ifndef SPECIAL
-            if (GridActive == 1) MenuItems[m++] = MENU_GRID;
-            #endif
-            if (CalActive == 1) MenuItems[m++] = MENU_CAL;                      // - - Sensorbox CT measurement calibration
-        } else if(MainsMeter) {                                                 // - ? Other?
-            MenuItems[m++] = MENU_MAINSMETERADDRESS;                            // - - Address of Mains electric meter (5 - 254)
-            MenuItems[m++] = MENU_MAINSMETERMEASURE;                            // - - What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
-            if (MainsMeterMeasure) {                                            // - - ? PV not measured by Mains electric meter?
-                MenuItems[m++] = MENU_PVMETER;                                  // - - - Type of PV electric meter (0: Disabled / Constants EM_*)
-                if (PVMeter) MenuItems[m++] = MENU_PVMETERADDRESS;              // - - - - Address of PV electric meter (5 - 254)
+    if (Mode) {                                                                 // ? Smart or Solar mode?
+        if (LoadBl < 2) {                                                       // - ? Load Balancing Disabled/Master?
+            MenuItems[m++] = MENU_MAINSMETER;                                   // - - Type of Mains electric meter (0: Disabled / Constants EM_*)
+            if (MainsMeter == EM_SENSORBOX) {                                   // - - ? Sensorbox?
+                #ifndef SPECIAL
+                if (GridActive == 1) MenuItems[m++] = MENU_GRID;
+                #endif
+                if (CalActive == 1) MenuItems[m++] = MENU_CAL;                  // - - - Sensorbox CT measurement calibration
+            } else if(MainsMeter) {                                             // - - ? Other?
+                MenuItems[m++] = MENU_MAINSMETERADDRESS;                        // - - - Address of Mains electric meter (5 - 254)
+                MenuItems[m++] = MENU_MAINSMETERMEASURE;                        // - - - What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
+                if (MainsMeterMeasure) {                                        // - - - ? PV not measured by Mains electric meter?
+                    MenuItems[m++] = MENU_PVMETER;                              // - - - - Type of PV electric meter (0: Disabled / Constants EM_*)
+                    if (PVMeter) MenuItems[m++] = MENU_PVMETERADDRESS;          // - - - - - Address of PV electric meter (5 - 254)
+                }
             }
         }
         MenuItems[m++] = MENU_EVMETER;                                          // - Type of EV electric meter (0: Disabled / Constants EM_*)
         if (EVMeter) {                                                          // - ? EV meter configured?
             MenuItems[m++] = MENU_EVMETERADDRESS;                               // - - Address of EV electric meter (5 - 254)
         }
-        if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM || EVMeter == EM_CUSTOM) { // ? Custom electric meter used?
-            MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                           // - Byte order of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_UREGISTER;                           // - Starting register for voltage of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_UDIVISOR;                            // - Divisor for voltage of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                           // - Starting register for current of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                            // - Divisor for current of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_PREGISTER;                           // - Starting register for power of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_PDIVISOR;                            // - Divisor for power of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_EREGISTER;                           // - Starting register for energy of custom electric meter
-            MenuItems[m++] = MENU_EMCUSTOM_EDIVISOR;                            // - Divisor for energy of custom electric meter
+        if (LoadBl < 2) {                                                       // - ? Load Balancing Disabled/Master?
+            if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM || EVMeter == EM_CUSTOM) { // ? Custom electric meter used?
+                MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                       // - - Byte order of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_UREGISTER;                       // - - Starting register for voltage of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_UDIVISOR;                        // - - Divisor for voltage of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                       // - - Starting register for current of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_IDIVISOR;                        // - - Divisor for current of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_PREGISTER;                       // - - Starting register for power of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_PDIVISOR;                        // - - Divisor for power of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_EREGISTER;                       // - - Starting register for energy of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_EDIVISOR;                        // - - Divisor for energy of custom electric meter
+            }
         }
     }
     MenuItems[m++] = MENU_EXIT;
@@ -1950,9 +1979,10 @@ void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0;
     unsigned char DiodeCheck = 0, ItemID, ActivationMode = 0, ActivationTimer = 0;
-    unsigned char SlaveAdr, Broadcast = 1, RB2count = 0, RB2last = 1;
+    unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
     unsigned int BalancedReceived;
     signed double PV[3]={0, 0, 0};
+    unsigned char PollEVSlave = NR_SLAVES;
     signed double EnergyEV = 0;
     unsigned long RB2Timer = 0;                                                 // 1500ms
     unsigned char ResetKwh = 2;                                                 // if set, reset EV kwh meter at state transition B->C
@@ -2223,6 +2253,10 @@ void main(void) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
                             if ((Error == NO_ERROR) && (ChargeDelay == 0)) {
+                                if (EVMeter && ResetKwh) {
+                                    EnergyMeterStart = EnergyEV;                // store kwh measurement at start of charging.
+                                    ResetKwh = 0;                               // clear flag, will be set when disconnected from EVSE (State A)
+                                }
                                 if (LoadBl > 1)                                 // Load Balancing : Slave
                                 {                                               // Send command to Master, followed by Charge Current
                                     State = STATE_COMM_C;
@@ -2239,10 +2273,6 @@ void main(void) {
                                         State = STATE_C;                        // switch to STATE_C
                                         LCDTimer = 0;
                                         Timer = 0;                              // reset msTimer and ChargeTimer
-                                        if (EVMeter && ResetKwh) {
-                                            EnergyMeterStart = EnergyEV;        // store kwh measurement at start of charging.
-                                            ResetKwh = 0;                       // clear flag, will be set when disconnected from EVSE (State A)
-                                        }
                                         if (!LCDNav) GLCD();                    // Don't update the LCD if we are navigating the menu
                                                                                 // immediately update LCD (20ms)
 #ifdef LOG_INFO_EVSE
@@ -2506,7 +2536,7 @@ void main(void) {
                     ModbusRequest = 1;                                          // Start with state 1
                 } else {                                                        // Normal mode
                     Imeasured = 0;                                              // No measurements, so we set it to zero
-                    ModbusRequest = 5;                                          // Start with state 5 (poll Slaves)
+                    ModbusRequest = 6;                                          // Start with state 5 (poll Slaves)
                     timeout = 10;                                               // reset timeout counter (not checked for Master)
                 }
                 Broadcast = 1;                                                  // repeat every two seconds
@@ -2530,39 +2560,54 @@ void main(void) {
                 case 2:                                                         // Sensorbox or kWh meter that measures -all- currents
                     requestCurrentMeasurement(MainsMeter, MainsMeterAddress);
                     break;
-                case 3:                                                         // EV kWh meter, Energy measurement (total charged kWh)
-                    if (EVMeter) {
-                        requestEnergyMeasurement(EVMeter, EVMeterAddress);
+                case 3:
+                    // Find next online SmartEVSE
+                    EVSEOnline[0] = true;
+                    do {
+                        PollEVSlave ++;
+                        if (PollEVSlave >= NR_SLAVES) PollEVSlave = 0;
+                    } while(EVSEOnline[PollEVSlave] == false);
+                    // Get EVMeter configuration
+                    if (PollEVSlave == 0) {
+                        PollEVMeter = EVMeter;
+                        PollEVAddress = EVMeterAddress;
+                    } else {
+                        requestSlaveConfig(PollEVSlave);
+                        break;
+                    }
+                case 4:                                                         // EV kWh meter, Energy measurement (total charged kWh)
+                    if (PollEVMeter) {
+                        requestEnergyMeasurement(PollEVMeter, PollEVAddress);
                         break;
                     }
                     ModbusRequest++;
-                case 4:                                                         // EV kWh meter, Power measurement (momentary power in Watt)
-                    if (EVMeter) {
-                        requestPowerMeasurement(EVMeter, EVMeterAddress);
+                case 5:                                                         // EV kWh meter, Power measurement (momentary power in Watt)
+                    if (PollEVMeter) {
+                        requestPowerMeasurement(PollEVMeter, PollEVAddress);
                         break;
                     }
                     ModbusRequest++;
-                case 5:                                                         // Slave 1
-                case 6:
+                case 6:                                                         // Slave 1
                 case 7:
                 case 8:
                 case 9:
                 case 10:
                 case 11:
+                case 12:
                     if (LoadBl == 1) {
-                        requestSlaveStatus(ModbusRequest - 5);                  // Master, Request Slave 1-8 status
+                        requestSlaveStatus(ModbusRequest - 6);                  // Master, Request Slave 1-8 status
                         break;
                     }
-                    ModbusRequest = 11;
-                case 12:
+                    ModbusRequest = 12;
                 case 13:
                 case 14:
                 case 15:
                 case 16:
                 case 17:
                 case 18:
+                case 19:
                     if (LoadBl == 1) {
-                        processAllSlaveStates(ModbusRequest - 12);
+                        processAllSlaveStates(ModbusRequest - 13);
                         break;
                     }
                 default:
@@ -2630,9 +2675,12 @@ void main(void) {
                             PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
 //                            printf("Power measured %u W \r\n",PowerMeasured);
 
-                        }  else if (Modbus.Address > 1 && Modbus.Address < 4 && Modbus.Register == 0xA0) {
+                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_SLAVES && Modbus.Register == 0xA0) {
                             // Status packet from Slave EVSE received
                             receiveSlaveStatus(Modbus.Data, Modbus.Address - 1);
+                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_SLAVES && Modbus.Register == 0xCB) {
+                            // Configuration packet from Slave EVSE received
+                            receiveSlaveConfig(Modbus.Data, Modbus.Address - 1);
                         }
                         break;
                     default:

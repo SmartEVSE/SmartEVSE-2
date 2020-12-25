@@ -658,7 +658,7 @@ void write_settings(void) {
     if (LoadBl == 1) {                                                          // Master mode
         unsigned int i, values[MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1];
         for (i = 0; i < (MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1); i++) {
-            values[i] = getItemValue(MENU_MAX + i);
+            values[i] = getItemValue(MENU_CIRCUIT + i);
         }
         // Broadcast settings to other controllers
         ModbusWriteMultipleRequest(BROADCAST_ADR, MODBUS_SYS_CONFIG_START, values, MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1);

@@ -181,8 +181,8 @@
 #define MENU_ENTER 1
 #define MENU_CONFIG 2                                                           // 0xC0: Configuration
 #define MENU_LOADBL 3                                                           // 0xC1: Load Balance
-#define MENU_MIN 4                                                              // 0xC2: Minimal current the EV is happy with
-#define MENU_CIRCUIT 5                                                          // 0xC3: Fixed Cable Current limit
+#define MENU_MIN 4                                                              // 0xC2: MIN Charge Current the EV will accept
+#define MENU_MAX 5                                                              // 0xC3: MAX Charge Current for this EVSE
 #define MENU_LOCK 6                                                             // 0xC4: Cable lock
 #define MENU_START 7                                                            // 0xC5: Surplus energy start Current
 #define MENU_STOP 8                                                             // 0xC6: Stop solar charging at 6A after this time
@@ -194,7 +194,7 @@
 #define MENU_EVMETERADDRESS 14                                                  // 0xCC: Address of EV electric meter
 
 // System configuration (same on all SmartEVSE in a LoadBalancing setup)
-#define MENU_MAX 15                                                             // 0xE0: Max Charge Current of the system
+#define MENU_CIRCUIT 15                                                         // 0xE0: EVSE Circuit max Current
 #define MENU_MODE 16                                                            // 0xE1: EVSE mode
 #define MENU_MAINS 17                                                           // 0xE2: Max Mains Current
 #define MENU_CAL 18                                                             // 0xE3: CT calibration value
@@ -330,7 +330,7 @@ const far struct {
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
     {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-4 SmartEVSEs", 0, 4, LOADBL},
     {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
-    {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
+    {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
     {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
     {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
@@ -340,7 +340,7 @@ const far struct {
     {"RFID",   "RFID",     "Use RFID reader, learn/remove cards", 0, 4, RFID_READER},
     {"EVEM",   "EV METER", "Type of EV electric meter", 0, EM_CUSTOM, EV_METER},
     {"EVAD",   "EV ADDR",  "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
-    {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
+    {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 200, MAX_MAINS},
     {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value

@@ -647,7 +647,7 @@ unsigned char mapModbusRegister2ItemID() {
     // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
     } else if (Modbus.Register >= MODBUS_SYS_CONFIG_START && Modbus.Register <= MODBUS_SYS_CONFIG_END) {
         RegisterStart = MODBUS_SYS_CONFIG_START;
-        ItemStart = MENU_MAX;
+        ItemStart = MENU_CIRCUIT;
         Count = MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1;
 
     } else {

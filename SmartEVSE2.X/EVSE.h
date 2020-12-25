@@ -97,16 +97,16 @@
 #define MODE_SOLAR 2
 
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
-#define NR_SLAVES 8
+#define NR_EVSES 8
 #define BROADCAST_ADR 0x09
 
 #define STATE_A 0                                                               // A Vehicle not connected
 #define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy
 #define STATE_C 2                                                               // C Vehicle connected / ready to accept energy / ventilation not required
 #define STATE_D 3                                                               // D Vehicle connected / ready to accept energy / ventilation required (not implemented)
-#define STATE_COMM_B 4                                                          // E State change request A->B (set by slave)
+#define STATE_COMM_B 4                                                          // E State change request A->B (set by node)
 #define STATE_COMM_B_OK 5                                                       // F State change A->B OK (set by master)
-#define STATE_COMM_C 6                                                          // G State change request B->C (set by slave)
+#define STATE_COMM_C 6                                                          // G State change request B->C (set by node)
 #define STATE_COMM_C_OK 7                                                       // H State change B->C OK (set by master)
 #define STATE_ACTSTART 8                                                        // I Activation mode in progress
 #define NOSTATE 255
@@ -263,7 +263,7 @@ extern char Mode;                                                               
 extern char Lock;                                                               // Cable lock enable/disable
 extern unsigned int MaxCircuit;                                                 // Max current of the EVSE circuit
 extern char Config;                                                             // Configuration (Fixed Cable or Type 2 Socket)
-extern char LoadBl;                                                             // Load Balance Setting (Disable, Master or Slave)
+extern char LoadBl;                                                             // Load Balance Setting (Disable, Master or Node)
 extern char Switch;                                                             // Allow access to EVSE with button on IO2
 extern char RCmon;                                                              // Residual Current monitor
 extern char Grid;
@@ -288,7 +288,7 @@ extern unsigned char NextState;
 extern unsigned int MaxCapacity;                                                // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
 extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps * 10) (23 = 2.3A)
 extern signed int Isum;
-extern unsigned int Balanced[NR_SLAVES];                                        // Amps value per EVSE
+extern unsigned int Balanced[NR_EVSES];                                         // Amps value per EVSE
 
 extern unsigned char RX1byte;
 extern unsigned char idx2, ISR2FLAG;

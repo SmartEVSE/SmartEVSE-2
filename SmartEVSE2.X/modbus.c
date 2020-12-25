@@ -625,7 +625,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
 unsigned char mapModbusRegister2ItemID() {
     unsigned int RegisterStart, ItemStart, Count;
 
-    // Register 0x0*: Slave -> Master
+    // Register 0x0*: Node -> Master
     if (Modbus.Register == 0x01) {
         return 255;
     // Do not change Charge Mode when set to Normal or Load Balancing is disabled

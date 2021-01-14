@@ -213,7 +213,7 @@ unsigned int BalancedMax[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                  
 char BalancedState[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                        // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C)
 unsigned int BalancedError[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                // Error state of EVSE
 bool EVSEOnline[NR_EVSES];                                                      // 0: Master / 1: Node 1 ...
-unsigned char PollEVMeter, PollEVAddress;
+struct NodeStatus Node[NR_EVSES];
 
 unsigned char RX1byte;
 unsigned char idx = 0, idx2 = 0, ISRFLAG = 0, ISR2FLAG = 0, ISRTXFLAG = 0, ISRTXLEN = 0;
@@ -257,7 +257,6 @@ signed double EnergyMeterStart = 0;                                             
 unsigned int PowerMeasured = 0;                                                 // Measured Charge power in Watt by kWh meter
 unsigned char RFID[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char RFIDstatus = 0;
-
 
 void interrupt high_isr(void)
 {
@@ -968,35 +967,14 @@ void BroadcastCurrent(void) {
 }
 
 /**
- * Master requests Node configuration over modbus
- * Master -> Node
- * 
- * @param unsigned char NodeNr (1-7)
- */
-void requestNodeConfig(unsigned char NodeNr) {
-    ModbusReadInputRequest(NodeNr + 1, 4, 0xCB , 2);                            // Node address, start register = 0xCB , nr of registers 2
-}
-
-/**
- * Master receives Node configuration over modbus
- * Node -> Master
- * 
- * @param unsigned char NodeNr (1-7)
- */
-void receiveNodeConfig(unsigned char *buf, unsigned char NodeNr) {
-    PollEVMeter = buf[1];
-    PollEVAddress = buf[3];
-}
-
-/**
  * Master requests Node status over modbus
  * Master -> Node
  *
  * @param unsigned char NodeNr (1-3)
  */
 void requestNodeStatus(unsigned char NodeNr) {
-    EVSEOnline[NodeNr + 1] = false;
-    ModbusReadInputRequest(NodeNr + 1, 4, 0xA0 , 9);                            // Node address, start register = 0xA0 , nr of registers 9
+    EVSEOnline[NodeNr] = false;
+    ModbusReadInputRequest(NodeNr + 1, 4, 0xA0 , 11);                           // Node address, start register = 0xA0 , nr of registers 11
 }
 
 /**
@@ -1006,11 +984,15 @@ void requestNodeStatus(unsigned char NodeNr) {
  * @param unsigned char NodeAdr (1-3)
  */
 void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
+    EVSEOnline[NodeNr] = true;
+//    memcpy(buf, (unsigned char*)&Node[NodeNr], sizeof(struct NodeState));
     BalancedState[NodeNr] = buf[1];                                             // Node State
     BalancedError[NodeNr] = buf[3];                                             // Node Error status
     BalancedMax[NodeNr] = buf[5] * 10;                                          // Node Max ChargeCurrent (0.1A)
-    EVSEOnline[NodeNr] = true;
-    //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \n", NodeAdr, BalancedState[NodeAdr], BalancedError[NodeAdr], BalancedMax[NodeAdr] );
+
+    Node[NodeNr].EVMeter = buf[19];
+    Node[NodeNr].EVAddress = buf[21];
+    //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \n", NodeNr, BalancedState[NodeNr], BalancedError[NodeNr], BalancedMax[NodeNr] );
 }
 
 /**
@@ -1373,8 +1355,10 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_PVMETERADDRESS:
             return PVMeterAddress;
         case MENU_EVMETER:
+        case STATUS_EVMETER:
             return EVMeter;
         case MENU_EVMETERADDRESS:
+        case STATUS_EVMETERADDRESS:
             return EVMeterAddress;
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
@@ -2537,7 +2521,7 @@ void main(void) {
                     ModbusRequest = 1;                                          // Start with state 1
                 } else {                                                        // Normal mode
                     Imeasured = 0;                                              // No measurements, so we set it to zero
-                    ModbusRequest = 6;                                          // Start with state 5 (poll Nodes)
+                    ModbusRequest = 5;                                          // Start with state 5 (poll Nodes)
                     timeout = 10;                                               // reset timeout counter (not checked for Master)
                 }
                 Broadcast = 1;                                                  // repeat every two seconds
@@ -2561,54 +2545,48 @@ void main(void) {
                 case 2:                                                         // Sensorbox or kWh meter that measures -all- currents
                     requestCurrentMeasurement(MainsMeter, MainsMeterAddress);
                     break;
-                case 3:
+                case 3:                                                         // EV kWh meter, Energy measurement (total charged kWh)
                     // Find next online SmartEVSE
                     EVSEOnline[0] = true;
+                    Node[0].EVMeter = EVMeter;
+                    Node[0].EVAddress = EVMeterAddress;
                     do {
                         PollEVNode ++;
                         if (PollEVNode >= NR_EVSES) PollEVNode = 0;
                     } while(EVSEOnline[PollEVNode] == false);
-                    // Get EVMeter configuration
-                    if (PollEVNode == 0) {
-                        PollEVMeter = EVMeter;
-                        PollEVAddress = EVMeterAddress;
-                    } else {
-                        requestNodeConfig(PollEVNode);
-                        break;
-                    }
-                case 4:                                                         // EV kWh meter, Energy measurement (total charged kWh)
-                    if (PollEVMeter) {
-                        requestEnergyMeasurement(PollEVMeter, PollEVAddress);
+                    // Request Energy
+                    if (Node[PollEVNode].EVMeter) {
+                        requestEnergyMeasurement(Node[PollEVNode].EVMeter, Node[PollEVNode].EVAddress);
                         break;
                     }
                     ModbusRequest++;
-                case 5:                                                         // EV kWh meter, Power measurement (momentary power in Watt)
-                    if (PollEVMeter) {
-                        requestPowerMeasurement(PollEVMeter, PollEVAddress);
+                case 4:                                                         // EV kWh meter, Power measurement (momentary power in Watt)
+                    if (Node[PollEVNode].EVMeter) {
+                        requestPowerMeasurement(Node[PollEVNode].EVMeter, Node[PollEVNode].EVAddress);
                         break;
                     }
                     ModbusRequest++;
-                case 6:                                                         // Node 1
+                case 5:                                                         // Node 1
+                case 6:
                 case 7:
                 case 8:
                 case 9:
                 case 10:
                 case 11:
-                case 12:
                     if (LoadBl == 1) {
-                        requestNodeStatus(ModbusRequest - 6);                   // Master, Request Node 1-8 status
+                        requestNodeStatus(ModbusRequest - 5);                   // Master, Request Node 1-8 status
                         break;
                     }
-                    ModbusRequest = 12;
+                    ModbusRequest = 11;
+                case 12:
                 case 13:
                 case 14:
                 case 15:
                 case 16:
                 case 17:
                 case 18:
-                case 19:
                     if (LoadBl == 1) {
-                        processAllNodeStates(ModbusRequest - 13);
+                        processAllNodeStates(ModbusRequest - 12);
                         break;
                     }
                 default:
@@ -2679,9 +2657,6 @@ void main(void) {
                         }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0xA0) {
                             // Status packet from Node EVSE received
                             receiveNodeStatus(Modbus.Data, Modbus.Address - 1);
-                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0xCB) {
-                            // Configuration packet from Node EVSE received
-                            receiveNodeConfig(Modbus.Data, Modbus.Address - 1);
                         }
                         break;
                     default:

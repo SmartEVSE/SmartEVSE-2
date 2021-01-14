@@ -160,7 +160,7 @@
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
 #define MODBUS_EVSE_STATUS_START 0xA0
-#define MODBUS_EVSE_STATUS_END   0xA8
+#define MODBUS_EVSE_STATUS_END   0xAA
 #define MODBUS_EVSE_CONFIG_START 0xC0
 #define MODBUS_EVSE_CONFIG_END   0xCC
 #define MODBUS_SYS_CONFIG_START  0xE0
@@ -176,6 +176,8 @@
 #define STATUS_CURRENT 70                                                       // 0xA6: Charging current (A * 10)
 #define STATUS_ACCESS 71                                                        // 0xA7: Access bit
 #define STATUS_MODE 72                                                          // 0xA8: EVSE Mode
+#define STATUS_EVMETER 73                                                       // 0xA9: Type of EV electric meter
+#define STATUS_EVMETERADDRESS 74                                                // 0xAA: Address of EV electric meter
 
 // EVSE configuration
 #define MENU_ENTER 1
@@ -382,6 +384,20 @@ struct {
     {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (V / A / W / kWh)
     {"ABB",       ENDIANESS_HBF_HWF, 3, 0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed
     {"Custom",    ENDIANESS_LBF_LWF, 4,      0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
+};
+
+struct NodeStatus {
+//    unsigned int State;
+//    unsigned int Error;
+//    unsigned int Max;
+//    unsigned int Min;
+//    unsigned int PhaseCount;
+//    unsigned int RealCurrent;
+//    unsigned int Current;
+//    unsigned int Access;
+//    unsigned int Mode;
+    unsigned int EVMeter;
+    unsigned int EVAddress;
 };
 
 void RS485SendBuf(char *buffer, unsigned char len);

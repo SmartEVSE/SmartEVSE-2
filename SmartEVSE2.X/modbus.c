@@ -383,7 +383,6 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
             // Request - Response check
             switch (Modbus.Type) {
                 case MODBUS_REQUEST:
-                    Modbus.Requested = 0;
                     Modbus.RequestAddress = Modbus.Address;
                     Modbus.RequestFunction = Modbus.Function;
                     Modbus.RequestRegister = Modbus.Register;
@@ -391,11 +390,8 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                 case MODBUS_RESPONSE:
                     // If address and function identical with last send or received request, it is a valid response
                     if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
-                        Modbus.Requested = 1;
                         if (Modbus.Function == 0x03 || Modbus.Function == 0x04) 
                             Modbus.Register = Modbus.RequestRegister;
-                    } else {
-                        Modbus.Requested = 0;
                     }
                     Modbus.RequestAddress = 0;
                     Modbus.RequestFunction = 0;
@@ -404,13 +400,11 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                 case MODBUS_OK:
                     // If address and function identical with last send or received request, it is a valid response
                     if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
-                        Modbus.Requested = 1;
                         Modbus.Type = MODBUS_RESPONSE;
                         Modbus.RequestAddress = 0;
                         Modbus.RequestFunction = 0;
                         Modbus.RequestRegister = 0;
                     } else {
-                        Modbus.Requested = 0;
                         Modbus.Type = MODBUS_REQUEST;
                         Modbus.RequestAddress = Modbus.Address;
                         Modbus.RequestFunction = Modbus.Function;
@@ -663,12 +657,14 @@ unsigned char mapModbusRegister2ItemID() {
 
 /**
  * Read item values and send modbus response
- * 
- * @param unsigned char ItemID: Start item ID
  */
-void ReadItemValueResponse(unsigned char ItemID) {
+void ReadItemValueResponse(void) {
+    unsigned char ItemID;
     unsigned char i;
     unsigned int values[12];
+
+    ItemID = mapModbusRegister2ItemID();
+    if (ItemID == 255) return;
 
     if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
@@ -682,11 +678,13 @@ void ReadItemValueResponse(unsigned char ItemID) {
 
 /**
  * Write item values and send modbus response
- * 
- * @param unsigned char ItemID: Start item ID
  */
-void WriteItemValueResponse(unsigned char ItemID) {
+void WriteItemValueResponse(void) {
+    unsigned char ItemID;
     unsigned char OK = 0;
+
+    ItemID = mapModbusRegister2ItemID();
+    if (ItemID == 255) return;
 
     if (ItemID) {
         OK = setItemValue(ItemID, Modbus.Value);
@@ -694,7 +692,7 @@ void WriteItemValueResponse(unsigned char ItemID) {
 
     if (OK && ItemID < STATUS_STATE) write_settings();
 
-    if (Modbus.Address > 0 || LoadBl == 0) {
+    if (Modbus.Address != BROADCAST_ADR || LoadBl == 0) {
         if (!ItemID) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
         } else if (!OK) {
@@ -707,11 +705,13 @@ void WriteItemValueResponse(unsigned char ItemID) {
 
 /**
  * Write multiple item values and send modbus response
- * 
- * @param unsigned char ItemID: Start item ID
  */
-void WriteMultipleItemValueResponse(unsigned char ItemID) {
+void WriteMultipleItemValueResponse(void) {
+    unsigned char ItemID;
     unsigned int i, OK = 0, value;
+
+    ItemID = mapModbusRegister2ItemID();
+    if (ItemID == 255) return;
 
     if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
@@ -722,7 +722,7 @@ void WriteMultipleItemValueResponse(unsigned char ItemID) {
 
     if (OK && ItemID < STATUS_STATE) write_settings();
 
-    if (Modbus.Address > 0 || LoadBl == 0) {
+    if (Modbus.Address != BROADCAST_ADR || LoadBl == 0) {
         if (!ItemID) {
             ModbusException(Modbus.Address, Modbus.Function, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
         } else if (!OK) {

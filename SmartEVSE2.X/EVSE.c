@@ -1993,7 +1993,7 @@ void UpdateCurrentData(void) {
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
     unsigned char pilot, count = 0, timeout = 5, DataReceived = 0;
-    unsigned char DiodeCheck = 0, ItemID, ActivationMode = 0, ActivationTimer = 0;
+    unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0;
     unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
     unsigned int BalancedReceived;
     signed double PV[3]={0, 0, 0};
@@ -2673,8 +2673,7 @@ void main(void) {
                     case 0x04: // (Read input register)
                         // Addressed to this device
                         if (Modbus.Address == LoadBl) {
-                            ItemID = mapModbusRegister2ItemID();
-                            if (ItemID < 255) ReadItemValueResponse(ItemID);
+                            ReadItemValueResponse();
                         }
                         break;
                     case 0x06: // (Write single register)
@@ -2685,9 +2684,7 @@ void main(void) {
                         }
                         // Broadcast or addressed to this device
                         if (Modbus.Address == BROADCAST_ADR|| Modbus.Address == LoadBl) {
-
-                            ItemID = mapModbusRegister2ItemID();
-                            if (ItemID < 255) WriteItemValueResponse(ItemID);
+                            WriteItemValueResponse();
                             DataReceived = 1;
                         }
                         break;
@@ -2700,9 +2697,7 @@ void main(void) {
                                 //printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
                                 DataReceived = 1;
                             }
-
-                            ItemID = mapModbusRegister2ItemID();
-                            if (ItemID < 255) WriteMultipleItemValueResponse(ItemID);
+                            WriteMultipleItemValueResponse();
                         }
                         break;
                     default:

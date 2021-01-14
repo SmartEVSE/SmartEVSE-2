@@ -34,7 +34,6 @@ struct  {
     unsigned char RequestAddress;
     unsigned char RequestFunction;
     unsigned int RequestRegister;
-    unsigned char Requested;
     unsigned char Exception;
 } Modbus;
 
@@ -59,7 +58,6 @@ unsigned int receivePowerMeasurement(unsigned char *buf, unsigned char Meter);
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address);
 unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var);
 
-unsigned char mapModbusRegister2ItemID();
-void ReadItemValueResponse(unsigned char ItemID);
-void WriteItemValueResponse(unsigned char ItemID);
-void WriteMultipleItemValueResponse(unsigned char ItemID);
+void ReadItemValueResponse(void);
+void WriteItemValueResponse(void);
+void WriteMultipleItemValueResponse(void);

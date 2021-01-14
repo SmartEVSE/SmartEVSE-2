@@ -314,6 +314,7 @@ extern unsigned char CalActive;                                                 
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
 extern signed double EnergyCharged;
+extern unsigned int PowerMeasured;
 extern unsigned char RFID[8];
 extern unsigned char RFIDstatus;
 

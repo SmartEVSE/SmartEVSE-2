@@ -602,8 +602,18 @@ void GLCD(void) {
             GLCDy = 3;
             GLCD_write_buf(0xFE);                                               // Show energy flow 'blob' between House and Car
 
-            sprintfd(Str, "%2uA", Balanced[0] / 10.0, 0);
-            GLCD_print_buf(77, 2, Str);                                         // print to buffer
+            if (LCDTimer < 5 && EVMeter) {
+                if (PowerMeasured < 10000) {
+                    sprintfd(Str, "%1u.%1ukW", PowerMeasured / 1000.0, 1);
+                    GLCD_print_buf(73, 2, Str);
+                } else {
+                    sprintfd(Str, "%2ukW", PowerMeasured / 1000.0, 0);
+                    GLCD_print_buf(75, 2, Str);
+                }
+            } else {
+                sprintfd(Str, "%2uA", Balanced[0] / 10.0, 0);
+                GLCD_print_buf(77, 2, Str);
+            }
         }
 
         if (LCDTimer < 5 && Mode == MODE_SOLAR) {                               // Show Sum of currents when solar charging.
@@ -905,9 +915,12 @@ void glcd_clear(void) {
 }
 
 void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
-    if(c >= '0' && c <='9') return;
+    if(c >= '0' && c <= '9') return;
     if(c == ' ' && space) return;
-    if(font[(5 * c)] == 0) *start = 1;
+    if(font[(5 * c)] == 0) {
+        if(font[(5 * c) + 1] == 0) *start = 2;
+        else *start = 1;
+    }
     if(font[(5 * c) + 4] == 0) *end = 4;
 }
 

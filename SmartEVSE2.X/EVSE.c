@@ -159,6 +159,7 @@ const far char StrExitMenu[] = "MENU";
 const far char StrMainsAll[] = "All"; // Everything
 const far char StrMainsHomeEVSE[] = "Home+EVSE";
 const far char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete", "DeleteAll"};
+const far char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activation"};
 
 // Global data
 char U1buffer[50],U1packet[50];                                                 // Uart1 Receive buffer /RS485
@@ -762,6 +763,35 @@ void SetCurrent(unsigned int current)                                           
     CCP1CON = (((DutyCycle & 0x03) << 4) | 0x0C);                               // PWM Pilot signal enabled
 }
 
+/**
+ * Get name of a state
+ *
+ * @param unsigned char State
+ * @return unsigned char[] Name
+ */
+const far unsigned char * getStateName(unsigned char StateCode) {
+    if(StateCode < 9) return StrStateName[StateCode];
+    else return "NOSTATE";
+}
+
+/**
+ * Set state
+ *
+ * @param NewState
+ */
+void setState(unsigned char NewState) {
+#ifdef LOG_INFO_EVSE
+#ifndef LOG_DEBUG_EVSE
+    if (State != NewState) {
+#endif
+        printf("\nSTATE %s->%s", getStateName(State), getStateName(NewState));
+#ifndef LOG_DEBUG_EVSE
+    }
+#endif
+#endif
+    State = NewState;
+}
+
 // Is there at least 6A(configurable MinCurrent) available for a EVSE?
 // returns 1 if there is 6A available
 // returns 0 if there is no current available
@@ -935,7 +965,7 @@ void CalcBalancedCurrent(char mod) {
         if (BalancedLeft)                                                       // Any Active EVSE's left?
         {
             do {                                                                // Check for EVSE's that are not set yet
-                if ((BalancedState[n] == STATE_C) && (!CurrentSet[n]))                // Active EVSE, and current not yet calculated?
+                if ((BalancedState[n] == STATE_C) && (!CurrentSet[n]))          // Active EVSE, and current not yet calculated?
                 {
                     Balanced[n] = MaxBalanced / BalancedLeft;                   // Set current to Average
                     CurrentSet[n] = 1;                                          // mark this EVSE as set.
@@ -1281,7 +1311,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         ret = 1;
         switch (nav) {
             case STATUS_STATE:                                                  // Write the State register 0x00A0
-                State = val;
+                setState(val);
                 break;
             case STATUS_ERROR:                                                  // Write the Error register 0x00A1
                 Error = val;
@@ -1293,7 +1323,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                 if (val == 0 || val == 1) {
                     Access_bit = val;
                     ret = 1;
-                    if (val == 0) State = STATE_A;
+                    if (val == 0) setState(STATE_A);
                 }
                 break;
             default:
@@ -1828,7 +1858,7 @@ void TestIO(void)                                                               
         Lock = 0;
         Error |= Test_IO;
         TestState = error;
-        State = STATE_A;
+        setState(STATE_A);
     }
 }
 
@@ -2050,7 +2080,7 @@ void main(void) {
                         case 1: // Access Button
                             if (Access_bit) {
                                 Access_bit = 0;                                 // Toggle Access bit on/off
-                                State = STATE_A;                                // Switch back to state A
+                                setState(STATE_A);                              // Switch back to state A
                             } else Access_bit = 1;
 #ifdef LOG_DEBUG_EVSE
                             printf("\nAccess: %d ", Access_bit);
@@ -2066,7 +2096,7 @@ void main(void) {
                             }
                             if (RB2low && Timer > RB2Timer + 1500) {
                                 if (State == STATE_C) {
-                                    State = STATE_A;
+                                    setState(STATE_A);
                                     if (!TestState) ChargeDelay = 15;           // Keep in State A for 15 seconds, so the Charge cable can be removed.
                                 RB2low = 2;
                                 }
@@ -2081,7 +2111,7 @@ void main(void) {
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
-                                State = STATE_A;
+                                setState(STATE_A);
                                 if (!TestState) ChargeDelay = 15;               // Keep in State A for 15 seconds, so the Charge cable can be removed.
                             }
                             break;
@@ -2102,7 +2132,7 @@ void main(void) {
                     switch (Switch) {
                         case 2: // Access Switch
                             Access_bit = 0;
-                            State = STATE_A;
+                            setState(STATE_A);
                             break;
                         case 3: // Smart-Solar Button
                             if (RB2low != 2) {
@@ -2137,7 +2167,7 @@ void main(void) {
         if (RCmon == 1 && PORTBbits.RB1 == 1)                                   // RCD monitor active, and RCD DC current > 6mA ?
         {
            if (PORTBbits.RB1 == 1) {                                            // check again, to prevent voltage spikes from tripping the RCD detection (2.07)
-                State = STATE_A;
+                setState(STATE_A);
                 Error = RCD_TRIPPED;
                 LCDTimer = 0;                                                   // display the correct error message on the LCD
             }
@@ -2156,7 +2186,7 @@ void main(void) {
 
             if (pilot == PILOT_12V) {                                           // Check if we are disconnected, or forced to State A, but still connected to the EV
 
-                State = STATE_A;                                                // reset state, incase we were stuck in STATE_COMM_B
+                if (State == STATE_COMM_B) setState(STATE_A);                   // reset state, incase we were stuck in STATE_COMM_B
                 Error &= ~NO_SUN;
                 Error &= ~LESS_6A;
                 ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
@@ -2180,20 +2210,14 @@ void main(void) {
 
                         if (LoadBl > 1)                                         // Load Balancing : Node
                         {                                                       // Send command to Master, followed by Max Charge Current
-                            State = STATE_COMM_B;                               // Node wants to switch to State B
-#ifdef LOG_INFO_EVSE
-                            printf("\nSTATE COMM B");
-#endif
+                            setState(STATE_COMM_B);                             // Node wants to switch to State B
                         } else {                                                // Load Balancing: Master or Disabled
                             BalancedMax[0] = MaxCapacity * 10;
                             Balanced[0] = ChargeCurrent;                        // Set pilot duty cycle to ChargeCurrent (v2.15)
                             BalancedState[0] = 1;                               // Mark as active
-                            State = STATE_B;                                    // switch to State B
+                            setState(STATE_B);                                  // switch to State B
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
                             BacklightTimer = BACKLIGHT;                         // Backlight ON
-#ifdef LOG_INFO_EVSE
-                            printf("\nSTATE A->B");
-#endif
                         }
                    }
                 } else {
@@ -2204,12 +2228,9 @@ void main(void) {
         }
 
         if (State == STATE_COMM_B_OK) {
-            State = STATE_B;
+            setState(STATE_B);
             ActivationMode = 30;                                                // Activation mode is triggered if state C is not entered in 30 seconds.
             BacklightTimer = BACKLIGHT;                                         // Backlight ON
-#ifdef LOG_DEBUG_EVSE
-            printf("\nState A->B OK");
-#endif
         }
 
         // ############### EVSE State B #################
@@ -2224,10 +2245,7 @@ void main(void) {
                     if (NextState == STATE_A) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
-                            State = STATE_A;                                    // switch to STATE_A
-#ifdef LOG_INFO_EVSE
-                            printf("\nSTATE B->A");
-#endif
+                            setState(STATE_A);                                  // switch to STATE_A
                         }
                     } else {
                         NextState = STATE_A;
@@ -2244,7 +2262,7 @@ void main(void) {
                                 }
                                 if (LoadBl > 1)                                 // Load Balancing : Node
                                 {                                               // Send command to Master, followed by Charge Current
-                                    State = STATE_COMM_C;
+                                    setState(STATE_COMM_C);
                                 } else {                                        // Load Balancing: Master or Disabled
                                     BalancedMax[0] = ChargeCurrent;
                                     if (IsCurrentAvailable()) {
@@ -2255,14 +2273,11 @@ void main(void) {
                                         CONTACTOR_ON;                           // Contactor ON
                                         ActivationMode = 255;                   // Disable ActivationMode
                                         DiodeCheck = 0;
-                                        State = STATE_C;                        // switch to STATE_C
+                                        setState(STATE_C);                      // switch to STATE_C
                                         LCDTimer = 0;
                                         Timer = 0;                              // reset msTimer and ChargeTimer
                                         if (!LCDNav) GLCD();                    // Don't update the LCD if we are navigating the menu
                                                                                 // immediately update LCD (20ms)
-#ifdef LOG_INFO_EVSE
-                                        printf("\nSTATE B->C");
-#endif
                                     }
                                     else Error |= LESS_6A;//NOCURRENT;
                                 }
@@ -2275,13 +2290,10 @@ void main(void) {
                 } else {                                                        // PILOT_9V
 
                     if (ActivationMode == 0) {
-                        State = STATE_ACTSTART;
+                        setState(STATE_ACTSTART);
                         ActivationTimer = 3;
                         CCP1CON = 0;                                            // PWM off
                         PORTCbits.RC2 = 0;                                      // Control pilot static -12V
-#ifdef LOG_DEBUG_EVSE
-                        printf("\nActivation Mode Triggered");
-#endif
                     }
                     NextState = NOSTATE;                                        // no State to switch to
                 }
@@ -2299,7 +2311,7 @@ void main(void) {
         }
 
         if (State == STATE_ACTSTART && ActivationTimer == 0) {
-            State = STATE_B;                                                    // Switch back to State B
+            setState(STATE_B);                                                  // Switch back to State B
             PORTCbits.RC2 = 1;                                                  // Control pilot static +12V
             ActivationMode = 255;                                               // Disable ActivationMode
         }
@@ -2307,16 +2319,13 @@ void main(void) {
         if (State == STATE_COMM_C_OK) {
             CONTACTOR_ON;                                                       // Contactor ON
             DiodeCheck = 0;
-            State = STATE_C;                                                    // switch to STATE_C
+            setState(STATE_C);                                                  // switch to STATE_C
             ActivationMode = 255;                                               // Disable ActivationMode
             NextState = NOSTATE;                                                // no State to switch to
             LCDTimer = 0;
             Timer = 0;                                                          // reset msTimer and ChargeTimer
                                                                                 // Don't update the LCD if we are navigating the menu
             if (!LCDNav) GLCD();                                                // immediately update LCD
-#ifdef LOG_DEBUG_EVSE
-            printf("\nState C OK");
-#endif
         }
 
         // ############### EVSE State C #################
@@ -2332,10 +2341,7 @@ void main(void) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
                             CONTACTOR_OFF;                                      // Contactor OFF
-                            State = STATE_A;                                    // switch back to STATE_A
-#ifdef LOG_INFO_EVSE
-                            printf("\nSTATE C->A");
-#endif
+                            setState(STATE_A);                                  // switch back to STATE_A
                             GLCD_init();                                        // Re-init LCD
                             if (LoadBl < 2) BalancedState[0] = 0;               // Load Balancing : Master or Disabled
                                                                                 // Mark EVSE as disconnected
@@ -2349,13 +2355,9 @@ void main(void) {
                         if (count++ > 25)                                       // repeat 25 times
                         {
                             CONTACTOR_OFF;                                      // Contactor OFF
-                            State = STATE_B;                                    // switch back to STATE_B
-#ifdef LOG_INFO_EVSE
-                            printf("\nSTATE C->B");
-#endif
+                            setState(STATE_B);                                  // switch back to STATE_B
                             GLCD_init();                                        // Re-init LCD (200ms delay)
                             DiodeCheck = 0;
-
                             if (LoadBl < 2) BalancedState[0] = 1;               // Load Balancing : Master or Disabled
                                                                                 // Mark EVSE as inactive (still State B)
                         }
@@ -2402,7 +2404,7 @@ void main(void) {
                                 //printf("RFID card found!\n");
                                 if (Access_bit) {
                                     Access_bit = 0;                             // Toggle Access bit on/off
-                                    State = STATE_A;                            // Switch back to state A
+                                    setState(STATE_A);                          // Switch back to state A
                                 } else Access_bit = 1;
 
                                 RFIDstatus = 1;
@@ -2449,7 +2451,7 @@ void main(void) {
             {
                 if ( SolarStopTimer++ >= (StopTime*60))                         // Convert minutes into seconds
                 {
-                     State = STATE_A;                                           // switch back to state A
+                     setState(STATE_A);                                         // switch back to state A
                      SolarTimerEnable=0;                                        // Disable Solar Timer
                      SolarStopTimer=0;
                      Error |= NO_SUN;
@@ -2479,7 +2481,7 @@ void main(void) {
             if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
             {
                 Error |= CT_NOCOMM;
-                State = STATE_A;                                                // switch back to state A
+                setState(STATE_A);                                              // switch back to state A
 #ifdef LOG_WARN_EVSE
                 printf("\nError, communication error!");
 #endif
@@ -2489,7 +2491,7 @@ void main(void) {
             if (TempEVSE >= 65 && !(Error & TEMP_HIGH))                         // Temperature too High?
             {
                 Error |= TEMP_HIGH;
-                State = STATE_A;                                                // ERROR, switch back to STATE_A
+                setState(STATE_A);                                              // ERROR, switch back to STATE_A
 #ifdef LOG_WARN_EVSE
                 printf("\nError, temperature %i C !", TempEVSE);
 #endif
@@ -2507,7 +2509,7 @@ void main(void) {
             //        Error |= LESS_6A;
                 }
 #endif
-                State = STATE_A;
+                setState(STATE_A);
                 ChargeDelay = CHARGEDELAY;                                      // Set Chargedelay
             }
 
@@ -2725,7 +2727,7 @@ void main(void) {
                 switch (Modbus.Register) {
                     case 0x01:
                         Balanced[0] = BalancedReceived;
-                        if (Balanced[0] == 0 && State == STATE_C) State = STATE_A;                  // Stop charging if charge current is zero
+                        if (Balanced[0] == 0 && State == STATE_C) setState(STATE_A);                // Stop charging if charge current is zero
                         else if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
 #ifdef LOG_DEBUG_MODBUS
                         printf("\nBroadcast received, Node %u.%1u A", Balanced[0]/10, Balanced[0]%10);
@@ -2735,7 +2737,7 @@ void main(void) {
                     case 0x02:                                                  // Broadcast Error message from Master->Nodes
                         Error = Modbus.Value;                                   // Error stored in variable Current
                         if (Error) {                                            // Is there an actual Error? Maybe the error got cleared?
-                            State = STATE_A;                                    // We received an error; switch to State A, and wait 60 seconds
+                            setState(STATE_A);                                  // We received an error; switch to State A, and wait 60 seconds
                             ChargeDelay = CHARGEDELAY;
 #ifdef LOG_DEBUG_MODBUS
                             printf("\nBroadcast Error message received!");

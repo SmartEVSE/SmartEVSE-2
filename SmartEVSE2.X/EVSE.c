@@ -2246,6 +2246,7 @@ void main(void) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
                             setState(STATE_A);                                  // switch to STATE_A
+                            BacklightTimer = BACKLIGHT;                         // Switch on backlight when removing charging cable
                         }
                     } else {
                         NextState = STATE_A;

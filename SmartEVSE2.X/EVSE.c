@@ -2180,7 +2180,7 @@ void main(void) {
             CCP1CON = 0;                                                        // PWM off
             PORTCbits.RC2 = 1;                                                  // Control pilot static +12V
             CONTACTOR_OFF;                                                      // Contactor OFF
-            BalancedState[0] = 0;                                               // Mark as inactive
+            BalancedState[0] = STATE_A;                                         // Mark as inactive
 
             pilot = ReadPilot();
 
@@ -2214,7 +2214,7 @@ void main(void) {
                         } else {                                                // Load Balancing: Master or Disabled
                             BalancedMax[0] = MaxCapacity * 10;
                             Balanced[0] = ChargeCurrent;                        // Set pilot duty cycle to ChargeCurrent (v2.15)
-                            BalancedState[0] = 1;                               // Mark as active
+                            BalancedState[0] = STATE_B;                         // Mark as active
                             setState(STATE_B);                                  // switch to State B
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
                             BacklightTimer = BACKLIGHT;                         // Backlight ON
@@ -2267,7 +2267,7 @@ void main(void) {
                                 } else {                                        // Load Balancing: Master or Disabled
                                     BalancedMax[0] = ChargeCurrent;
                                     if (IsCurrentAvailable()) {
-                                        BalancedState[0] = 2;                   // Mark as Charging
+                                        BalancedState[0] = STATE_C;                   // Mark as Charging
                                         Balanced[0] = 0;                        // For correct baseload calculation set current to zero
                                         CalcBalancedCurrent(1);                 // Calculate charge current for all connected EVSE's
 
@@ -2344,7 +2344,7 @@ void main(void) {
                             CONTACTOR_OFF;                                      // Contactor OFF
                             setState(STATE_A);                                  // switch back to STATE_A
                             GLCD_init();                                        // Re-init LCD
-                            if (LoadBl < 2) BalancedState[0] = 0;               // Load Balancing : Master or Disabled
+                            if (LoadBl < 2) BalancedState[0] = STATE_A;         // Load Balancing : Master or Disabled
                                                                                 // Mark EVSE as disconnected
                         }
                     } else {
@@ -2359,7 +2359,7 @@ void main(void) {
                             setState(STATE_B);                                  // switch back to STATE_B
                             GLCD_init();                                        // Re-init LCD (200ms delay)
                             DiodeCheck = 0;
-                            if (LoadBl < 2) BalancedState[0] = 1;               // Load Balancing : Master or Disabled
+                            if (LoadBl < 2) BalancedState[0] = STATE_B;         // Load Balancing : Master or Disabled
                                                                                 // Mark EVSE as inactive (still State B)
                         }
                     } else {

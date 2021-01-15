@@ -151,7 +151,7 @@ const far char StrSolar[]   = "Solar";
 const far char StrSolenoid[] = "Solenoid";
 const far char StrMotor[]   = "Motor";
 const far char StrDisabled[] = "Disabled";
-const far char StrLoadBl[5][9]  = {"Disabled", "Master", "Node 1", "Node 2", "Node 3"};
+const far char StrLoadBl[9][9]  = {"Disabled", "Master", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Node 6", "Node 7"};
 const far char StrSwitch[5][10] = {"Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S"};
 const far char StrGrid[2][10] = {"4Wire", "3Wire"};
 const far char StrEnabled[] = "Enabled";
@@ -801,7 +801,7 @@ char IsCurrentAvailable(void) {
     int Baseload, TotalCurrent = 0;
 
 
-    for (n = 0; n < 4; n++) if (BalancedState[n] == STATE_C)                    // must be in STATE_C
+    for (n = 0; n < NR_EVSES; n++) if (BalancedState[n] == STATE_C)                    // must be in STATE_C
     {
         ActiveEVSE++;                                                           // Count nr of active (charging) EVSE's
         TotalCurrent += Balanced[n];                                            // Calculate total max charge current for all active EVSE's
@@ -815,7 +815,7 @@ char IsCurrentAvailable(void) {
         Baseload = Imeasured - TotalCurrent;                                    // Calculate Baseload (load without any active EVSE)
         if (Baseload < 0) Baseload = 0;                                         // only relevant for Smart/Solar mode
 
-        if (ActiveEVSE > 4) ActiveEVSE = 4;
+        if (ActiveEVSE > NR_EVSES) ActiveEVSE = NR_EVSES;
         // When load balancing is active, and we are the Master, the Circuit option limits the max total current
         if (LoadBl == 1) {
             if ((ActiveEVSE * (MinCurrent * 10)) > (MaxCircuit * 10)) {
@@ -844,7 +844,7 @@ char IsCurrentAvailable(void) {
 void ResetBalancedStates(void) {
     unsigned char n;
 
-    for (n = 1; n < 4; n++) {
+    for (n = 1; n < NR_EVSES; n++) {
         BalancedState[n] = STATE_A;                                             // Yes, disable old active Node states
         Balanced[n] = 0;                                                        // reset ChargeCurrent to 0
     }
@@ -859,7 +859,7 @@ void CalcBalancedCurrent(char mod) {
     int BalancedLeft = 0;
     signed int IsumImport;
     int ActiveMax = 0, TotalCurrent = 0, Baseload;
-    char CurrentSet[4] = {0, 0, 0, 0};
+    char CurrentSet[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};
     char n;
 
     if (!LoadBl) ResetBalancedStates();                                         // Load balancing disabled?, Reset States
@@ -873,7 +873,7 @@ void CalcBalancedCurrent(char mod) {
     if (LoadBl < 2) BalancedMax[0] = ChargeCurrent;                             // Load Balancing Disabled or Master:
                                                                                 // update BalancedMax[0] if the MAX current was adjusted using buttons or CLI
 
-    for (n = 0; n < 4; n++) if (BalancedState[n] == STATE_C) {
+    for (n = 0; n < NR_EVSES; n++) if (BalancedState[n] == STATE_C) {
             BalancedLeft++;                                                     // Count nr of Active (Charging) EVSE's
             ActiveMax += BalancedMax[n];                                        // Calculate total Max Amps for all active EVSEs
             TotalCurrent += Balanced[n];                                        // Calculate total of all set charge currents
@@ -957,7 +957,7 @@ void CalcBalancedCurrent(char mod) {
                 MaxBalanced -= Balanced[n];                                     // Update total current to new (lower) value
                 n = 0;                                                          // check all EVSE's again
             } else n++;
-        } while (n < 4 && BalancedLeft);
+        } while (n < NR_EVSES && BalancedLeft);
 
         // All EVSE's which had a Max current lower then the average are set.
         // Now calculate the current for the EVSE's which had a higher Max current
@@ -972,7 +972,7 @@ void CalcBalancedCurrent(char mod) {
                     BalancedLeft--;                                             // decrease counter of active EVSE's
                     MaxBalanced -= Balanced[n];                                 // Update total current to new (lower) value
                 }
-            } while (++n < 4 && BalancedLeft);
+            } while (++n < NR_EVSES && BalancedLeft);
         }
 
 
@@ -1000,7 +1000,7 @@ void BroadcastCurrent(void) {
  * Master requests Node status over modbus
  * Master -> Node
  *
- * @param unsigned char NodeNr (1-3)
+ * @param unsigned char NodeNr (1-7)
  */
 void requestNodeStatus(unsigned char NodeNr) {
     EVSEOnline[NodeNr] = false;
@@ -1011,7 +1011,7 @@ void requestNodeStatus(unsigned char NodeNr) {
  * Master receives Node status over modbus
  * Node -> Master
  *
- * @param unsigned char NodeAdr (1-3)
+ * @param unsigned char NodeAdr (1-7)
  */
 void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
     EVSEOnline[NodeNr] = true;
@@ -1029,7 +1029,7 @@ void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
  * Master checks node status requests, and responds with new state
  * Master -> Node
  *
- * @param unsigned char NodeAdr (1-3)
+ * @param unsigned char NodeAdr (1-7)
  */
 void processAllNodeStates(unsigned char NodeNr) {
     unsigned int values[2];
@@ -1137,7 +1137,7 @@ unsigned char getMenuItems (void) {
         MenuItems[m++] = MENU_IMPORT;                                           // - Import Current from Grid (A)
         #endif
     }
-    MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-4:Node)
+    MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-8:Node)
     if (Mode && LoadBl < 2) {                                                   // ? Mode Smart/Solar and Load Balancing Disabled/Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A) (Mode:Smart/Solar)
     }
@@ -1601,7 +1601,7 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_LOADBL:
-                for(i = 0; i < 5; i++){
+                for(i = 0; i <= NR_EVSES; i++){
                     if (strcmp(U2buffer, StrLoadBl[i]) == 0) {
                         LoadBl = i;
                         write_settings();
@@ -1711,7 +1711,7 @@ void RS232cli(void) {
             break;
         case MENU_LOADBL:
             printf("Load Balancing set to : %s\nEnter Load Balancing mode (%s", getMenuItemOption(menu), StrLoadBl[0]);
-            for(i = 1; i < 5; i++) {
+            for(i = 1; i <= NR_EVSES; i++) {
                 printf("/%s", StrLoadBl[i]);
             }
             printf("): ");

@@ -331,7 +331,7 @@ const far struct {
     {"",       "",         "Not in menu", 0, 0, 0},
     {"",       "",         "Hold 2 sec", 0, 0, 0},
     {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
-    {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-4 SmartEVSEs", 0, 4, LOADBL},
+    {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-8 SmartEVSEs", 0, NR_EVSES, LOADBL},
     {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
     {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
     {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},

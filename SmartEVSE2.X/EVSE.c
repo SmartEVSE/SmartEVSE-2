@@ -159,7 +159,7 @@ const far char StrExitMenu[] = "MENU";
 const far char StrMainsAll[] = "All"; // Everything
 const far char StrMainsHomeEVSE[] = "Home+EVSE";
 const far char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete", "DeleteAll"};
-const far char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activation"};
+const far char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
 
 // Global data
 char U1buffer[50],U1packet[50];                                                 // Uart1 Receive buffer /RS485
@@ -463,7 +463,7 @@ void ReadRFIDlist(void) {
     EEADR = 0;                                                                  // start from adr 256 in eeprom
     EEADRH = 1;
 
-    eeprom_read_object(&RFIDlist, 120);
+    eeprom_read_object(RFIDlist, 120);
 }
 
 // Write a list of 20 RFID's to the eeprom
@@ -480,7 +480,7 @@ void WriteRFIDlist(void) {
     EEADR = 0;                                                                  // start from adr 256 in eeprom
     EEADRH = 1;
 
-    eeprom_write_object(&RFIDlist, 120);                                        // write 120 bytes to eeprom
+    eeprom_write_object(RFIDlist, 120);                                        // write 120 bytes to eeprom
 
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;

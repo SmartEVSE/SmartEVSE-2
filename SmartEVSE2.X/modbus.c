@@ -505,9 +505,9 @@ void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
  * 
  * @param pointer to buf
  * @param unsigned char Meter
- * @return unsigned int Power (W)
+ * @return signed double Power (W)
   */
-unsigned int receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
+signed double receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
     signed double dCombined;
 
     dCombined = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor);

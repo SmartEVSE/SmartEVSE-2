@@ -255,7 +255,7 @@ unsigned char SolarTimerEnable = 0;
 unsigned char DelayedRS485SendBuf = 0;
 signed double EnergyCharged = 0;                                                // kWh value energy charged. (*10) (will reset if state changes from A->B)
 signed double EnergyMeterStart = 0;                                             // kWh meter value is stored once EV is connected to EVSE (kWh)
-unsigned int PowerMeasured = 0;                                                 // Measured Charge power in Watt by kWh meter
+signed double PowerMeasured = 0;                                                // Measured Charge power in Watt by kWh meter
 unsigned char RFID[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char RFIDstatus = 0;
 
@@ -2655,8 +2655,6 @@ void main(void) {
                         } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].PRegister) {
                             // packet from EV kWh meter
                             PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
-//                            printf("Power measured %u W \n",PowerMeasured);
-
                         }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0xA0) {
                             // Status packet from Node EVSE received
                             receiveNodeStatus(Modbus.Data, Modbus.Address - 1);

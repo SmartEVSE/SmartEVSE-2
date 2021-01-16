@@ -54,7 +54,7 @@ signed double receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address);
 signed double receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter);
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address);
-unsigned int receivePowerMeasurement(unsigned char *buf, unsigned char Meter);
+signed double receivePowerMeasurement(unsigned char *buf, unsigned char Meter);
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address);
 unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var);
 

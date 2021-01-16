@@ -23,6 +23,7 @@
 ; THE SOFTWARE.
  */
 #include <xc.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include "EVSE.h"
 #include "GLCD.h"
@@ -322,6 +323,8 @@ const unsigned char LCD_Flow [] = {
 0x10, 0x10, 0x10, 0x1C, 0x02, 0x19, 0x24, 0x42, 0x42, 0x24, 0x19, 0x02, 0x1C, 0x10, 0x10, 0x1F
 };
 
+bool LCDToggle = false;                                                         // Toggle display between two values
+unsigned char LCDText = 0;                                                      // Cycle through text messages
 unsigned int GLCDx, GLCDy;
 
 // uses buffer
@@ -454,13 +457,19 @@ void GLCD(void) {
             LCDTimer = 0;                                                       // reset timer, so it will not exit the menu when learning/deleting cards
         }
 
-        if (LCDTimer == 120) {
+        if (LCDTimer > 120) {
             LCDNav = 0;                                                         // Exit Setup menu after 120 seconds.
             read_settings();                                                    // don't save, but restore settings
         } else return;                                                          // disable LCD status messages when navigating LCD Menu
     }
 
-    if (LCDTimer == 12) LCDTimer = 0;
+    if (LCDTimer == 1) {
+        LCDText = 0;
+    } else if (LCDTimer > 4) {
+        LCDTimer = 1;
+        LCDToggle = 1 - LCDToggle;
+        LCDText++;
+    }
 
     if (Error) {
         BACKLIGHT_ON;                                                           // We switch backlight on, as we exit after displaying the error
@@ -479,7 +488,7 @@ void GLCD(void) {
             GLCD_print_buf2(6, (const far char *) "STOPPED");
             return;
         } else if (Error & RCD_TRIPPED) {                                       // RCD sensor tripped
-            if (LCDTimer < 6) {
+            if (!LCDToggle) {
                 GLCD_print_buf2(0, (const far char *) "RESIDUAL");
                 GLCD_print_buf2(2, (const far char *) "FAULT");
                 GLCD_print_buf2(4, (const far char *) "CURRENT");
@@ -602,7 +611,7 @@ void GLCD(void) {
             GLCDy = 3;
             GLCD_write_buf(0xFE);                                               // Show energy flow 'blob' between House and Car
 
-            if (LCDTimer < 5 && EVMeter) {
+            if (LCDToggle && EVMeter) {
                 if (PowerMeasured < 10000) {
                     sprintfd(Str, "%1u.%1ukW", PowerMeasured / 1000.0, 1);
                     GLCD_print_buf(73, 2, Str);
@@ -616,14 +625,13 @@ void GLCD(void) {
             }
         }
 
-        if (LCDTimer < 5 && Mode == MODE_SOLAR) {                               // Show Sum of currents when solar charging.
+        if (LCDToggle && Mode == MODE_SOLAR) {                                  // Show Sum of currents when solar charging.
             GLCDx = 41;
             GLCDy = 1;
             GLCD_write_buf(0xE3);                                               // Sum 'E' sign
 
             sprintfd(Str, "%3dA", Isum / 10.0, 0);
             GLCD_print_buf(23, 2, Str);                                         // print to buffer
-
         } else {                                                                // Displayed only in Smart and Solar modes
             for (x = 0; x < 3; x++) {                                           // Display L1, L2 and L3 currents on LCD
                 sprintfd(Str, "%3dA", Irms[x] / 10.0, 0);
@@ -634,11 +642,11 @@ void GLCD(void) {
 
         glcd_clrln(4, 0);                                                       // Clear line 4
         if (Error & LESS_6A) {
-            if (LCDTimer < 6) {
+            if (!LCDToggle) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR POWER");
         } else if (Error & NO_SUN) {
-            if (LCDTimer < 6) {
+            if (!LCDToggle) {
                 GLCD_print_buf2(5, (const far char *) "WAITING");
             } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
         } else if (State != STATE_C) {
@@ -648,17 +656,33 @@ void GLCD(void) {
             } else Str[5] = '\0';
             GLCD_print_buf2(5, Str);
         } else if (State == STATE_C) {
-
-            if (LCDTimer < 7) {                                                 // LCDtimer 0-5 sec
-                if (LCDTimer < 4 && Mode != MODE_NORMAL ) {
-                    if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
-                    else GLCD_print_buf2(5, (const far char *) "SMART");
-
-                } else GLCD_print_buf2(5, (const far char *) "CHARGING");
-            } else {                                                            // LCDTimer 6-9 sec
-                if (EVMeter && LCDTimer > 8) sprintfd(Str, "%u.%02u kWh", EnergyCharged, 2);
-                else sprintf(Str, "%u.%uA", Balanced[0] / 10, Balanced[0] % 10);
-                GLCD_print_buf2(5, Str);
+            switch (LCDText) {
+                default:
+                    LCDText = 0;
+                    if (Mode != MODE_NORMAL) {
+                        if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
+                        else GLCD_print_buf2(5, (const far char *) "SMART");
+                        break;
+                    } else LCDText++;
+                case 1:
+                    GLCD_print_buf2(5, (const far char *) "CHARGING");
+                    break;
+                case 2:
+                    if (EVMeter) {
+                        sprintfd(Str, "%u.%01u kW", PowerMeasured / 1000.0, 1);
+                        GLCD_print_buf2(5, Str);
+                        break;
+                    } else LCDText++;
+                case 3:
+                    if (EVMeter) {
+                        sprintfd(Str, "%u.%02u kWh", EnergyCharged, 2);
+                        GLCD_print_buf2(5, Str);
+                        break;
+                    } else LCDText++;
+                case 4:
+                    sprintf(Str, "%u.%u A", Balanced[0] / 10, Balanced[0] % 10);
+                    GLCD_print_buf2(5, Str);
+                    break;
             }
         }
         glcd_clrln(7, 0x00);

@@ -780,7 +780,7 @@ void GLCDMenu(unsigned char Buttons) {
         } else if (ButtonRepeat && Timer > ButtonTimer) {
             ButtonRelease = 0;
             if (ButtonRepeat > 1) {
-                ButtonRepeat *= 0.9;
+                ButtonRepeat -= (ButtonRepeat / 8);
                 ButtonTimer = Timer + ButtonRepeat;
             }
         }

@@ -548,12 +548,11 @@ unsigned char StoreRFID(void) {
 // returns 1 when successful, 0 when RFID was not found
 unsigned char DeleteRFID(void) {
     unsigned char offset = 0, r;
-    unsigned char empty[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
 
     offset = MatchRFID();                                                       // find RFID in list
     if (offset) {
         offset -= 6;
-        memcpy(RFIDlist + offset, empty, 6);
+        for (r = 0; r < 6; r++) RFIDlist[offset + r] = 0xff;
     } else return 0;
 
 //    printf("deleted %u ",offset);

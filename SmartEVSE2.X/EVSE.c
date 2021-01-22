@@ -915,10 +915,23 @@ void CalcBalancedCurrent(char mod) {
         if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {
             IsetBalanced = BalancedLeft * MinCurrent * 10;
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
-            if (BalancedLeft && StopTime && (IsumImport > 10)) SolarTimerEnable=1;    // If any EVSE is Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
-            else SolarTimerEnable=0;                                            // After the timer runs out, the charging will be stopped.
-        } else SolarTimerEnable=0;
-
+            if (BalancedLeft && StopTime && (IsumImport > 10)) {
+                if (SolarTimerEnable == 0) {
+                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x03, StopTime);
+                }
+                SolarTimerEnable=1;                                             // If any EVSE is Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
+            } else {
+                if (SolarTimerEnable == 1) {
+                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x03, 0);
+                }
+                SolarTimerEnable=0;                                             // After the timer runs out, the charging will be stopped.
+            }
+        } else {
+            if (SolarTimerEnable == 1) {
+                if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x03, 0);
+            }
+            SolarTimerEnable=0;                                                 // After the timer runs out, the charging will be stopped.
+        }
     }
                                                                                 // When Load balancing = Master,  Limit total current of all EVSEs to MaxCircuit
     if (LoadBl == 1 && (IsetBalanced > (MaxCircuit * 10)) ) IsetBalanced = MaxCircuit * 10;
@@ -2472,11 +2485,9 @@ void main(void) {
                      setState(STATE_A);                                         // switch back to state A
                      SolarTimerEnable=0;                                        // Disable Solar Timer
                      SolarStopTimer=0;
-                     Error |= NO_SUN;
+                     Error |= NO_SUN;                                           // Set error: NO_SUN
 
                      ResetBalancedStates();                                     // reset all states
-                     ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, NO_SUN);
-
                 }
             } else SolarStopTimer=0;
 
@@ -2732,7 +2743,8 @@ void main(void) {
         } // (ISRFLAG > 1) 	 complete packet detected?
 
 
-        // Process received data on Nodes
+        // Process received Broadcast messages on Nodes
+
         if (DataReceived) {                                                     // Master -> Node
             if (Modbus.Address == BROADCAST_ADR && LoadBl > 1)                  // Broadcast message from Master->Nodes, Set Charge current
             {
@@ -2756,6 +2768,14 @@ void main(void) {
                         } else {
                             printf("\nBroadcast Errors Cleared received!");
 #endif
+                        }
+                        break;
+                    case 0x03:                                                  // Broadcast SolarStopTime message from Master->Nodes
+                        x = Modbus.Value;
+                        if (x == 0) SolarTimerEnable = 0;
+                        else {
+                            SolarTimerEnable = 1;                               // Enable SolarStopTimer
+                            StopTime = x;                                       // Set StopTime to x minutes.
                         }
                         break;
                     default:

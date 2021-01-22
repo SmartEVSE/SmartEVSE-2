@@ -1787,7 +1787,7 @@ void RS232cli(void) {
         case MENU_PVMETER:
         case MENU_EVMETER:
             printf("Enter new type (%s", EMConfig[0].Desc);
-            for(i = 1; i <= EM_CUSTOM; i++) {                                   // Don't show Sensorbox and Custom on EVMETER
+            for(i = 1; i <= EM_CUSTOM; i++) {                                   // Don't show Sensorbox on EVMETER
                 if (!(EMConfig[i].ERegister == 0xffff && menu == MENU_EVMETER)) printf("/%s", EMConfig[i].Desc);
             }
             printf("): ");
@@ -2088,7 +2088,7 @@ void main(void) {
         // Left button pressed, Loadbalancing is Master or Disabled, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
         if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == 3) {
                 Mode = ~Mode & 0x3;                                             // Change from Solar to Smart mode and vice versa.
-                Error &= ~(NOCURRENT | NO_SUN | LESS_6A);                       // Clear All errors
+                Error &= ~(NO_SUN | LESS_6A);                                   // Clear All errors
                 ChargeDelay = 0;                                                // Clear any Chargedelay
                 SolarTimerEnable = 0;                                           // Also make sure the SolarTimer is disabled.
                 LCDTimer = 0;
@@ -2171,7 +2171,7 @@ void main(void) {
                                 } else if (Mode == MODE_SOLAR) {
                                     Mode = MODE_SMART;
                                 }
-                                Error &= ~(NOCURRENT | NO_SUN | LESS_6A);       // Clear All errors
+                                Error &= ~(NO_SUN | LESS_6A);                   // Clear All errors
                                 ChargeDelay = 0;                                // Clear any Chargedelay
                                 SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
                                 LCDTimer = 0;

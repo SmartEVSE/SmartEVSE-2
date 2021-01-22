@@ -131,7 +131,7 @@
 #define LESS_6A 1
 #define CT_NOCOMM 2
 #define TEMP_HIGH 4
-#define NOCURRENT 8                                                             // No Current! ERROR=LESS_6A, switch to STATE A
+#define UNUSED 8                                                                // Unused
 #define RCD_TRIPPED 16                                                          // RCD tripped. >6mA DC residual current detected.
 #define NO_SUN 32
 #define Test_IO 64

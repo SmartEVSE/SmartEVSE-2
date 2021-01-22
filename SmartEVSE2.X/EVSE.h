@@ -27,6 +27,7 @@
 #define __EVSE_MAIN
 
 #include <xc.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "GLCD.h"
@@ -80,6 +81,7 @@
 #define MIN_METER_ADDRESS 10
 #define MAX_METER_ADDRESS 247
 #define EMCUSTOM_ENDIANESS 0
+#define EMCUSTOM_ISDOUBLE 0
 #define EMCUSTOM_UREGISTER 0
 #define EMCUSTOM_UDIVISOR 8
 #define EMCUSTOM_IREGISTER 0
@@ -164,7 +166,7 @@
 #define MODBUS_EVSE_CONFIG_START 0xC0
 #define MODBUS_EVSE_CONFIG_END   0xCC
 #define MODBUS_SYS_CONFIG_START  0xE0
-#define MODBUS_SYS_CONFIG_END    0xF2
+#define MODBUS_SYS_CONFIG_END    0xF3
 
 // EVSE status
 #define STATUS_STATE 64                                                         // 0xA0: State
@@ -215,7 +217,8 @@
 #define MENU_EMCUSTOM_EREGISTER 31                                              // 0xF0: Register for Energy (kWh) of custom electric meter
 #define MENU_EMCUSTOM_EDIVISOR 32                                               // 0xF1: Divisor for Energy (kWh) of custom electric meter (10^x)
 #define MENU_GRID 33                                                            // 0xF2: Grid type to which the Sensorbox is connected
-#define MENU_EXIT 34
+#define MENU_EMCUSTOM_ISDOUBLE 34                                               // 0xF3: Data type of custom electric meter
+#define MENU_EXIT 35
 
 #define MENU_STATE 50
 
@@ -281,7 +284,7 @@ extern unsigned char EVMeter;                                                   
 extern unsigned char EVMeterAddress;
 extern unsigned char RFIDReader;
 
-extern signed double Irms[3];                                                   // Momentary current per Phase (Amps *10) (23 = 2.3A)
+extern signed long Irms[3];                                                     // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
 extern unsigned char State;
 extern unsigned char Error;
@@ -313,8 +316,8 @@ extern unsigned char GridActive;                                                
 extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 extern unsigned int SolarStopTimer;
 extern unsigned char SolarTimerEnable;
-extern signed double EnergyCharged;
-extern signed double PowerMeasured;
+extern signed long EnergyCharged;
+extern signed long PowerMeasured;
 extern unsigned char RFID[8];
 extern unsigned char RFIDstatus;
 
@@ -354,14 +357,15 @@ const far struct {
     {"PVAD",   "PV ADDR",  "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
     {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMIREG", "CUR REGI", "Register for Current (A) of custom electric meter", 0, 65530, EMCUSTOM_IREGISTER},
-    {"ENIDIV", "CUR DIVI", "Divisor for Current (A) of custom electric meter", 0, 8, EMCUSTOM_IDIVISOR},
+    {"EMIDIV", "CUR DIVI", "Divisor for Current (A) of custom electric meter", 0, 7, EMCUSTOM_IDIVISOR},
     {"EMUREG", "VOL REGI", "Register for Voltage (V) of custom electric meter", 0, 65530, EMCUSTOM_UREGISTER},
-    {"ENUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 8, EMCUSTOM_UDIVISOR},
+    {"EMUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 7, EMCUSTOM_UDIVISOR},
     {"EMPREG", "POW REGI", "Register for Power (W) of custom electric meter", 0, 65534, EMCUSTOM_PREGISTER},
-    {"ENPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 8, EMCUSTOM_PDIVISOR},
+    {"EMPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 7, EMCUSTOM_PDIVISOR},
     {"EMEREG", "ENE REGI", "Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
-    {"ENEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 8, EMCUSTOM_EDIVISOR},
+    {"EMEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 7, EMCUSTOM_EDIVISOR},
     {"GRID",   "GRID",     "Grid type to which the Sensorbox is connected", 0, 1, GRID},
+    {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, 1, EMCUSTOM_ISDOUBLE},
     {"EXIT",   "EXIT",     "EXIT", 0, 0, 0}
 };
 
@@ -369,22 +373,23 @@ struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
     unsigned char Function; // 3: holding registers, 4: input registers
+    bool IsDouble;
     unsigned int URegister; // Single phase voltage (V)
-    unsigned char UDivisor; // 10^x / 8:double
+    unsigned char UDivisor; // 10^x
     unsigned int IRegister; // Single phase current (A)
-    unsigned char IDivisor; // 10^x / 8:double
+    unsigned char IDivisor; // 10^x
     unsigned int PRegister; // Total power (W)
-    unsigned char PDivisor; // 10^x / 8:double
+    unsigned char PDivisor; // 10^x
     unsigned int ERegister; // Total energy (kWh)
-    unsigned char EDivisor; // 10^x / 8:double
+    unsigned char EDivisor; // 10^x
 } EMConfig[EM_CUSTOM + 1] = {
-    {"Disabled",  ENDIANESS_LBF_LWF, 0,      0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
-    {"Sensorbox", ENDIANESS_HBF_HWF, 4, 0xFFFF, 0,      0, 8, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
-    {"Phoenix C", ENDIANESS_HBF_LWF, 4,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)
-    {"Finder",    ENDIANESS_HBF_HWF, 4, 0x1000, 8, 0x100E, 8, 0x1026, 8, 0x1106, 8}, // Finder 7E.78.8.400.0212 (V / A / W / Wh)
-    {"Eastron",   ENDIANESS_HBF_HWF, 4,    0x0, 8,    0x6, 8,   0x34, 8,  0x156, 8}, // Eastron SDM630 (V / A / W / kWh)
-    {"ABB",       ENDIANESS_HBF_HWF, 3, 0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed
-    {"Custom",    ENDIANESS_LBF_LWF, 4,      0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
+    {"Disabled",  ENDIANESS_LBF_LWF, 0, false,      0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
+    {"Sensorbox", ENDIANESS_HBF_HWF, 4,  true, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
+    {"Phoenix C", ENDIANESS_HBF_LWF, 4, false,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh)
+    {"Finder",    ENDIANESS_HBF_HWF, 4,  true, 0x1000, 0, 0x100E, 0, 0x1026, 0, 0x1106, 3}, // Finder 7E.78.8.400.0212 (V / A / W / Wh)
+    {"Eastron",   ENDIANESS_HBF_HWF, 4,  true,    0x0, 0,    0x6, 0,   0x34, 0,  0x156, 0}, // Eastron SDM630 (V / A / W / kWh)
+    {"ABB",       ENDIANESS_HBF_HWF, 3, false, 0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed
+    {"Custom",    ENDIANESS_LBF_LWF, 4, false,      0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
 };
 
 struct NodeStatus {

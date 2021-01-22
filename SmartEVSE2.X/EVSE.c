@@ -173,7 +173,7 @@ char RFIDlist[120];                                                             
 unsigned int MaxMains = MAX_MAINS;                                              // Max Mains Amps (hard limit, limited by the MAINS connection) (A)
 unsigned int MaxCurrent = MAX_CURRENT;                                          // Max Charge current (A)
 unsigned int MinCurrent = MIN_CURRENT;                                          // Minimal current the EV is happy with (A)
-double ICal = ICAL;                                                             // CT calibration value
+signed double ICal = ICAL;                                                      // CT calibration value
 char Mode = MODE;                                                               // EVSE mode (0:Normal / 1:Smart)
 char Lock = LOCK;                                                               // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
 unsigned int MaxCircuit = MAX_CIRCUIT;                                          // Max current of the EVSE circuit (A)
@@ -194,7 +194,7 @@ unsigned char EVMeter = EV_METER;                                               
 unsigned char EVMeterAddress = EV_METER_ADDRESS;
 unsigned char RFIDReader = RFID_READER;                                         // RFID Reader Disabled/Enabled (Learn / Delete, Delete All)
 
-signed double Irms[3]={0, 0, 0};                                                // Momentary current per Phase (Amps *10) (23 = 2.3A)
+signed long Irms[3]={0, 0, 0};                                                  // Momentary current per Phase (Amps *10) (23 = 2.3A)
                                                                                 // Max 3 phases supported
 unsigned char State = STATE_A;
 unsigned char Error = NO_ERROR;
@@ -253,9 +253,9 @@ unsigned char CalActive = 0;                                                    
 unsigned int SolarStopTimer = 0;
 unsigned char SolarTimerEnable = 0;
 unsigned char DelayedRS485SendBuf = 0;
-signed double EnergyCharged = 0;                                                // kWh value energy charged. (*10) (will reset if state changes from A->B)
-signed double EnergyMeterStart = 0;                                             // kWh meter value is stored once EV is connected to EVSE (kWh)
-signed double PowerMeasured = 0;                                                // Measured Charge power in Watt by kWh meter
+signed long EnergyCharged = 0;                                                  // kWh meter value energy charged. (Wh) (will reset if state changes from A->B)
+signed long EnergyMeterStart = 0;                                               // kWh meter value is stored once EV is connected to EVSE (Wh)
+signed long PowerMeasured = 0;                                                  // Measured Charge power in Watt by kWh meter
 unsigned char RFID[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char RFIDstatus = 0;
 
@@ -455,6 +455,15 @@ void validate_settings(void) {
 #endif
         RFIDReader = 0;                                                         // RFID Reader Disabled
     }
+
+    // Backward compatibility < 2.20
+    if (EMConfig[EM_CUSTOM].IRegister == 8 || EMConfig[EM_CUSTOM].URegister == 8 || EMConfig[EM_CUSTOM].PRegister == 8 || EMConfig[EM_CUSTOM].ERegister == 8) {
+        EMConfig[EM_CUSTOM].IsDouble = true;
+        EMConfig[EM_CUSTOM].IRegister = 0;
+        EMConfig[EM_CUSTOM].URegister = 0;
+        EMConfig[EM_CUSTOM].PRegister = 0;
+        EMConfig[EM_CUSTOM].ERegister = 0;
+    }
 }
 
 // Read a list of 20 RFID's from eeprom
@@ -596,9 +605,9 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].PDivisor, sizeof EMConfig[EM_CUSTOM].PDivisor);
     eeprom_read_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
     eeprom_read_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].IsDouble, sizeof EMConfig[EM_CUSTOM].IsDouble);
 
     validate_settings();
-
 }
 
 void write_settings(void) {
@@ -647,6 +656,7 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].PDivisor, sizeof EMConfig[EM_CUSTOM].PDivisor);
     eeprom_write_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
     eeprom_write_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].IsDouble, sizeof EMConfig[EM_CUSTOM].IsDouble);
 
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
@@ -1175,6 +1185,7 @@ unsigned char getMenuItems (void) {
         if (LoadBl < 2) {                                                       // - ? Load Balancing Disabled/Master?
             if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM || EVMeter == EM_CUSTOM) { // ? Custom electric meter used?
                 MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                       // - - Byte order of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_ISDOUBLE;                        // - - Data type of custom electric meter
                 MenuItems[m++] = MENU_EMCUSTOM_UREGISTER;                       // - - Starting register for voltage of custom electric meter
                 MenuItems[m++] = MENU_EMCUSTOM_UDIVISOR;                        // - - Divisor for voltage of custom electric meter
                 MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                       // - - Starting register for current of custom electric meter
@@ -1274,6 +1285,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
                     break;
                 case MENU_EMCUSTOM_ENDIANESS:
                     EMConfig[EM_CUSTOM].Endianness = val;
+                    break;
+                case MENU_EMCUSTOM_ISDOUBLE:
+                    EMConfig[EM_CUSTOM].IsDouble = val;
                     break;
                 case MENU_EMCUSTOM_UREGISTER:
                     EMConfig[EM_CUSTOM].URegister = val;
@@ -1392,6 +1406,8 @@ unsigned int getItemValue(unsigned char nav) {
             return EVMeterAddress;
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
+        case MENU_EMCUSTOM_ISDOUBLE:
+            return EMConfig[EM_CUSTOM].IsDouble;
         case MENU_EMCUSTOM_UREGISTER:
             return EMConfig[EM_CUSTOM].URegister;
         case MENU_EMCUSTOM_UDIVISOR:
@@ -1503,11 +1519,13 @@ const far char * getMenuItemOption(unsigned char nav) {
                 default:
                     break;
             }
+        case MENU_EMCUSTOM_ISDOUBLE:
+            if (value) return "Double";
+            else return "Integer";
         case MENU_EMCUSTOM_UDIVISOR:
         case MENU_EMCUSTOM_IDIVISOR:
         case MENU_EMCUSTOM_PDIVISOR:
         case MENU_EMCUSTOM_EDIVISOR:
-            if (value == 8) return "Double";
             sprintf(Str, "%lu", pow10[value]);
             return Str;
         case MENU_RFIDREADER:
@@ -1996,9 +2014,9 @@ void main(void) {
     unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0;
     unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
     unsigned int BalancedReceived;
-    signed double PV[3]={0, 0, 0};
+    signed long PV[3]={0, 0, 0};
     unsigned char PollEVNode = NR_EVSES;
-    signed double EnergyEV = 0;
+    signed long EnergyEV = 0;
     unsigned long RB2Timer = 0;                                                 // 1500ms
     unsigned char ResetKwh = 2;                                                 // if set, reset EV kwh meter at state transition B->C
                                                                                 // cleared when charging, reset to 1 when disconnected (state A)
@@ -2644,14 +2662,15 @@ void main(void) {
                             // Calculate Isum (for nodes and master)
                             Isum = 0;
                             for (x = 0; x < 3; x++) {
+                                Irms[x] /= 100; // ToDo: Change calculation to use mA instead of 100 mA
                                 Isum = Isum + (int) Irms[x];
                             }
 
                         } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].ERegister) {
                             // packet from EV kWh meter
                             EnergyEV = receiveEnergyMeasurement(Modbus.Data, EVMeter);
-                            if (ResetKwh == 2) EnergyMeterStart = EnergyEV;      // At powerup, set EnergyEV to kwh meter value
-                            if (EVMeter) EnergyCharged = EnergyEV - EnergyMeterStart; // Calculate Energy
+                            if (ResetKwh == 2) EnergyMeterStart = EnergyEV;     // At powerup, set EnergyEV to kwh meter value
+                            EnergyCharged = EnergyEV - EnergyMeterStart;        // Calculate Energy
                         } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].PRegister) {
                             // packet from EV kWh meter
                             PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);

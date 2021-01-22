@@ -597,7 +597,7 @@ void GLCD(void) {
                                                                                 // If current flow is < 0.3A don't show the blob
 
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
-            sprintfd(Str, "%2u.%1ukWh", EnergyCharged, 1);                      // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
+            sprintfl(Str, "%2u.%1ukWh", EnergyCharged, 3, 1);                      // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
             GLCD_print_buf(89, 1, Str);                                         // print to buffer
         }
 
@@ -613,14 +613,14 @@ void GLCD(void) {
 
             if (LCDToggle && EVMeter) {
                 if (PowerMeasured < 10000) {
-                    sprintfd(Str, "%1u.%1ukW", PowerMeasured / 1000.0, 1);
+                    sprintfl(Str, "%1u.%1ukW", PowerMeasured, 3, 1);
                     GLCD_print_buf(73, 2, Str);
                 } else {
-                    sprintfd(Str, "%2ukW", PowerMeasured / 1000.0, 0);
+                    sprintfl(Str, "%2ukW", PowerMeasured, 3, 0);
                     GLCD_print_buf(75, 2, Str);
                 }
             } else {
-                sprintfd(Str, "%2uA", Balanced[0] / 10.0, 0);
+                sprintfl(Str, "%2uA", Balanced[0], 1, 0);
                 GLCD_print_buf(77, 2, Str);
             }
         }
@@ -630,11 +630,11 @@ void GLCD(void) {
             GLCDy = 1;
             GLCD_write_buf(0xE3);                                               // Sum 'E' sign
 
-            sprintfd(Str, "%3dA", Isum / 10.0, 0);
+            sprintfl(Str, "%3dA", Isum, 1, 0);
             GLCD_print_buf(23, 2, Str);                                         // print to buffer
         } else {                                                                // Displayed only in Smart and Solar modes
             for (x = 0; x < 3; x++) {                                           // Display L1, L2 and L3 currents on LCD
-                sprintfd(Str, "%3dA", Irms[x] / 10.0, 0);
+                sprintfl(Str, "%3dA", Irms[x], 1, 0);
                 GLCD_print_buf(23, x, Str);                                     // print to buffer
             }
         }
@@ -669,13 +669,13 @@ void GLCD(void) {
                     break;
                 case 2:
                     if (EVMeter) {
-                        sprintfd(Str, "%u.%01u kW", PowerMeasured / 1000.0, 1);
+                        sprintfl(Str, "%u.%01u kW", PowerMeasured, 3, 1);
                         GLCD_print_buf2(5, Str);
                         break;
                     } else LCDText++;
                 case 3:
                     if (EVMeter) {
-                        sprintfd(Str, "%u.%02u kWh", EnergyCharged, 2);
+                        sprintfl(Str, "%u.%02u kWh", EnergyCharged, 3, 2);
                         GLCD_print_buf2(5, Str);
                         break;
                     } else LCDText++;

@@ -50,13 +50,13 @@ void ModbusDecode(unsigned char *buf, unsigned char len);
 
 // ########################### EVSE modbus functions ###########################
 
-signed double receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, unsigned char Divisor);
+signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, bool IsDouble, signed char Divisor);
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address);
-signed double receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter);
+signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter);
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address);
-signed double receivePowerMeasurement(unsigned char *buf, unsigned char Meter);
+signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter);
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address);
-unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var);
+unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed long *var);
 
 void ReadItemValueResponse(void);
 void WriteItemValueResponse(void);

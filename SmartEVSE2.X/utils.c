@@ -160,18 +160,26 @@ unsigned char OneWireReadCardId(void) {
     return 0;
 }
 
-
-void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision) {
+/**
+ * Insert rounded value into string in printf style
+ * 
+ * @param pointer to string
+ * @param string Format
+ * @param signed long Value to round and insert
+ * @param unsinged char Divisor where to set decimal point
+ * @param unsigned char Decimal place count
+ */
+void sprintfl(unsigned char *str, unsigned char *Format, signed long Value, unsigned char Divisor, unsigned char Decimal) {
     signed long val;
 
-    val = (signed long)(value * pow10[precision + 1]);
+    val = Value / (signed long) pow10[Divisor - Decimal - 1];
     // Round value
     if(val < 0) val -= 5;
     else val += 5;
     val /= 10;
     // Split value
-    if(precision > 0) sprintf(str, format, (signed int) (val / (signed long) pow10[precision]), (unsigned int) (abs(val) % pow10[precision]));
-    else sprintf(str, format, (signed int) val);
+    if(Decimal > 0) sprintf(str, Format, (signed int) (val / (signed long) pow10[Decimal]), (unsigned int) (abs(val) % pow10[Decimal]));
+    else sprintf(str, Format, (signed int) val);
 }
 
 /* triwave8: triangle (sawtooth) wave generator.  Useful for

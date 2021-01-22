@@ -39,10 +39,9 @@ unsigned char OneWireReadCardId(void);
 unsigned char crc8(unsigned char *buf, unsigned char len);
 unsigned int crc16(unsigned char *buf, unsigned char len);
 void delay(unsigned int d);
-void sprintfd(unsigned char *str, unsigned char *format, signed double value, unsigned char precision);
+void sprintfl(unsigned char *str, unsigned char *Format, signed long Value, unsigned char Divisor, unsigned char Decimal);
 unsigned char triwave8(unsigned char in);
 unsigned char scale8(unsigned char i, unsigned char scale);
 unsigned char ease8InOutQuad(unsigned char i);
 
 #endif	/* UTILS_H */
-

@@ -443,20 +443,30 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
  * @param pointer to buf
  * @param unsigned char pos
  * @param unsigned char Endianness
- * @param unsigned char Divisor
+ * @param signed char Divisor
+ * @return signed long Measurement
  */
-signed double receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, unsigned char Divisor) {
+signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, bool IsDouble, signed char Divisor) {
     signed double dCombined;
     signed long lCombined;
 
-    if (Divisor == 8) {
+    if (IsDouble) {
         combineBytes(&dCombined, buf, pos, Endianness);
+        if (Divisor > 0) {
+            lCombined = dCombined / (signed long)pow10[Divisor];
+        } else {
+            lCombined = dCombined * (signed long)pow10[-Divisor];
+        }
     } else {
         combineBytes(&lCombined, buf, pos, Endianness);
-        dCombined = (signed double) lCombined / pow10[Divisor];
+        if (Divisor > 0) {
+            lCombined = lCombined / (signed long)pow10[Divisor];
+        } else {
+            lCombined = lCombined * (signed long)pow10[-Divisor];
+        }
     }
 
-    return dCombined;
+    return lCombined;
 }
 
 /**
@@ -474,20 +484,10 @@ void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
  * 
  * @param pointer to buf
  * @param unsigned char Meter
- * @return signed double Energy (kWh)
+ * @return signed long Energy (Wh)
  */
-signed double receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
-    signed double dCombined;
-
-    dCombined = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].EDivisor);
-
-    switch(Meter) {
-        case EM_FINDER:
-            dCombined = dCombined / 1000;
-            break;
-    }
-    
-    return dCombined;
+signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
+    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].EDivisor - 3);
 }
 
 /**
@@ -505,14 +505,10 @@ void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
  * 
  * @param pointer to buf
  * @param unsigned char Meter
- * @return signed double Power (W)
+ * @return signed long Power (W)
   */
-signed double receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
-    signed double dCombined;
-
-    dCombined = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor);
-    
-    return dCombined;
+signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
+    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor);
 }
 
 /**
@@ -547,9 +543,10 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
  * 
  * @param pointer to buf
  * @param unsigned char Meter
- * @param pointer to var
+ * @param pointer to Current (mA)
+ * @return unsigned char error
  */
-unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed double *var) {
+unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter, signed long *var) {
     unsigned char x, offset;
 
     // No CAL option in Menu
@@ -565,14 +562,14 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10
-                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IDivisor) * 10.0;
+                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) {
                     var[x] = var[x] * ICal;
                     // When MaxMains is set to >100A, it's assumed 200A:50ma CT's are used.
                     if (MaxMains > 100) var[x] = var[x] * 2;                    // Multiply measured currents with 2
                     // very small negative currents are shown as zero.
-                    if ((var[x] > -0.01) && (var[x] < 0.01)) var[x] = 0.0;      
+                    if ((var[x] > -1) && (var[x] < 1)) var[x] = 0;
                     CalActive = 1;                                              // Enable CAL option in Menu
                 }
             }
@@ -588,7 +585,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             break;
         default:
             for (x = 0; x < 3; x++) {
-                var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IDivisor) * 10.0;
+                var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
             }
             break;
     }
@@ -597,12 +594,12 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     switch(Meter) {
         case EM_EASTRON:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
         case EM_ABB:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
     }

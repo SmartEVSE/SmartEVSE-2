@@ -442,7 +442,7 @@ void GLCD(void) {
     unsigned int seconds, minutes;
     static unsigned char energy_mains = 20; // X position
     static unsigned char energy_ev = 74; // X position
-    unsigned char Str[10];
+    unsigned char Str[12];
 
     LCDTimer++;
 

@@ -917,18 +917,18 @@ void CalcBalancedCurrent(char mod) {
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
             if (BalancedLeft && StopTime && (IsumImport > 10)) {
                 if (SolarTimerEnable == 0) {
-                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x03, StopTime);
+                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, StopTime);
                 }
                 SolarTimerEnable=1;                                             // If any EVSE is Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
             } else {
                 if (SolarTimerEnable == 1) {
-                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x03, 0);
+                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, 0);
                 }
                 SolarTimerEnable=0;                                             // After the timer runs out, the charging will be stopped.
             }
         } else {
             if (SolarTimerEnable == 1) {
-                if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x03, 0);
+                if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, 0);
             }
             SolarTimerEnable=0;                                                 // After the timer runs out, the charging will be stopped.
         }
@@ -1222,143 +1222,149 @@ unsigned char getMenuItems (void) {
  * @return unsigned char success
  */
 unsigned char setItemValue(unsigned char nav, unsigned int val) {
-    unsigned char ret = 0;
-
-    if (nav == STATUS_MODE) nav = MENU_MODE;
-
     if (nav < MENU_EXIT) {
-        if (val >= MenuStr[nav].Min && val <= MenuStr[nav].Max) {
-            switch (nav) {
-                case MENU_CONFIG:
-                    Config = val;
-                    break;
-                case MENU_MODE:
-                    Mode = val;
-                    break;
-                case MENU_START:
-                    StartCurrent = val;
-                    break;
-                case MENU_STOP:
-                    StopTime = val;
-                    break;
-                case MENU_IMPORT:
-                    ImportCurrent = val;
-                    break;
-                case MENU_LOADBL:
-                    LoadBl = val;
-                    break;
-                case MENU_MAINS:
-                    MaxMains = val;
-                    break;
-                case MENU_MIN:
-                    MinCurrent = val;
-                    break;
-                case MENU_MAX:
-                    MaxCurrent = val;
-                    break;
-                case MENU_CIRCUIT:
-                    MaxCircuit = val;
-                    break;
-                case MENU_LOCK:
-                    Lock = val;
-                    break;
-                case MENU_SWITCH:
-                    Switch = val;
-                    break;
-                case MENU_RCMON:
-                    RCmon = val;
-                    break;
-                case MENU_CAL:
-                    ICal = (signed double)val / 100;
-                    break;
-                case MENU_GRID:
-                    Grid = val;
-                    break;
-                case MENU_MAINSMETER:
-                    MainsMeter = val;
-                    break;
-                case MENU_MAINSMETERADDRESS:
-                    MainsMeterAddress = val;
-                    break;
-                case MENU_MAINSMETERMEASURE:
-                    MainsMeterMeasure = val;
-                    break;
-                case MENU_PVMETER:
-                    PVMeter = val;
-                    break;
-                case MENU_PVMETERADDRESS:
-                    PVMeterAddress = val;
-                    break;
-                case MENU_EVMETER:
-                    EVMeter = val;
-                    break;
-                case MENU_EVMETERADDRESS:
-                    EVMeterAddress = val;
-                    break;
-                case MENU_EMCUSTOM_ENDIANESS:
-                    EMConfig[EM_CUSTOM].Endianness = val;
-                    break;
-                case MENU_EMCUSTOM_ISDOUBLE:
-                    EMConfig[EM_CUSTOM].IsDouble = val;
-                    break;
-                case MENU_EMCUSTOM_UREGISTER:
-                    EMConfig[EM_CUSTOM].URegister = val;
-                    break;
-                case MENU_EMCUSTOM_UDIVISOR:
-                    EMConfig[EM_CUSTOM].UDivisor = val;
-                    break;
-                case MENU_EMCUSTOM_IREGISTER:
-                    EMConfig[EM_CUSTOM].IRegister = val;
-                    break;
-                case MENU_EMCUSTOM_IDIVISOR:
-                    EMConfig[EM_CUSTOM].IDivisor = val;
-                    break;
-                case MENU_EMCUSTOM_PREGISTER:
-                    EMConfig[EM_CUSTOM].PRegister = val;
-                    break;
-                case MENU_EMCUSTOM_PDIVISOR:
-                    EMConfig[EM_CUSTOM].PDivisor = val;
-                    break;
-                case MENU_EMCUSTOM_EREGISTER:
-                    EMConfig[EM_CUSTOM].ERegister = val;
-                    break;
-                case MENU_EMCUSTOM_EDIVISOR:
-                    EMConfig[EM_CUSTOM].EDivisor = val;
-                    break;
-                case MENU_RFIDREADER:
-                    RFIDReader = val;
-                    break;
-                default:
-                    break;
-            }
-            ret = 1;
-        }
-    } else {
-        ret = 1;
-        switch (nav) {
-            case STATUS_STATE:                                                  // Write the State register 0x00A0
-                setState(val);
-                break;
-            case STATUS_ERROR:                                                  // Write the Error register 0x00A1
-                Error = val;
-                break;
-            case STATUS_CURRENT:                                                // Write the Current register 0x00A6
-                OverrideCurrent = val;
-                break;
-            case STATUS_ACCESS:                                                 // Write the Access register 0x00A7
-                if (val == 0 || val == 1) {
-                    Access_bit = val;
-                    ret = 1;
-                    if (val == 0) setState(STATE_A);
-                }
-                break;
-            default:
-                ret = 0;
-                break;
-        }
+        if (val < MenuStr[nav].Min || val > MenuStr[nav].Max) return 0;
     }
 
-    return ret;
+    switch (nav) {
+        case MENU_CONFIG:
+            Config = val;
+            break;
+        case MENU_MODE:
+        case STATUS_MODE:
+            Mode = val;
+            break;
+        case MENU_START:
+            StartCurrent = val;
+            break;
+        case MENU_STOP:
+            StopTime = val;
+            break;
+        case MENU_IMPORT:
+            ImportCurrent = val;
+            break;
+        case MENU_LOADBL:
+            LoadBl = val;
+            break;
+        case MENU_MAINS:
+            MaxMains = val;
+            break;
+        case MENU_MIN:
+            MinCurrent = val;
+            break;
+        case MENU_MAX:
+            MaxCurrent = val;
+            break;
+        case MENU_CIRCUIT:
+            MaxCircuit = val;
+            break;
+        case MENU_LOCK:
+            Lock = val;
+            break;
+        case MENU_SWITCH:
+            Switch = val;
+            break;
+        case MENU_RCMON:
+            RCmon = val;
+            break;
+        case MENU_CAL:
+            ICal = (signed double)val / 100;
+            break;
+        case MENU_GRID:
+            Grid = val;
+            break;
+        case MENU_MAINSMETER:
+            MainsMeter = val;
+            break;
+        case MENU_MAINSMETERADDRESS:
+            MainsMeterAddress = val;
+            break;
+        case MENU_MAINSMETERMEASURE:
+            MainsMeterMeasure = val;
+            break;
+        case MENU_PVMETER:
+            PVMeter = val;
+            break;
+        case MENU_PVMETERADDRESS:
+            PVMeterAddress = val;
+            break;
+        case MENU_EVMETER:
+            EVMeter = val;
+            break;
+        case MENU_EVMETERADDRESS:
+            EVMeterAddress = val;
+            break;
+        case MENU_EMCUSTOM_ENDIANESS:
+            EMConfig[EM_CUSTOM].Endianness = val;
+            break;
+        case MENU_EMCUSTOM_ISDOUBLE:
+            EMConfig[EM_CUSTOM].IsDouble = val;
+            break;
+        case MENU_EMCUSTOM_UREGISTER:
+            EMConfig[EM_CUSTOM].URegister = val;
+            break;
+        case MENU_EMCUSTOM_UDIVISOR:
+            EMConfig[EM_CUSTOM].UDivisor = val;
+            break;
+        case MENU_EMCUSTOM_IREGISTER:
+            EMConfig[EM_CUSTOM].IRegister = val;
+            break;
+        case MENU_EMCUSTOM_IDIVISOR:
+            EMConfig[EM_CUSTOM].IDivisor = val;
+            break;
+        case MENU_EMCUSTOM_PREGISTER:
+            EMConfig[EM_CUSTOM].PRegister = val;
+            break;
+        case MENU_EMCUSTOM_PDIVISOR:
+            EMConfig[EM_CUSTOM].PDivisor = val;
+            break;
+        case MENU_EMCUSTOM_EREGISTER:
+            EMConfig[EM_CUSTOM].ERegister = val;
+            break;
+        case MENU_EMCUSTOM_EDIVISOR:
+            EMConfig[EM_CUSTOM].EDivisor = val;
+            break;
+        case MENU_RFIDREADER:
+            RFIDReader = val;
+            break;
+
+        case STATUS_STATE:
+            setState(val);
+            break;
+        case STATUS_ERROR:
+            Error = val;
+            if (Error) {                                                        // Is there an actual Error? Maybe the error got cleared?
+                setState(STATE_A);                                              // We received an error; switch to State A, and wait 60 seconds
+                ChargeDelay = CHARGEDELAY;
+#ifdef LOG_DEBUG_MODBUS
+                printf("\nBroadcast Error message received!");
+            } else {
+                printf("\nBroadcast Errors Cleared received!");
+#endif
+            }
+            break;
+        case STATUS_CURRENT:
+            OverrideCurrent = val;
+            break;
+        case STATUS_ACCESS:
+            if (val == 0 || val == 1) {
+                Access_bit = val;
+                if (val == 0) setState(STATE_A);
+            }
+            break;
+        case STATUS_SOLAR_TIMER:
+            if (val == 0) SolarTimerEnable = 0;
+            else {
+                SolarTimerEnable = 1;                                           // Enable SolarStopTimer
+                StopTime = val;                                                 // Set StopTime to x minutes.
+            }
+            break;
+        default:
+            return 0;
+            break;
+    }
+
+    return 1;
 }
 
 /**
@@ -1451,6 +1457,8 @@ unsigned int getItemValue(unsigned char nav) {
             return Balanced[0];
         case STATUS_ACCESS:
             return Access_bit;
+        case STATUS_SOLAR_TIMER:
+            return SolarTimerEnable;
 
         default:
             return 0;
@@ -2000,7 +2008,7 @@ void UpdateCurrentData(void) {
             ResetBalancedStates();
 
             // Broadcast Error code over RS485
-            ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, LESS_6A);
+            ModbusWriteSingleRequest(BROADCAST_ADR, 0xA1, LESS_6A);
             NoCurrent = 0;
         } else if (LoadBl) BroadcastCurrent();                                  // Master sends current to all connected EVSE's
 
@@ -2022,10 +2030,9 @@ void UpdateCurrentData(void) {
 
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
-    unsigned char pilot, count = 0, timeout = 5, DataReceived = 0;
+    unsigned char pilot, count = 0, timeout = 5;
     unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0;
     unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
-    unsigned int BalancedReceived;
     signed long PV[3]={0, 0, 0};
     unsigned char PollEVNode = NR_EVSES;
     signed long EnergyEV = 0;
@@ -2504,7 +2511,7 @@ void main(void) {
 #ifdef LOG_DEBUG_EVSE
                 printf("\nNo sun/current Errors Cleared.");
 #endif
-                ModbusWriteSingleRequest(BROADCAST_ADR, 0x02, Error);           // Broadcast
+                ModbusWriteSingleRequest(BROADCAST_ADR, 0xA1, Error);           // Broadcast
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
@@ -2711,19 +2718,22 @@ void main(void) {
                             break;
                         }
                         // Broadcast or addressed to this device
-                        if (Modbus.Address == BROADCAST_ADR|| Modbus.Address == LoadBl) {
+                        if (Modbus.Address == BROADCAST_ADR || Modbus.Address == LoadBl) {
                             WriteItemValueResponse();
-                            DataReceived = 1;
                         }
                         break;
                     case 0x10: // (Write multiple register))
                         // Broadcast or addressed to this device
-                        if (Modbus.Address == BROADCAST_ADR|| Modbus.Address == LoadBl) {
+                        if (Modbus.Address == BROADCAST_ADR || Modbus.Address == LoadBl) {
                             // 0x01: Balance currents
                             if (Modbus.Register == 0x01 && LoadBl > 1) {        // Message for Node(s)
-                                BalancedReceived = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
-                                //printf("\n  Address %02x Register %02x BalancedReceived %i ", Modbus.Address, Modbus.Register, BalancedReceived);
-                                DataReceived = 1;
+                                Balanced[0] = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
+                                if (Balanced[0] == 0 && State == STATE_C) setState(STATE_A);                // Stop charging if charge current is zero
+                                else if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
+#ifdef LOG_DEBUG_MODBUS
+                                printf("\nBroadcast received, Node %u.%1u A", Balanced[0]/10, Balanced[0]%10);
+#endif
+                                timeout = 10;                                   // reset 10 second timeout
                             }
                             WriteMultipleItemValueResponse();
                         }
@@ -2742,50 +2752,6 @@ void main(void) {
             }
         } // (ISRFLAG > 1) 	 complete packet detected?
 
-
-        // Process received Broadcast messages on Nodes
-
-        if (DataReceived) {                                                     // Master -> Node
-            if (Modbus.Address == BROADCAST_ADR && LoadBl > 1)                  // Broadcast message from Master->Nodes, Set Charge current
-            {
-                switch (Modbus.Register) {
-                    case 0x01:
-                        Balanced[0] = BalancedReceived;
-                        if (Balanced[0] == 0 && State == STATE_C) setState(STATE_A);                // Stop charging if charge current is zero
-                        else if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
-#ifdef LOG_DEBUG_MODBUS
-                        printf("\nBroadcast received, Node %u.%1u A", Balanced[0]/10, Balanced[0]%10);
-#endif
-                        timeout = 10;                                           // reset 10 second timeout
-                        break;
-                    case 0x02:                                                  // Broadcast Error message from Master->Nodes
-                        Error = Modbus.Value;                                   // Error stored in variable Current
-                        if (Error) {                                            // Is there an actual Error? Maybe the error got cleared?
-                            setState(STATE_A);                                  // We received an error; switch to State A, and wait 60 seconds
-                            ChargeDelay = CHARGEDELAY;
-#ifdef LOG_DEBUG_MODBUS
-                            printf("\nBroadcast Error message received!");
-                        } else {
-                            printf("\nBroadcast Errors Cleared received!");
-#endif
-                        }
-                        break;
-                    case 0x03:                                                  // Broadcast SolarStopTime message from Master->Nodes
-                        x = Modbus.Value;
-                        if (x == 0) SolarTimerEnable = 0;
-                        else {
-                            SolarTimerEnable = 1;                               // Enable SolarStopTimer
-                            StopTime = x;                                       // Set StopTime to x minutes.
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-
         if ((Error & CT_NOCOMM) && timeout == 10) Error &= ~CT_NOCOMM;          // Clear communication error, if present
-
-        DataReceived = 0;
     } // end of while(1) loop
 }

@@ -162,12 +162,14 @@
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
 #define MODBUS_EVSE_STATUS_START 0xA0
-#define MODBUS_EVSE_STATUS_END   0xAA
+#define MODBUS_EVSE_STATUS_END   0xAB
 #define MODBUS_EVSE_CONFIG_START 0xC0
 #define MODBUS_EVSE_CONFIG_END   0xCC
 #define MODBUS_SYS_CONFIG_START  0xE0
 #define MODBUS_SYS_CONFIG_END    0xF3
 
+//  1.654
+// 51.785
 // EVSE status
 #define STATUS_STATE 64                                                         // 0xA0: State
 #define STATUS_ERROR 65                                                         // 0xA1: Error
@@ -180,6 +182,7 @@
 #define STATUS_MODE 72                                                          // 0xA8: EVSE Mode
 #define STATUS_EVMETER 73                                                       // 0xA9: Type of EV electric meter
 #define STATUS_EVMETERADDRESS 74                                                // 0xAA: Address of EV electric meter
+#define STATUS_SOLAR_TIMER 75                                                   // 0xAB: Solar Timer
 
 // EVSE configuration
 #define MENU_ENTER 1

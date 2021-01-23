@@ -251,7 +251,6 @@ unsigned char GridActive = 0;                                                   
 unsigned char CalActive = 0;                                                    // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 
 unsigned int SolarStopTimer = 0;
-unsigned char SolarTimerEnable = 0;
 unsigned char DelayedRS485SendBuf = 0;
 signed long EnergyCharged = 0;                                                  // kWh meter value energy charged. (Wh) (will reset if state changes from A->B)
 signed long EnergyMeterStart = 0;                                               // kWh meter value is stored once EV is connected to EVSE (Wh)
@@ -784,6 +783,18 @@ const far unsigned char * getStateName(unsigned char StateCode) {
 }
 
 /**
+ * Set the solar stop timer
+ * 
+ * @param unsigned int Timer (seconds)
+ */
+void setSolarStopTimer(unsigned int Timer) {
+    if (LoadBl == 1 && SolarStopTimer != Timer) {
+        ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, Timer);
+    }
+    SolarStopTimer = Timer;
+}
+
+/**
  * Set state
  *
  * @param NewState
@@ -916,21 +927,12 @@ void CalcBalancedCurrent(char mod) {
             IsetBalanced = BalancedLeft * MinCurrent * 10;
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
             if (BalancedLeft && StopTime && (IsumImport > 10)) {
-                if (SolarTimerEnable == 0) {
-                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, StopTime);
-                }
-                SolarTimerEnable=1;                                             // If any EVSE is Charging and StopTime is set to 1+ minute and we use 1+ A grid power, enable the SolarStopTimer
+                if (SolarStopTimer == 0) setSolarStopTimer(StopTime * 60);      // Convert minutes into seconds
             } else {
-                if (SolarTimerEnable == 1) {
-                    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, 0);
-                }
-                SolarTimerEnable=0;                                             // After the timer runs out, the charging will be stopped.
+                setSolarStopTimer(0);
             }
         } else {
-            if (SolarTimerEnable == 1) {
-                if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, 0);
-            }
-            SolarTimerEnable=0;                                                 // After the timer runs out, the charging will be stopped.
+            setSolarStopTimer(0);
         }
     }
                                                                                 // When Load balancing = Master,  Limit total current of all EVSEs to MaxCircuit
@@ -1353,11 +1355,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             }
             break;
         case STATUS_SOLAR_TIMER:
-            if (val == 0) SolarTimerEnable = 0;
-            else {
-                SolarTimerEnable = 1;                                           // Enable SolarStopTimer
-                StopTime = val;                                                 // Set StopTime to x minutes.
-            }
+            setSolarStopTimer(val);
             break;
         default:
             return 0;
@@ -1458,7 +1456,7 @@ unsigned int getItemValue(unsigned char nav) {
         case STATUS_ACCESS:
             return Access_bit;
         case STATUS_SOLAR_TIMER:
-            return SolarTimerEnable;
+            return SolarStopTimer;
 
         default:
             return 0;
@@ -2097,7 +2095,7 @@ void main(void) {
                 Mode = ~Mode & 0x3;                                             // Change from Solar to Smart mode and vice versa.
                 Error &= ~(NO_SUN | LESS_6A);                                   // Clear All errors
                 ChargeDelay = 0;                                                // Clear any Chargedelay
-                SolarTimerEnable = 0;                                           // Also make sure the SolarTimer is disabled.
+                setSolarStopTimer(0);                                           // Also make sure the SolarTimer is disabled.
                 LCDTimer = 0;
                                                                                 // Broadcast change of Charging mode (Solar/Smart) to node EVSE's
                 if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
@@ -2142,7 +2140,7 @@ void main(void) {
                         case 4: // Smart-Solar Switch
                             if (Mode == MODE_SOLAR) {
                                 Mode = MODE_SMART;
-                                SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
+                                setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
                             }                                                   // Broadcast change of Charging mode (Solar/Smart) to node EVSE's
                             if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                             break;
@@ -2180,7 +2178,7 @@ void main(void) {
                                 }
                                 Error &= ~(NO_SUN | LESS_6A);                   // Clear All errors
                                 ChargeDelay = 0;                                // Clear any Chargedelay
-                                SolarTimerEnable = 0;                           // Also make sure the SolarTimer is disabled.
+                                setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
                                 LCDTimer = 0;
                                                                                 // Broadcast change of Charging mode (Solar/Smart) to node EVSE's
                                 if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
@@ -2485,18 +2483,15 @@ void main(void) {
             // Charging is stopped when the timer reaches the time set in 'StopTime' (in minutes)
             // Except when Stoptime =0, then charging will continue.
 
-            if (SolarTimerEnable)
-            {
-                if ( SolarStopTimer++ >= (StopTime*60))                         // Convert minutes into seconds
-                {
+            if (SolarStopTimer) {
+                SolarStopTimer--;
+                if (SolarStopTimer == 0) {
                      setState(STATE_A);                                         // switch back to state A
-                     SolarTimerEnable=0;                                        // Disable Solar Timer
-                     SolarStopTimer=0;
                      Error |= NO_SUN;                                           // Set error: NO_SUN
 
                      ResetBalancedStates();                                     // reset all states
                 }
-            } else SolarStopTimer=0;
+            }
 
             if (ChargeDelay) ChargeDelay--;                                     // Decrease Charge Delay counter
 

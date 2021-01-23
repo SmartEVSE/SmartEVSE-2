@@ -570,15 +570,14 @@ void GLCD(void) {
                 GLCDbuf[x+74u+128u] = 0;
             }
         }
-        if (!SolarTimerEnable) {                                                // remove the clock from the LCD buffer
-            for (x=0; x<8; x++) GLCDbuf[x+92u] = 0;
-        } else {                                                                // display remaining time before charging is stopped
-            seconds = StopTime * 60;
-            seconds = seconds - SolarStopTimer;
+        if (SolarStopTimer) {
+            seconds = SolarStopTimer;                                           // display remaining time before charging is stopped
             minutes = seconds / 60;
             seconds = seconds % 60;
             sprintf(Str, "%02u:%02u", minutes, seconds);
             GLCD_print_buf(100, 0, Str);                                        // print to buffer
+        } else {
+            for (x=0; x<8; x++) GLCDbuf[x+92u] = 0;                             // remove the clock from the LCD buffer
         }
 
 
@@ -806,7 +805,7 @@ void GLCDMenu(unsigned char Buttons) {
                 Error = NO_ERROR;                                               // Clear All Errors when exiting the Main Menu
                 TestState = 0;                                                  // Clear TestState
                 ChargeDelay = 0;                                                // Clear ChargeDelay
-                SolarTimerEnable = 0;                                           // Disable Solar Timer
+                setSolarStopTimer(0);                                           // Disable Solar Timer
                 GLCD();
                 write_settings();                                               // Write to eeprom
                 ButtonRelease = 2;                                              // Skip updating of the LCD 

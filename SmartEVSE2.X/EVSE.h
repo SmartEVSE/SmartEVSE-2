@@ -318,7 +318,6 @@ extern unsigned char Access_bit;
 extern unsigned char GridActive;                                                // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 extern unsigned int SolarStopTimer;
-extern unsigned char SolarTimerEnable;
 extern signed long EnergyCharged;
 extern signed long PowerMeasured;
 extern unsigned char RFID[8];
@@ -412,6 +411,7 @@ struct NodeStatus {
 void RS485SendBuf(char *buffer, unsigned char len);
 void read_settings(void);
 void write_settings(void);
+void setSolarStopTimer(unsigned int Timer);
 unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);

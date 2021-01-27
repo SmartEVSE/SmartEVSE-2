@@ -168,8 +168,6 @@
 #define MODBUS_SYS_CONFIG_START  0xE0
 #define MODBUS_SYS_CONFIG_END    0xF3
 
-//  1.654
-// 51.785
 // EVSE status
 #define STATUS_STATE 64                                                         // 0xA0: State
 #define STATUS_ERROR 65                                                         // 0xA1: Error

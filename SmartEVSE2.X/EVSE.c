@@ -1359,7 +1359,6 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             break;
         default:
             return 0;
-            break;
     }
 
     return 1;
@@ -2298,7 +2297,7 @@ void main(void) {
                                 }
                                 if (LoadBl > 1)                                 // Load Balancing : Node
                                 {                                               // Send command to Master, followed by Charge Current
-                                    setState(STATE_COMM_C);
+                                    if (State != STATE_COMM_C) setState(STATE_COMM_C);
                                 } else {                                        // Load Balancing: Master or Disabled
                                     BalancedMax[0] = ChargeCurrent;
                                     if (IsCurrentAvailable()) {
@@ -2530,14 +2529,11 @@ void main(void) {
             }
 
             if (Error & (NO_SUN | LESS_6A)) {
-                //Error &= ~NOCURRENT;                                            // Clear NO_CURRENT from error register
 #ifdef LOG_INFO_EVSE
                 if (Mode == MODE_SOLAR) {
                     if (ChargeDelay == 0) printf("\nWaiting for Solar power...");
-            //        Error |= NO_SUN;                                            // Set new Error
                 } else {
                     if (ChargeDelay == 0) printf("\nNot enough current available!");
-            //        Error |= LESS_6A;
                 }
 #endif
                 setState(STATE_A);

@@ -835,7 +835,7 @@ void GLCDMenu(unsigned char Buttons) {
             switch (LCDNav) {
                 case MENU_CAL:
                     if (SubMenu) {
-                        sprintf(Str, "%u.%uA",CT1 / 10, CT1 % 10);
+                        sprintf(Str, "%u.%uA", CT1 / 10, CT1 % 10);
                     } else {
                         sprintf(Str, "%u.%uA",((unsigned int) abs(Irms[0]) / 10), ((unsigned int) abs(Irms[0]) % 10) );
                     }

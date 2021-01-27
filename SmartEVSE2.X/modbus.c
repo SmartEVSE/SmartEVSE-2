@@ -399,7 +399,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                     break;
                 case MODBUS_OK:
                     // If address and function identical with last send or received request, it is a valid response
-                    if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction) {
+                    if (Modbus.Address == Modbus.RequestAddress && Modbus.Function == Modbus.RequestFunction && Modbus.Address != BROADCAST_ADR) {
                         Modbus.Type = MODBUS_RESPONSE;
                         Modbus.RequestAddress = 0;
                         Modbus.RequestFunction = 0;

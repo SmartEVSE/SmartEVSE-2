@@ -43,14 +43,14 @@
 #define LOG_MODBUS LOG_WARN                                                     // Default: LOG_WARN
 
 #define VERSION "2.20"                                                          // SmartEVSE software version
-#define TRANSFORMER_COMP 1.00                                                   // Current calculation compensation option for use with 230V-400V transformers,
+#define TRANSFORMER_COMP 100                                                    // Current calculation compensation option for use with 230V-400V transformers,
                                                                                 // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.
-                                                                                // set to 1.00 for normal use, and to 1.73 for use with a transformer.
+                                                                                // set to 100 for normal use, and to 173 for use with a transformer.
 
-//#define SPECIAL                                                                 // if defined, it will modify program so that some menu options are not shown
+//#define SPECIAL                                                               // if defined, it will modify program so that some menu options are not shown
                                                                                 // should be undefined by default
 
-#define ICAL 1.00                                                               // Irms Calibration value (for Current transformers)
+#define ICAL 1024                                                               // Irms Calibration value (for Current transformers)
 #define MAX_MAINS 25                                                            // max Current the Mains connection can supply
 #define MAX_CURRENT 13                                                          // max charging Current for the EV
 #define MIN_CURRENT 6                                                           // minimum Current the EV will accept
@@ -264,7 +264,7 @@ extern char GLCDbuf[512];                                                       
 extern unsigned int MaxMains;                                                   // Max Mains Amps (hard limit, limited by the MAINS connection)
 extern unsigned int MaxCurrent;                                                 // Max Charge current
 extern unsigned int MinCurrent;                                                 // Minimal current the EV is happy with
-extern double ICal;                                                             // CT calibration value
+extern unsigned long ICal;                                                      // CT calibration value
 extern char Mode;                                                               // EVSE mode
 extern char Lock;                                                               // Cable lock enable/disable
 extern unsigned int MaxCircuit;                                                 // Max current of the EVSE circuit
@@ -285,14 +285,14 @@ extern unsigned char EVMeter;                                                   
 extern unsigned char EVMeterAddress;
 extern unsigned char RFIDReader;
 
-extern signed long Irms[3];                                                     // Momentary current per Phase (Amps *10) (23 = 2.3A)
+extern signed int Irms[3];                                                      // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
 extern unsigned char State;
 extern unsigned char Error;
 extern unsigned char NextState;
 
 extern unsigned int MaxCapacity;                                                // Cable limit (Amps)(limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
-extern unsigned int Imeasured;                                                  // Max of all CT inputs (Amps * 10) (23 = 2.3A)
+extern signed int Imeasured;                                                    // Max of all CT inputs (Amps * 10) (23 = 2.3A)
 extern signed int Isum;
 extern unsigned int Balanced[NR_EVSES];                                         // Amps value per EVSE
 
@@ -315,6 +315,7 @@ extern unsigned char TestState;
 extern unsigned char Access_bit;
 extern unsigned char GridActive;                                                // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
+extern unsigned int Iuncal;
 extern unsigned int SolarStopTimer;
 extern signed long EnergyCharged;
 extern signed long PowerMeasured;
@@ -349,7 +350,7 @@ const far struct {
     {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 200, MAX_MAINS},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", 30, 200, (unsigned int) (ICAL * 100)},         // valid range is 0.3 - 2.0 times measured value
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", ICAL * 0.3, ICAL * 2.0, ICAL},         // valid range is 0.3 - 2.0 times measured value
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, EM_CUSTOM, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},

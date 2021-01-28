@@ -66,17 +66,17 @@
 ;       Speeded up State C->B detection, by removing (blocking) delays. The Renault ZOE will show an error if this takes > 100ms.
 ; 2.17  Fixed state switch bug while in solar mode.
 ;       Hides CAL menu option when CT's are not used.
-; 2.18  Fixed Temp Error, >65C stopped charging, but did not show any error message on the LCD.
+; 2.20  Fixed Temp Error, >65C stopped charging, but did not show any error message on the LCD.
 ;       Internal temperature is now displayed on the LCD while in the setup menu.
 ;       Added setup menu navigation indicator, which shows how many menu options are available, and which one is currently selected.
 ;       Fixed MAX current adjustment above initial setting, while charging and a FIXED cable is used.
-;       Added EVMETER and EVADR option to the menu. Use a modbus kwh meter to measure the charged energy.
-;       Added charged energy to the LCD (Smart/Solar mode, master only)
+;       Added EVMETER and EVADR option to the menu. Use a modbus kWh meter to measure the charged energy.
+;       Added charged energy to the LCD (Smart/Solar mode)
 ;       Uses condensed characters on the LCD, so the 'i' will not use the same space as the 'w'
 ;       Increased MaxMains to 200A, and Circuit to 160A.
 ;       Allows the use of 200A:50ma CT's with the Sensorbox. Will adjust (x2) measurement when MAINS setting is >100A
 ;       Increased the nr of nodes to 7.
-;       Added node polling..
+;       Added modbus node polling. The master will poll all nodes for state changes.
 ;       Added RFID reader option. Learn up to 20 RFID cards.
 ;           Enabling the RFID reader will lock/unlock the SmartEVSE with a valid RFID card.
 ;           Status messages when learning/deleting cards are displayed on the LCD.
@@ -173,7 +173,7 @@ char RFIDlist[120];                                                             
 unsigned int MaxMains = MAX_MAINS;                                              // Max Mains Amps (hard limit, limited by the MAINS connection) (A)
 unsigned int MaxCurrent = MAX_CURRENT;                                          // Max Charge current (A)
 unsigned int MinCurrent = MIN_CURRENT;                                          // Minimal current the EV is happy with (A)
-signed double ICal = ICAL;                                                      // CT calibration value
+unsigned long ICal = ICAL;                                                      // CT calibration value
 char Mode = MODE;                                                               // EVSE mode (0:Normal / 1:Smart)
 char Lock = LOCK;                                                               // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
 unsigned int MaxCircuit = MAX_CIRCUIT;                                          // Max current of the EVSE circuit (A)
@@ -194,7 +194,7 @@ unsigned char EVMeter = EV_METER;                                               
 unsigned char EVMeterAddress = EV_METER_ADDRESS;
 unsigned char RFIDReader = RFID_READER;                                         // RFID Reader Disabled/Enabled (Learn / Delete, Delete All)
 
-signed long Irms[3]={0, 0, 0};                                                  // Momentary current per Phase (Amps *10) (23 = 2.3A)
+signed int Irms[3]={0, 0, 0};                                                   // Momentary current per Phase (23 = 2.3A) (resolution 100mA)
                                                                                 // Max 3 phases supported
 unsigned char State = STATE_A;
 unsigned char Error = NO_ERROR;
@@ -203,7 +203,7 @@ unsigned char NextState;
 unsigned int MaxCapacity;                                                       // Cable limit (A) (limited by the wire in the charge cable, set automatically, or manually if Config=Fixed Cable)
 unsigned int ChargeCurrent;                                                     // Calculated Charge Current (Amps *10)
 unsigned int OverrideCurrent = 0;                                               // Temporary assigned current (Amps *10) (modbus)
-unsigned int Imeasured = 0;                                                     // Max of all Phases (Amps *10) of mains power
+signed int Imeasured = 0;                                                       // Max of all Phases (Amps *10) of mains power
 signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
 signed int Isum = 0;                                                            // Sum of all measured Phases (Amps *10) (can be negative)
 
@@ -249,6 +249,7 @@ unsigned char Access_bit = 0;
 unsigned int serialnr = 0;
 unsigned char GridActive = 0;                                                   // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 unsigned char CalActive = 0;                                                    // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
+unsigned int Iuncal = 0;                                                        // Uncalibrated CT1 measurement (resolution 10mA)
 
 unsigned int SolarStopTimer = 0;
 unsigned char DelayedRS485SendBuf = 0;
@@ -903,7 +904,7 @@ void CalcBalancedCurrent(char mod) {
         Idifference = (MaxMains * 10) - Imeasured;                              // Difference between MaxMains and Measured current (can be negative)
 
         if (Idifference > 0) IsetBalanced += (Idifference / 4);                 // increase with 1/4th of difference (slowly increase current)
-        else IsetBalanced += (double)(Idifference / TRANSFORMER_COMP);          // last PWM setting + difference (immediately decrease current)
+        else IsetBalanced += (Idifference * 100 / TRANSFORMER_COMP);            // last PWM setting + difference (immediately decrease current)
         if (IsetBalanced < 0) IsetBalanced = 0;
         if (IsetBalanced > 800) IsetBalanced = 800;                             // hard limit 80A (added 11-11-2017)
     }
@@ -1270,7 +1271,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             RCmon = val;
             break;
         case MENU_CAL:
-            ICal = (signed double)val / 100;
+            ICal = val;
             break;
         case MENU_GRID:
             Grid = val;
@@ -1400,7 +1401,7 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_RCMON:
             return RCmon;
         case MENU_CAL:
-            return (unsigned int) (ICal * 100);
+            return ICal;
         case MENU_GRID:
             return Grid;
         case MENU_MAINSMETER:
@@ -1575,9 +1576,9 @@ const far char * getMenuItemOption(unsigned char nav) {
 //
 
 void RS232cli(void) {
-    unsigned char i, OK;
+    unsigned char i, OK, x;
     unsigned int n;
-    double Inew, Iold;
+    unsigned int Inew;                                                          // resolution 0.1A
     unsigned char MenuItemsCount = getMenuItems();
 
     printf("\n");
@@ -1593,11 +1594,20 @@ void RS232cli(void) {
     else {
         switch (menu) {
             case MENU_CAL:
-                Inew = atof(U2buffer);
-                if ((Inew < 6) || (Inew > 80)) printf("\nError! please calibrate with at least 6A\n");
+                x = 0;
+                do {                                                            // remove decimal point from string
+                    i = U2buffer[x];                                            // so 23.5 becomes 235
+                    if (i == '.') {
+                        U2buffer[x] = U2buffer[x+1];
+                        U2buffer[x+1] = '\0';
+                    }
+                    x++;
+                } while (i != '\0');
+
+                Inew = atoi(U2buffer);
+                if ((Inew < 60) || (Inew > 800)) printf("\nError! please calibrate with at least 6A\n");
                 else {
-                    Iold = abs(Irms[0]) / ICal;
-                    ICal = (Inew * 10) / Iold;                                  // Calculate new Calibration value
+                    ICal = ((unsigned long)Inew * 10 + 5) * ICAL / Iuncal;      // Calculate new Calibration value
                     write_settings();
                 }
                 break;
@@ -1720,7 +1730,8 @@ void RS232cli(void) {
             for(i = 0; i < MenuItemsCount - 1; i++) {
                 printf("%-07s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
                 if (MenuItems[i] == MENU_CAL) {
-                    printf("CT1:%d.%u A CT2:%d.%u A CT3:%d.%u A)", (int)Irms[0]/10, (unsigned int)abs(Irms[0])%10, (int)Irms[1]/10, (unsigned int)abs(Irms[1])%10, (int)Irms[2]/10, (unsigned int)abs(Irms[2])%10);
+                    for (x = 0 ; x < 3 ; x++)
+                        printf("CT%u:%d.%u A ", x+1, Irms[x]/10, (unsigned int)abs(Irms[x])%10 );
                 } else {
                     printf(getMenuItemOption(MenuItems[i]));
                 }
@@ -1786,7 +1797,7 @@ void RS232cli(void) {
             printf("GRID connection (for correct Sensorbox measurement) set to : %s\nGrid set to (4Wire/3Wire): ", getMenuItemOption(menu));
             break;
         case MENU_CAL:
-            printf("CT1 reads: %d.%u A\nEnter new Measured Current for CT1: ", (int)Irms[0]/10, (unsigned int)abs(Irms[0])%10);
+            printf("CT1 reads: %d.%u A\nEnter new Measured Current for CT1: ", Irms[0]/10, (unsigned int)abs(Irms[0])%10);
             break;
         case MENU_MAINSMETER:
         case MENU_PVMETER:
@@ -1986,8 +1997,8 @@ void UpdateCurrentData(void) {
     ImeasuredNegative = 0;
     for (x=0; x<3; x++) {
         // Imeasured holds highest Irms of all channels
-        if (Irms[x] > Imeasured) Imeasured = (unsigned int) Irms[x];
-        if (Irms[x] < ImeasuredNegative) ImeasuredNegative = (signed int) Irms[x];
+        if (Irms[x] > Imeasured) Imeasured = Irms[x];
+        if (Irms[x] < ImeasuredNegative) ImeasuredNegative = Irms[x];
     }
 
 
@@ -2019,7 +2030,7 @@ void UpdateCurrentData(void) {
                                                                         (double)Imeasured/10,
                                                                         (double)IsetBalanced/10);
 
-        printf("\nL1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A", (Irms[0]/10), Irms[1]/10, Irms[2]/10, (double)Isum/10);
+        printf("\nL1: %.1f A L2: %.1f A L3: %.1f A Isum: %.1f A", (double)Irms[0]/10, (double)Irms[1]/10, (double)Irms[2]/10, (double)Isum/10);
 #endif
     } else Imeasured = 0; // In case Sensorbox is connected in Normal mode. Clear measurement.
 }
@@ -2030,6 +2041,7 @@ void main(void) {
     unsigned char pilot, count = 0, timeout = 5;
     unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0;
     unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
+    signed long CM[3]={0, 0, 0};
     signed long PV[3]={0, 0, 0};
     unsigned char PollEVNode = NR_EVSES;
     signed long EnergyEV = 0;
@@ -2659,19 +2671,16 @@ void main(void) {
 
                         } else if (Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
                             // packet from Mains electric meter
-                            x = receiveCurrentMeasurement(Modbus.Data, MainsMeter, Irms);
+                            x = receiveCurrentMeasurement(Modbus.Data, MainsMeter, CM);
                             if (x && LoadBl <2) timeout = 10;                   // only reset timeout when data is ok, and Master/Disabled
-                            if (PVMeter) {
-                                // Calculate difference of Mains and PV electric meter
-                                for (x = 0; x < 3; x++) {
-                                    Irms[x] = Irms[x] - PV[x];
-                                }
-                            }
+
                             // Calculate Isum (for nodes and master)
                             Isum = 0;
                             for (x = 0; x < 3; x++) {
-                                Irms[x] /= 100; // ToDo: Change calculation to use mA instead of 100 mA
-                                Isum = Isum + (int) Irms[x];
+                                // Calculate difference of Mains and PV electric meter
+                                if (PVMeter) CM[x] = CM[x] - PV[x];             // CurrentMeter and PV resolution are 1mA
+                                Irms[x] = CM[x]/100;                            // reduce resolution of Irms to 100mA
+                                Isum = Isum + Irms[x];                          // Isum has a resolution of 100mA
                             }
 
                         } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].ERegister) {

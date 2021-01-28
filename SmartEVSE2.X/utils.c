@@ -169,7 +169,7 @@ unsigned char OneWireReadCardId(void) {
  * @param unsinged char Divisor where to set decimal point
  * @param unsigned char Decimal place count
  */
-void sprintfl(unsigned char *str, unsigned char *Format, signed long Value, unsigned char Divisor, unsigned char Decimal) {
+void sprintfl(unsigned char *str, const unsigned char *Format, signed long Value, unsigned char Divisor, unsigned char Decimal) {
     signed long val;
 
     val = Value / (signed long) pow10[Divisor - Decimal - 1];

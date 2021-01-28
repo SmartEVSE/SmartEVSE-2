@@ -611,7 +611,7 @@ void GLCD(void) {
             GLCD_write_buf(0xFE);                                               // Show energy flow 'blob' between House and Car
 
             if (LCDToggle && EVMeter) {
-                if (PowerMeasured < 10000) {
+                if (PowerMeasured < 9950) {
                     sprintfl(Str, "%1u.%1ukW", PowerMeasured, 3, 1);
                     GLCD_print_buf(73, 2, Str);
                 } else {
@@ -720,8 +720,7 @@ unsigned char GetPosInMenu (unsigned char count) {
 void GLCDMenu(unsigned char Buttons) {
     static unsigned long ButtonTimer = 0;
     static unsigned char ButtonRelease = 0;                                     // keeps track of LCD Menu Navigation
-    static unsigned int CT1, CT1old, value, ButtonRepeat = 0;
-    static double Iold;
+    static unsigned int CT1, value, ButtonRepeat = 0;
     unsigned char Str[10];
 
     unsigned char MenuItemsCount = getMenuItems();
@@ -788,17 +787,13 @@ void GLCDMenu(unsigned char Buttons) {
         if (SubMenu) {                                                          // We are currently in Submenu
             SubMenu = 0;                                                        // Exit Submenu now
             if (LCDNav == MENU_CAL) {                                           // Exit CT1 calibration?
-                if (CT1 != CT1old) {                                            // did the value change?
-                    Iold = (double) (CT1old / ICal);
-                    ICal = (double) (CT1 / Iold);                               // Calculate new Calibration value
-                    Irms[0] = CT1;                                              // Set the Irms value, so the LCD update is instant
-                }
+                ICal = ((unsigned long)CT1 * 10 + 5) * ICAL / Iuncal;           // Calculate new Calibration value
+                Irms[0] = CT1;                                                  // Set the Irms value, so the LCD update is instant
             }
         } else {                                                                // We are currently not in Submenu.
             SubMenu = 1;                                                        // Enter Submenu now
             if (LCDNav == MENU_CAL) {                                           // CT1 calibration start
                 CT1 = (unsigned int) abs(Irms[0]);                              // make working copy of CT1 value
-                CT1old = CT1;                                                   // and a backup
             } else if (LCDNav == MENU_EXIT) {                                   // Exit Main Menu
                 LCDNav = 0;
                 SubMenu = 0;

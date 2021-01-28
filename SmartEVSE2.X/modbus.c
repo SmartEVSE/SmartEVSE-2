@@ -21,6 +21,7 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ; THE SOFTWARE.
 */
+#include <stdlib.h>
 #include "EVSE.h"
 #include "modbus.h"
 #include "utils.h"
@@ -565,7 +566,8 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) {
-                    var[x] = var[x] * ICal;
+                    if (x == 0) Iuncal = abs((var[x]/10));                      // Store uncalibrated CT1 measurement (10mA)
+                    var[x] = (signed long)var[x] * (signed int)ICal / ICAL;
                     // When MaxMains is set to >100A, it's assumed 200A:50ma CT's are used.
                     if (MaxMains > 100) var[x] = var[x] * 2;                    // Multiply measured currents with 2
                     // very small negative currents are shown as zero.

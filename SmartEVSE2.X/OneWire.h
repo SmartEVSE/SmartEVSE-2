@@ -1,5 +1,5 @@
 /*
-;    Project:       Smart EVSE
+;	 Project:       Smart EVSE
 ;
 ;
 ;
@@ -20,20 +20,8 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ; THE SOFTWARE.
- */
+*/
 
-// This is a guard condition so that contents of this file are not included
-// more than once.  
-#ifndef UTILS_H
-#define	UTILS_H
-
-unsigned long pow10[10] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
-unsigned char crc8(unsigned char *buf, unsigned char len);
-unsigned int crc16(unsigned char *buf, unsigned char len);
-void delay(unsigned int d);
-void sprintfl(unsigned char *str, const unsigned char *Format, signed long Value, unsigned char Divisor, unsigned char Decimal);
-unsigned char triwave8(unsigned char in);
-unsigned char scale8(unsigned char i, unsigned char scale);
-unsigned char ease8InOutQuad(unsigned char i);
-
-#endif	/* UTILS_H */
+void ReadRFIDlist(void);
+void DeleteAllRFID(void);
+void CheckRFID(void);

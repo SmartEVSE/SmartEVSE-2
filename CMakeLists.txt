@@ -3,6 +3,7 @@ set(SOURCES
     SmartEVSE2.X/EVSE.c
     SmartEVSE2.X/GLCD.c
     SmartEVSE2.X/modbus.c
+    SmartEVSE2.X/OneWire.c
     SmartEVSE2.X/utils.c
 )
 

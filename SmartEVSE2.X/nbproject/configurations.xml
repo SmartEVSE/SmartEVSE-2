@@ -9,6 +9,7 @@
       <itemPath>bootloader.h</itemPath>
       <itemPath>utils.h</itemPath>
       <itemPath>modbus.h</itemPath>
+      <itemPath>OneWire.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -22,6 +23,7 @@
       <itemPath>bootloader.c</itemPath>
       <itemPath>utils.c</itemPath>
       <itemPath>modbus.c</itemPath>
+      <itemPath>OneWire.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -40,7 +42,7 @@
         <targetDevice>PIC18F26K22</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>noID</platformTool>
+        <platformTool></platformTool>
         <languageToolchain>XC8</languageToolchain>
         <languageToolchainVersion>2.30</languageToolchainVersion>
         <platform>2</platform>

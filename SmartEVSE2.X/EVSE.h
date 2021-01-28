@@ -307,6 +307,9 @@ extern unsigned long ScrollTimer;
 extern unsigned char LCDpos;
 extern unsigned char ChargeDelay;                                               // Delays charging at least 60 seconds in case of not enough current available.
 extern unsigned char TestState;
+extern unsigned char unlockMagic;
+extern unsigned char unlock55;                                                  // unlock bytes set to 0 to prevent flash write at por
+extern unsigned char unlockAA;                                                  // unlock bytes set to 0 to prevent flash write at por
 extern unsigned char Access_bit;
 extern unsigned char GridActive;                                                // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
@@ -314,7 +317,6 @@ extern unsigned int Iuncal;
 extern unsigned int SolarStopTimer;
 extern signed long EnergyCharged;
 extern signed long PowerMeasured;
-extern unsigned char RFID[8];
 extern unsigned char RFIDstatus;
 
 extern unsigned char MenuItems[MENU_EXIT];
@@ -403,13 +405,15 @@ struct NodeStatus {
 };
 
 void RS485SendBuf(char *buffer, unsigned char len);
+void eeprom_read_object(void *obj_p, size_t obj_size);
+void eeprom_write_object(void *obj_p, size_t obj_size);
 void read_settings(void);
 void write_settings(void);
 void setSolarStopTimer(unsigned int Timer);
+void setState(unsigned char NewState);
 unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);
 const far char * getMenuItemOption(unsigned char nav);
-void WriteRFIDlist(void);
 
 #endif

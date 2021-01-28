@@ -758,7 +758,7 @@ void GLCDMenu(unsigned char Buttons) {
                         value = getItemValue(LCDNav);
                         do {
                             value = MenuNavInt(Buttons, value, MenuStr[LCDNav].Min, MenuStr[LCDNav].Max);
-                        } while (EMConfig[value].ERegister == 0xFFFF);
+                        } while (value == EM_SENSORBOX);
                         setItemValue(LCDNav, value);
                         break;
                     default:

@@ -1682,7 +1682,7 @@ void RS232cli(void) {
             case MENU_PVMETER:
             case MENU_EVMETER:
                 for(i = 0; i <= EM_CUSTOM; i++){                                // Don't accept Sensorbox for EVMETER
-                    if ( (strcmp(U2buffer, EMConfig[i].Desc) == 0) && !(EMConfig[i].ERegister == 0xffff && menu == MENU_EVMETER) ) {
+                    if ( (strcmp(U2buffer, EMConfig[i].Desc) == 0) && !(i == EM_SENSORBOX && menu == MENU_EVMETER) ) {
                         setItemValue(menu, i);
                         write_settings();
                     }
@@ -1804,7 +1804,7 @@ void RS232cli(void) {
         case MENU_EVMETER:
             printf("Enter new type (%s", EMConfig[0].Desc);
             for(i = 1; i <= EM_CUSTOM; i++) {                                   // Don't show Sensorbox on EVMETER
-                if (!(EMConfig[i].ERegister == 0xffff && menu == MENU_EVMETER)) printf("/%s", EMConfig[i].Desc);
+                if (!(i == EM_SENSORBOX && menu == MENU_EVMETER)) printf("/%s", EMConfig[i].Desc);
             }
             printf("): ");
             break;

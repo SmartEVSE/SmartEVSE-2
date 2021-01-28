@@ -1,7 +1,5 @@
 /*
 ;	 Project:       Smart EVSE
-;    File:          bootloader.c
-;    Date:          11 January 2020
 ;
 ; This code will overwrite v 1.05 of the bootloader with version 1.06
 ; Version 1.06 has much better protection against unintended flash writes/erases
@@ -25,8 +23,10 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ; THE SOFTWARE.
  */
+
 #include <xc.h>
 #include <string.h>
+
 #include "bootloader.h"
 
 

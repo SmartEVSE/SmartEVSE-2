@@ -1,6 +1,5 @@
 /*
 ; Project:       Smart EVSE
-; Date:          8 June 2020
 ;
 ; Changes:
 ;
@@ -112,13 +111,16 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ; THE SOFTWARE.
 */
-#include <xc.h>
-#include <stdbool.h>
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include "EVSE.h"
+#include <string.h>
+#include <xc.h>
+
 #include "bootloader.h"
+#include "EVSE.h"
+#include "GLCD.h"
 #include "modbus.h"
 #include "utils.h"
 

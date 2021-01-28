@@ -1,6 +1,5 @@
 /*
 ;    Project:       Smart EVSE
-;    Date:          11 January 2020
 ;
 ;
 ;

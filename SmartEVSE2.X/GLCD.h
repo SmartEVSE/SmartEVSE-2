@@ -1,6 +1,5 @@
 /*
 ;	 Project:       Smart EVSE
-;    Date:          1 February 2016
 ;
 ;
 ;
@@ -22,7 +21,6 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ; THE SOFTWARE.
 */
-
 
 #ifndef __GLCD_H
 #define __GLCD_H

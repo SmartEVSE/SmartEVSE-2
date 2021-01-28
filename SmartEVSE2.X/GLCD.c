@@ -1,6 +1,5 @@
 /*
 ;	 Project:       Smart EVSE
-;    Date:          21 February 2019
 ;
 ;
 ;
@@ -22,9 +21,12 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ; THE SOFTWARE.
  */
+
 #include <xc.h>
-#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include "EVSE.h"
 #include "GLCD.h"
 #include "utils.h"

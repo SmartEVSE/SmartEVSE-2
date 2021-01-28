@@ -1,6 +1,5 @@
 /*
 ;    Project:       Smart EVSE
-;    Date:          21 February 2019
 ;
 ;
 ;
@@ -26,11 +25,7 @@
 #ifndef __EVSE_MAIN
 #define __EVSE_MAIN
 
-#include <xc.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include "GLCD.h"
 
 #define _XTAL_FREQ 16000000L                                                    // 16Mhz Xtal frequency
 

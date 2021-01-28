@@ -771,9 +771,9 @@ void GLCDMenu(unsigned char Buttons) {
                 LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
             }
             ButtonRelease = 1;
-        // Repeat button after 1 second
+        // Repeat button after 0.5 second
         } else if (ButtonRelease == 2 && ButtonRepeat == 0) {
-            ButtonRepeat = 1000;
+            ButtonRepeat = 500;
             ButtonTimer = Timer + ButtonRepeat;
         } else if (ButtonRepeat && Timer > ButtonTimer) {
             ButtonRelease = 0;

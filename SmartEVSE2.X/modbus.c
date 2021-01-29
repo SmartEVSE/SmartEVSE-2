@@ -456,14 +456,14 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
 
     if (IsDouble) {
         combineBytes(&dCombined, buf, pos, Endianness);
-        if (Divisor > 0) {
+        if (Divisor >= 0) {
             lCombined = dCombined / (signed long)pow10[Divisor];
         } else {
             lCombined = dCombined * (signed long)pow10[-Divisor];
         }
     } else {
         combineBytes(&lCombined, buf, pos, Endianness);
-        if (Divisor > 0) {
+        if (Divisor >= 0) {
             lCombined = lCombined / (signed long)pow10[Divisor];
         } else {
             lCombined = lCombined * (signed long)pow10[-Divisor];

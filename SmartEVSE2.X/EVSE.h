@@ -347,7 +347,7 @@ const far struct {
     {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
     {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
     {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 200, MAX_MAINS},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", ICAL * 0.3, ICAL * 2.0, ICAL},         // valid range is 0.3 - 2.0 times measured value
+    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", (unsigned int)(ICAL * 0.3), (unsigned int)(ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, EM_CUSTOM, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},

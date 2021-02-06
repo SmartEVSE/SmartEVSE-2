@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=EVSE.c GLCD.c bootloader.c utils.c
+SOURCEFILES_QUOTED_IF_SPACED=EVSE.c GLCD.c bootloader.c utils.c modbus.c OneWire.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/EVSE.p1 ${OBJECTDIR}/GLCD.p1 ${OBJECTDIR}/bootloader.p1 ${OBJECTDIR}/utils.p1
-POSSIBLE_DEPFILES=${OBJECTDIR}/EVSE.p1.d ${OBJECTDIR}/GLCD.p1.d ${OBJECTDIR}/bootloader.p1.d ${OBJECTDIR}/utils.p1.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/EVSE.p1 ${OBJECTDIR}/GLCD.p1 ${OBJECTDIR}/bootloader.p1 ${OBJECTDIR}/utils.p1 ${OBJECTDIR}/modbus.p1 ${OBJECTDIR}/OneWire.p1
+POSSIBLE_DEPFILES=${OBJECTDIR}/EVSE.p1.d ${OBJECTDIR}/GLCD.p1.d ${OBJECTDIR}/bootloader.p1.d ${OBJECTDIR}/utils.p1.d ${OBJECTDIR}/modbus.p1.d ${OBJECTDIR}/OneWire.p1.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/EVSE.p1 ${OBJECTDIR}/GLCD.p1 ${OBJECTDIR}/bootloader.p1 ${OBJECTDIR}/utils.p1
+OBJECTFILES=${OBJECTDIR}/EVSE.p1 ${OBJECTDIR}/GLCD.p1 ${OBJECTDIR}/bootloader.p1 ${OBJECTDIR}/utils.p1 ${OBJECTDIR}/modbus.p1 ${OBJECTDIR}/OneWire.p1
 
 # Source Files
-SOURCEFILES=EVSE.c GLCD.c bootloader.c utils.c
+SOURCEFILES=EVSE.c GLCD.c bootloader.c utils.c modbus.c OneWire.c
 
 
 
@@ -126,6 +126,22 @@ ${OBJECTDIR}/utils.p1: utils.c  nbproject/Makefile-${CND_CONF}.mk
 	@-${MV} ${OBJECTDIR}/utils.d ${OBJECTDIR}/utils.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/utils.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
+${OBJECTDIR}/modbus.p1: modbus.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/modbus.p1.d 
+	@${RM} ${OBJECTDIR}/modbus.p1 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -D__DEBUG=1  -fno-short-double -fno-short-float -memi=wordwrite -mrom=0-FCFB -O3 -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/modbus.p1 modbus.c 
+	@-${MV} ${OBJECTDIR}/modbus.d ${OBJECTDIR}/modbus.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/modbus.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
+${OBJECTDIR}/OneWire.p1: OneWire.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/OneWire.p1.d 
+	@${RM} ${OBJECTDIR}/OneWire.p1 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -D__DEBUG=1  -fno-short-double -fno-short-float -memi=wordwrite -mrom=0-FCFB -O3 -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/OneWire.p1 OneWire.c 
+	@-${MV} ${OBJECTDIR}/OneWire.d ${OBJECTDIR}/OneWire.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/OneWire.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
 else
 ${OBJECTDIR}/EVSE.p1: EVSE.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -158,6 +174,22 @@ ${OBJECTDIR}/utils.p1: utils.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -fno-short-double -fno-short-float -memi=wordwrite -mrom=0-FCFB -O3 -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/utils.p1 utils.c 
 	@-${MV} ${OBJECTDIR}/utils.d ${OBJECTDIR}/utils.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/utils.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
+${OBJECTDIR}/modbus.p1: modbus.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/modbus.p1.d 
+	@${RM} ${OBJECTDIR}/modbus.p1 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -fno-short-double -fno-short-float -memi=wordwrite -mrom=0-FCFB -O3 -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/modbus.p1 modbus.c 
+	@-${MV} ${OBJECTDIR}/modbus.d ${OBJECTDIR}/modbus.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/modbus.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
+${OBJECTDIR}/OneWire.p1: OneWire.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/OneWire.p1.d 
+	@${RM} ${OBJECTDIR}/OneWire.p1 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -fno-short-double -fno-short-float -memi=wordwrite -mrom=0-FCFB -O3 -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/OneWire.p1 OneWire.c 
+	@-${MV} ${OBJECTDIR}/OneWire.d ${OBJECTDIR}/OneWire.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/OneWire.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
 endif
 

@@ -4,3 +4,5 @@
 /SmartEVSE2.X/nbproject/Makefile-*
 /SmartEVSE2.X/nbproject/Package-*
 /SmartEVSE2.X/nbproject/private/
+/SmartEVSE2.X/dist/default/production/
+!/SmartEVSE2.X/dist/default/production/SmartEVSE2.X.production.hex

@@ -222,7 +222,7 @@ unsigned char RX1byte;
 unsigned char idx = 0, idx2 = 0, ISRFLAG = 0, ISR2FLAG = 0, ISRTXFLAG = 0, ISRTXLEN = 0;
 unsigned char menu = 0;
 unsigned int locktimer = 0, unlocktimer = 0;                                    // solenoid timers
-unsigned char lock1 = 0, lock2 = 0;
+unsigned char lock1 = 0, lock2 = 1;
 unsigned long Timer = 0;                                                        // mS counter
 unsigned long ModbusTimer;
 unsigned char BacklightTimer = 0;                                               // Backlight timer (sec)
@@ -1749,7 +1749,7 @@ void TestIO(void)                                                               
 {
     unsigned char error = 0;
 
-    if (TestState == 1) {
+    if (TestState == 255) {
         CCP2CON = 0;                                                            // Disable PWM on LED output
         LATBbits.LATB3 = 0;                                                     // set IO1 to low, State B
 
@@ -2571,7 +2571,7 @@ void main(void) {
                     case 0x06: // (Write single register)
                         // Special TestIO message?
                         if (Modbus.Address == 0x0a && Modbus.Register == 0xa8 && Modbus.Value == 0x494f && !TestState) {
-                            TestState = 1;
+                            TestState = 255;
                             break;
                         }
                         // Broadcast or addressed to this device

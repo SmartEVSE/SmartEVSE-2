@@ -636,20 +636,20 @@ void BlinkLed(void) {
         if (LedUpdate) {
             if (Error & (RCD_TRIPPED | CT_NOCOMM) ) {
                 LedCount += 20;                                                 // Very rapid flashing, RCD tripped or no Serial Communication.
-                if (LedCount > 128) LedPwm = 255;                               // LED 50% of time on, full brightness
+                if (LedCount > 128) LedPwm = ERROR_LED_BRIGHTNESS;              // LED 50% of time on, full brightness
                 else LedPwm = 0;
             } else {                                                            // Waiting for Solar power or enough current to start charging
                 LedCount += 2;                                                  // Slow blinking.
-                if (LedCount > 230) LedPwm = 255;                               // LED 10% of time on, full brightness
+                if (LedCount > 230) LedPwm = WAITING_LED_BRIGHTNESS;            // LED 10% of time on, full brightness
                 else LedPwm = 0;
             }
 
             LedUpdate = 0;
           }
     } else if (Access_bit == 0) LedPwm = 0;                                     // No Access, LED off
-    else if (State == STATE_A) LedPwm = 40;                                     // STATE A, LED on (dimmed)
+    else if (State == STATE_A) LedPwm = STATE_A_LED_BRIGHTNESS;                 // STATE A, LED on (dimmed)
     else if (State == STATE_B) {
-        LedPwm = 255;                                                           // STATE B, LED on (full brightness)
+        LedPwm = STATE_B_LED_BRIGHTNESS;                                        // STATE B, LED on (full brightness)
         LedCount = 128;                                                         // When switching to STATE C, start at full brightness
     } else if (State == STATE_C && LedUpdate)                                   // STATE C, LED fades in/out
     {

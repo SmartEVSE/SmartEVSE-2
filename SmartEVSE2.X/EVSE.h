@@ -132,6 +132,11 @@
 #define Test_IO 64
 #define BL_FLASH 128
 
+#define STATE_A_LED_BRIGHTNESS 40
+#define STATE_B_LED_BRIGHTNESS 255
+#define ERROR_LED_BRIGHTNESS 255
+#define WAITING_LED_BRIGHTNESS 255
+
 #define SOLENOID_LOCK   {LATAbits.LATA4 = 1;LATAbits.LATA5 = 0;}
 #define SOLENOID_UNLOCK {LATAbits.LATA4 = 0;LATAbits.LATA5 = 1;}
 #define SOLENOID_OFF    {LATAbits.LATA4 = 1;LATAbits.LATA5 = 1;}                // both outputs 12V

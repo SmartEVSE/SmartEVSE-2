@@ -99,11 +99,14 @@ Address depends on the Load Balancing configuration:
 
 Load Balancing | Modbus Address
 --- | ---
-Disabled | 0x00
-Master | 0x01
+Disabled/Master | 0x01
 Node 1 | 0x02
 Node 2 | 0x03
-... | ...
+Node 3 | 0x04
+Node 4 | 0x05
+Node 5 | 0x06
+Node 6 | 0x07
+Node 7 | 0x08
 
 Broadcast to all SmartEVSE with address 0x09.
 

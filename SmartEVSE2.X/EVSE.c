@@ -2560,28 +2560,26 @@ void main(void) {
             } else if (Modbus.Type == MODBUS_REQUEST) {
                 //printf("\nModbus Request Address %i / Function %02x / Register %02x",Modbus.Address,Modbus.Function,Modbus.Register);
                                                                                 // No timeout reset here, as it is a request, no response!!!!
-                switch (Modbus.Function) {
-                    case 0x03: // (Read holding register)
-                    case 0x04: // (Read input register)
-                        // Addressed to this device
-                        if (Modbus.Address == LoadBl) {
-                            ReadItemValueResponse();
-                        }
-                        break;
-                    case 0x06: // (Write single register)
-                        // Special TestIO message?
-                        if (Modbus.Address == 0x0a && Modbus.Register == 0xa8 && Modbus.Value == 0x494f && !TestState) {
-                            TestState = 255;
+                // Special TestIO message?
+                if (Modbus.Address == 0x0a && Modbus.Function == 0x06 && Modbus.Register == 0xa8 && Modbus.Value == 0x494f && !TestState) {
+                    TestState = 255;
+                    break;
+                }
+
+                // Broadcast or addressed to this device
+                if (Modbus.Address == BROADCAST_ADR || (LoadBl == 0 && Modbus.Address == 0x01) || (LoadBl > 0 && Modbus.Address == LoadBl)) {
+                    switch (Modbus.Function) {
+                        case 0x03: // (Read holding register)
+                        case 0x04: // (Read input register)
+                            // Addressed to this device
+                            if (Modbus.Address != BROADCAST_ADR) {
+                                ReadItemValueResponse();
+                            }
                             break;
-                        }
-                        // Broadcast or addressed to this device
-                        if (Modbus.Address == BROADCAST_ADR || Modbus.Address == LoadBl) {
+                        case 0x06: // (Write single register)
                             WriteItemValueResponse();
-                        }
-                        break;
-                    case 0x10: // (Write multiple register))
-                        // Broadcast or addressed to this device
-                        if (Modbus.Address == BROADCAST_ADR || Modbus.Address == LoadBl) {
+                            break;
+                        case 0x10: // (Write multiple register))
                             // 0x01: Balance currents
                             if (Modbus.Register == 0x01 && LoadBl > 1) {        // Message for Node(s)
                                 Balanced[0] = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
@@ -2593,10 +2591,10 @@ void main(void) {
                                 timeout = 10;                                   // reset 10 second timeout
                             }
                             WriteMultipleItemValueResponse();
-                        }
-                        break;
-                    default:
-                        break;
+                            break;
+                        default:
+                            break;
+                    }
                 }
             } else if (Modbus.Type == MODBUS_EXCEPTION) {
 #ifdef LOG_DEBUG_MODBUS

@@ -176,7 +176,7 @@ unsigned int MaxMains = MAX_MAINS;                                              
 unsigned int MaxCurrent = MAX_CURRENT;                                          // Max Charge current (A)
 unsigned int MinCurrent = MIN_CURRENT;                                          // Minimal current the EV is happy with (A)
 unsigned long ICal = ICAL;                                                      // CT calibration value
-char Mode = MODE;                                                               // EVSE mode (0:Normal / 1:Smart)
+unsigned char Mode = MODE;                                                      // EVSE mode (0:Normal / 1:Smart / 2:Solar)
 char Lock = LOCK;                                                               // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
 unsigned int MaxCircuit = MAX_CIRCUIT;                                          // Max current of the EVSE circuit (A)
 char Config = CONFIG;                                                           // Configuration (0:Socket / 1:Fixed Cable)
@@ -682,6 +682,16 @@ void SetCurrent(unsigned int current)                                           
 const far unsigned char * getStateName(unsigned char StateCode) {
     if(StateCode < 9) return StrStateName[StateCode];
     else return "NOSTATE";
+}
+
+/**
+ * Set EVSE mode
+ * 
+ * @param unsigned char Mode
+ */
+void setMode(unsigned char NewMode) {
+    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, NewMode);
+    Mode = NewMode;
 }
 
 /**
@@ -2006,13 +2016,11 @@ void main(void) {
 
         // Left button pressed, Loadbalancing is Master or Disabled, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
         if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == 3) {
-                Mode = ~Mode & 0x3;                                             // Change from Solar to Smart mode and vice versa.
+                setMode(~Mode & 0x3);                                           // Change from Solar to Smart mode and vice versa.
                 Error &= ~(NO_SUN | LESS_6A);                                   // Clear All errors
                 ChargeDelay = 0;                                                // Clear any Chargedelay
                 setSolarStopTimer(0);                                           // Also make sure the SolarTimer is disabled.
                 LCDTimer = 0;
-                                                                                // Broadcast change of Charging mode (Solar/Smart) to node EVSE's
-                if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                 leftbutton = 5;
         } else if (leftbutton && ButtonState == 0x7) leftbutton--;
 
@@ -2053,10 +2061,9 @@ void main(void) {
                             break;
                         case 4: // Smart-Solar Switch
                             if (Mode == MODE_SOLAR) {
-                                Mode = MODE_SMART;
+                                setMode(MODE_SMART);
                                 setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
-                            }                                                   // Broadcast change of Charging mode (Solar/Smart) to node EVSE's
-                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
+                            }
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
@@ -2086,22 +2093,19 @@ void main(void) {
                         case 3: // Smart-Solar Button
                             if (RB2low != 2) {
                                 if (Mode == MODE_SMART) {
-                                    Mode = MODE_SOLAR;
+                                    setMode(MODE_SOLAR);
                                 } else if (Mode == MODE_SOLAR) {
-                                    Mode = MODE_SMART;
+                                    setMode(MODE_SMART);
                                 }
                                 Error &= ~(NO_SUN | LESS_6A);                   // Clear All errors
                                 ChargeDelay = 0;                                // Clear any Chargedelay
                                 setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
                                 LCDTimer = 0;
-                                                                                // Broadcast change of Charging mode (Solar/Smart) to node EVSE's
-                                if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
                             }
                             RB2low = 0;
                             break;
                         case 4: // Smart-Solar Switch
-                            if (Mode == MODE_SMART) Mode = MODE_SOLAR;
-                            if (LoadBl == 1 && Mode) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, Mode);
+                            if (Mode == MODE_SMART) setMode(MODE_SOLAR);
                             break;
                         default:
                             break;

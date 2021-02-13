@@ -268,7 +268,7 @@ extern unsigned int MaxMains;                                                   
 extern unsigned int MaxCurrent;                                                 // Max Charge current
 extern unsigned int MinCurrent;                                                 // Minimal current the EV is happy with
 extern unsigned long ICal;                                                      // CT calibration value
-extern char Mode;                                                               // EVSE mode
+extern unsigned char Mode;                                                      // EVSE mode
 extern char Lock;                                                               // Cable lock enable/disable
 extern unsigned int MaxCircuit;                                                 // Max current of the EVSE circuit
 extern char Config;                                                             // Configuration (Fixed Cable or Type 2 Socket)

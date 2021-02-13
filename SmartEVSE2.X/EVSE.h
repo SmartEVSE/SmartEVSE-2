@@ -169,6 +169,7 @@
 #define MODBUS_SYS_CONFIG_COUNT  20
 
 #define MODBUS_MAX_REGISTER_READ 20
+#define MODBUS_BUFFER_SIZE MODBUS_MAX_REGISTER_READ * 2 + 10
 
 // EVSE status
 #define STATUS_STATE 64                                                         // 0xA0: State

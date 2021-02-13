@@ -46,7 +46,7 @@
  */
 void ModbusSend(unsigned char address, unsigned char function, unsigned char byte, unsigned int *values, unsigned char count) {
     unsigned int cs, i, n = 0;
-    char Tbuffer[49]; // Maximum 22 values
+    char Tbuffer[MODBUS_BUFFER_SIZE];
 
     // Device address
     Tbuffer[n++] = address;
@@ -202,7 +202,7 @@ void ModbusWriteSingleResponse(unsigned char address, unsigned int reg, unsigned
  */
 void ModbusWriteMultipleRequest(unsigned char address, unsigned int reg, unsigned int *values, unsigned char count) {
     unsigned int i, n = 0, cs;
-    char Tbuffer[50];
+    char Tbuffer[MODBUS_BUFFER_SIZE];
 
     Modbus.RequestAddress = address;
     Modbus.RequestFunction = 0x10;

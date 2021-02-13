@@ -165,8 +165,8 @@ const far char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete",
 const far char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
 
 // Global data
-char U1buffer[50],U1packet[50];                                                 // Uart1 Receive buffer /RS485
-char U1TXbuffer[50];                                                            // Uart1 Transmit buffer /RS485
+char U1buffer[MODBUS_BUFFER_SIZE], U1packet[MODBUS_BUFFER_SIZE];                // Uart1 Receive buffer /RS485
+char U1TXbuffer[MODBUS_BUFFER_SIZE];                                            // Uart1 Transmit buffer /RS485
 char U2buffer[50];                                                              // Uart2 buffer /Serial CLI
 char GLCDbuf[512];                                                              // GLCD buffer (half of the display)
 
@@ -271,7 +271,7 @@ void interrupt high_isr(void)
         {
             idx = 0;                                                            // clear idx in RS485 RX handler
         }
-        if (idx == 50) idx--;                                                   // max 50 bytes in buffer
+        if (idx == MODBUS_BUFFER_SIZE) idx--;                                   // max bytes in buffer
         U1buffer[idx++] = RX1byte;                                              // Store received byte in buffer
 
         ModbusTimer = 0;
@@ -280,7 +280,7 @@ void interrupt high_isr(void)
     if (PIR1bits.TX1IF && PIE1bits.TX1IE)                                       // Uart1 transmit interrupt? RS485
     {
         TXREG1 = U1TXbuffer[ISRTXFLAG++];                                       // send character
-        if ((ISRTXFLAG == ISRTXLEN)|| ISRTXFLAG == 50)                          // end of buffer
+        if ((ISRTXFLAG == ISRTXLEN)|| ISRTXFLAG == MODBUS_BUFFER_SIZE)          // end of buffer
         {
             PIE1bits.TX1IE = 0;                                                 // clear transmit Interrupt for RS485 after sending last character
             ISRTXFLAG = 0;                                                      // end of transmission.

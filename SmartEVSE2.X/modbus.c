@@ -621,30 +621,23 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
 unsigned char mapModbusRegister2ItemID() {
     unsigned int RegisterStart, ItemStart, Count;
 
-    // Register 0x0*: Node -> Master
-    if (Modbus.Register == 0x01) {
-        return 255;
-    // Do not change Charge Mode when set to Normal or Load Balancing is disabled
-    } else if (Modbus.Register == 0xA8 && (Mode == 0 || LoadBl == 0) ) {
-        return 255;
-
-    // Register 0xA*: Status
-    } else if (Modbus.Register >= MODBUS_EVSE_STATUS_START && Modbus.Register <= MODBUS_EVSE_STATUS_END) {
+    // Register 0x00*: Status
+    if (Modbus.Register >= MODBUS_EVSE_STATUS_START && Modbus.Register < (MODBUS_EVSE_STATUS_START + MODBUS_EVSE_STATUS_COUNT)) {
         RegisterStart = MODBUS_EVSE_STATUS_START;
         ItemStart = STATUS_STATE;
-        Count = MODBUS_EVSE_STATUS_END - MODBUS_EVSE_STATUS_START + 1;
+        Count = MODBUS_EVSE_STATUS_COUNT;
 
-    // Register 0xC*: Configuration
-    } else if (Modbus.Register >= MODBUS_EVSE_CONFIG_START && Modbus.Register <= MODBUS_EVSE_CONFIG_END) {
+    // Register 0x01*: Node specific configuration
+    } else if (Modbus.Register >= MODBUS_EVSE_CONFIG_START && Modbus.Register < (MODBUS_EVSE_CONFIG_START + MODBUS_EVSE_CONFIG_COUNT)) {
         RegisterStart = MODBUS_EVSE_CONFIG_START;
         ItemStart = MENU_CONFIG;
-        Count = MODBUS_EVSE_CONFIG_END - MODBUS_EVSE_CONFIG_START + 1;
+        Count = MODBUS_EVSE_CONFIG_COUNT;
 
-    // Register 0xE*: Load balancing configuration (same on all SmartEVSE)
-    } else if (Modbus.Register >= MODBUS_SYS_CONFIG_START && Modbus.Register <= MODBUS_SYS_CONFIG_END) {
+    // Register 0x02*: System configuration (same on all SmartEVSE in a LoadBalancing setup)
+    } else if (Modbus.Register >= MODBUS_SYS_CONFIG_START && Modbus.Register < (MODBUS_SYS_CONFIG_START + MODBUS_SYS_CONFIG_COUNT)) {
         RegisterStart = MODBUS_SYS_CONFIG_START;
-        ItemStart = MENU_CIRCUIT;
-        Count = MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1;
+        ItemStart = MENU_MODE;
+        Count = MODBUS_SYS_CONFIG_COUNT;
 
     } else {
         return 0;
@@ -663,11 +656,9 @@ unsigned char mapModbusRegister2ItemID() {
 void ReadItemValueResponse(void) {
     unsigned char ItemID;
     unsigned char i;
-    unsigned int values[12];
+    unsigned int values[MODBUS_MAX_REGISTER_READ];
 
     ItemID = mapModbusRegister2ItemID();
-    if (ItemID == 255) return;
-
     if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
             values[i] = getItemValue(ItemID + i);
@@ -686,8 +677,6 @@ void WriteItemValueResponse(void) {
     unsigned char OK = 0;
 
     ItemID = mapModbusRegister2ItemID();
-    if (ItemID == 255) return;
-
     if (ItemID) {
         OK = setItemValue(ItemID, Modbus.Value);
     }
@@ -713,8 +702,6 @@ void WriteMultipleItemValueResponse(void) {
     unsigned int i, OK = 0, value;
 
     ItemID = mapModbusRegister2ItemID();
-    if (ItemID == 255) return;
-
     if (ItemID) {
         for (i = 0; i < Modbus.RegisterCount; i++) {
             value = (Modbus.Data[i * 2] <<8) | Modbus.Data[(i * 2) + 1];

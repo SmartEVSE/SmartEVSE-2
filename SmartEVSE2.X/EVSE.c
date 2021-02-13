@@ -567,12 +567,12 @@ void write_settings(void) {
 #endif
 
     if (LoadBl == 1) {                                                          // Master mode
-        unsigned int i, values[MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1];
-        for (i = 0; i < (MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1); i++) {
+        unsigned int i, values[MODBUS_SYS_CONFIG_COUNT];
+        for (i = 0; i < MODBUS_SYS_CONFIG_COUNT; i++) {
             values[i] = getItemValue(MENU_CIRCUIT + i);
         }
         // Broadcast settings to other controllers
-        ModbusWriteMultipleRequest(BROADCAST_ADR, MODBUS_SYS_CONFIG_START, values, MODBUS_SYS_CONFIG_END - MODBUS_SYS_CONFIG_START + 1);
+        ModbusWriteMultipleRequest(BROADCAST_ADR, MODBUS_SYS_CONFIG_START, values, MODBUS_SYS_CONFIG_COUNT);
     }
 }
 
@@ -1134,8 +1134,10 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case MENU_CONFIG:
             Config = val;
             break;
-        case MENU_MODE:
         case STATUS_MODE:
+            // Do not change Charge Mode when set to Normal or Load Balancing is disabled
+            if (Mode == 0 || LoadBl == 0) break;
+        case MENU_MODE:
             Mode = val;
             break;
         case MENU_START:
@@ -2589,8 +2591,9 @@ void main(void) {
                                 printf("\nBroadcast received, Node %u.%1u A", Balanced[0]/10, Balanced[0]%10);
 #endif
                                 timeout = 10;                                   // reset 10 second timeout
+                            } else {
+                                WriteMultipleItemValueResponse();
                             }
-                            WriteMultipleItemValueResponse();
                             break;
                         default:
                             break;

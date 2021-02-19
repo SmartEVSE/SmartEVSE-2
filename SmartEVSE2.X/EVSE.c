@@ -569,7 +569,7 @@ void write_settings(void) {
     if (LoadBl == 1) {                                                          // Master mode
         unsigned int i, values[MODBUS_SYS_CONFIG_COUNT];
         for (i = 0; i < MODBUS_SYS_CONFIG_COUNT; i++) {
-            values[i] = getItemValue(MENU_CIRCUIT + i);
+            values[i] = getItemValue(MENU_MODE + i);
         }
         // Broadcast settings to other controllers
         ModbusWriteMultipleRequest(BROADCAST_ADR, MODBUS_SYS_CONFIG_START, values, MODBUS_SYS_CONFIG_COUNT);
@@ -690,7 +690,7 @@ const far unsigned char * getStateName(unsigned char StateCode) {
  * @param unsigned char Mode
  */
 void setMode(unsigned char NewMode) {
-    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0xA8, NewMode);
+    if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x0003, NewMode);
     Mode = NewMode;
 }
 
@@ -701,7 +701,7 @@ void setMode(unsigned char NewMode) {
  */
 void setSolarStopTimer(unsigned int Timer) {
     if (LoadBl == 1 && SolarStopTimer != Timer) {
-        ModbusWriteSingleRequest(BROADCAST_ADR, 0xAB, Timer);
+        ModbusWriteSingleRequest(BROADCAST_ADR, 0x0004, Timer);
     }
     SolarStopTimer = Timer;
 }
@@ -929,7 +929,7 @@ void CalcBalancedCurrent(char mod) {
  * Broadcast momentary currents to all Node EVSE's
  */
 void BroadcastCurrent(void) {
-    ModbusWriteMultipleRequest(BROADCAST_ADR, 0x01, Balanced, NR_EVSES);
+    ModbusWriteMultipleRequest(BROADCAST_ADR, 0x0020, Balanced, NR_EVSES);
 }
 
 /**
@@ -940,7 +940,7 @@ void BroadcastCurrent(void) {
  */
 void requestNodeStatus(unsigned char NodeNr) {
     EVSEOnline[NodeNr] = false;
-    ModbusReadInputRequest(NodeNr + 1, 4, 0xA0 , 11);                           // Node address, start register = 0xA0 , nr of registers 11
+    ModbusReadInputRequest(NodeNr + 1, 4, 0x0000 , 14);                         // Node address, start register = 0x0000 , nr of registers 14
 }
 
 /**
@@ -954,10 +954,10 @@ void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
 //    memcpy(buf, (unsigned char*)&Node[NodeNr], sizeof(struct NodeState));
     BalancedState[NodeNr] = buf[1];                                             // Node State
     BalancedError[NodeNr] = buf[3];                                             // Node Error status
-    BalancedMax[NodeNr] = buf[5] * 10;                                          // Node Max ChargeCurrent (0.1A)
+    BalancedMax[NodeNr] = buf[15] * 10;                                         // Node Max ChargeCurrent (0.1A)
 
-    Node[NodeNr].EVMeter = buf[19];
-    Node[NodeNr].EVAddress = buf[21];
+    Node[NodeNr].EVMeter = buf[25];
+    Node[NodeNr].EVAddress = buf[27];
     //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \n", NodeNr, BalancedState[NodeNr], BalancedError[NodeNr], BalancedMax[NodeNr] );
 }
 
@@ -1046,7 +1046,7 @@ void processAllNodeStates(unsigned char NodeNr) {
 #ifdef LOG_DEBUG_EVSE
         printf("\nNodeAdr %u, BalancedError:%u",NodeNr, BalancedError[NodeNr]);
 #endif
-        ModbusWriteMultipleRequest(NodeNr+1 , 0xA0, values, 2);                 // Write State and Error to Node
+        ModbusWriteMultipleRequest(NodeNr+1 , 0x0000, values, 2);                 // Write State and Error to Node
     }
 
 }
@@ -1244,6 +1244,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             RFIDReader = val;
             break;
 
+        // Status writeable
         case STATUS_STATE:
             setState(val);
             break;
@@ -1262,15 +1263,16 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case STATUS_CURRENT:
             OverrideCurrent = val;
             break;
+        case STATUS_SOLAR_TIMER:
+            setSolarStopTimer(val);
+            break;
         case STATUS_ACCESS:
             if (val == 0 || val == 1) {
                 Access_bit = val;
                 if (val == 0) setState(STATE_A);
             }
             break;
-        case STATUS_SOLAR_TIMER:
-            setSolarStopTimer(val);
-            break;
+
         default:
             return 0;
     }
@@ -1356,20 +1358,25 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_RFIDREADER:
             return RFIDReader;
 
+        // Status writeable
         case STATUS_STATE:
             return State;
         case STATUS_ERROR:
             return Error;
-        case STATUS_MAX:
-            return MaxCapacity;
-        case STATUS_MIN:
-            return MinCurrent; // In solar mode StartCurrent?
         case STATUS_CURRENT:
             return Balanced[0];
-        case STATUS_ACCESS:
-            return Access_bit;
         case STATUS_SOLAR_TIMER:
             return SolarStopTimer;
+        case STATUS_ACCESS:
+            return Access_bit;
+
+        // Status readonly
+        case STATUS_MAX:
+            return MaxCapacity;
+        case STATUS_TEMP:
+            return (signed int)TempEVSE + 273;
+        case STATUS_SERIAL:
+            return serialnr;
 
         default:
             return 0;
@@ -1929,7 +1936,7 @@ void UpdateCurrentData(void) {
             ResetBalancedStates();
 
             // Broadcast Error code over RS485
-            ModbusWriteSingleRequest(BROADCAST_ADR, 0xA1, LESS_6A);
+            ModbusWriteSingleRequest(BROADCAST_ADR, 0x0001, LESS_6A);
             NoCurrent = 0;
         } else if (LoadBl) BroadcastCurrent();                                  // Master sends current to all connected EVSE's
 
@@ -2380,7 +2387,7 @@ void main(void) {
 #ifdef LOG_DEBUG_EVSE
                 printf("\nNo sun/current Errors Cleared.");
 #endif
-                ModbusWriteSingleRequest(BROADCAST_ADR, 0xA1, Error);           // Broadcast
+                ModbusWriteSingleRequest(BROADCAST_ADR, 0x0001, Error);         // Broadcast
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
@@ -2554,7 +2561,7 @@ void main(void) {
                         } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].PRegister) {
                             // packet from EV kWh meter
                             PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
-                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0xA0) {
+                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0x0000) {
                             // Status packet from Node EVSE received
                             receiveNodeStatus(Modbus.Data, Modbus.Address - 1);
                         }
@@ -2586,8 +2593,8 @@ void main(void) {
                             WriteItemValueResponse();
                             break;
                         case 0x10: // (Write multiple register))
-                            // 0x01: Balance currents
-                            if (Modbus.Register == 0x01 && LoadBl > 1) {        // Message for Node(s)
+                            // 0x0020: Balance currents
+                            if (Modbus.Register == 0x0020 && LoadBl > 1) {      // Message for Node(s)
                                 Balanced[0] = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
                                 if (Balanced[0] == 0 && State == STATE_C) setState(STATE_A);                // Stop charging if charge current is zero
                                 else if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output

@@ -161,68 +161,71 @@
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 0x02
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
-#define MODBUS_EVSE_STATUS_START 0xA0
-#define MODBUS_EVSE_STATUS_COUNT 12
-#define MODBUS_EVSE_CONFIG_START 0xC0
-#define MODBUS_EVSE_CONFIG_COUNT 13
-#define MODBUS_SYS_CONFIG_START  0xE0
-#define MODBUS_SYS_CONFIG_COUNT  20
+#define MODBUS_EVSE_STATUS_START 0x0000
+#define MODBUS_EVSE_STATUS_COUNT 14
+#define MODBUS_EVSE_CONFIG_START 0x0100
+#define MODBUS_EVSE_CONFIG_COUNT 10
+#define MODBUS_SYS_CONFIG_START  0x0200
+#define MODBUS_SYS_CONFIG_COUNT  24
 
-#define MODBUS_MAX_REGISTER_READ 20
+#define MODBUS_MAX_REGISTER_READ MODBUS_SYS_CONFIG_COUNT
 #define MODBUS_BUFFER_SIZE MODBUS_MAX_REGISTER_READ * 2 + 10
 
 // EVSE status
-#define STATUS_STATE 64                                                         // 0xA0: State
-#define STATUS_ERROR 65                                                         // 0xA1: Error
-#define STATUS_MAX 66                                                           // 0xA2: Maximum charging current
-#define STATUS_MIN 67                                                           // 0xA3: Minimum charging current
-#define STATUS_PHASE_COUNT 68                                                   // 0xA4: Number of used phases (ToDo)
-#define STATUS_REAL_CURRENT 69                                                  // 0xA5: Real charging current (ToDo)
-#define STATUS_CURRENT 70                                                       // 0xA6: Charging current (A * 10)
-#define STATUS_ACCESS 71                                                        // 0xA7: Access bit
-#define STATUS_MODE 72                                                          // 0xA8: EVSE Mode
-#define STATUS_EVMETER 73                                                       // 0xA9: Type of EV electric meter
-#define STATUS_EVMETERADDRESS 74                                                // 0xAA: Address of EV electric meter
-#define STATUS_SOLAR_TIMER 75                                                   // 0xAB: Solar Timer
+#define STATUS_STATE 64                                                         // 0x0000: State
+#define STATUS_ERROR 65                                                         // 0x0001: Error
+#define STATUS_CURRENT 66                                                       // 0x0002: Charging current (A * 10)
+#define STATUS_MODE 67                                                          // 0x0003: EVSE Mode
+#define STATUS_SOLAR_TIMER 68                                                   // 0x0004: Solar Timer
+#define STATUS_ACCESS 69                                                        // 0x0005: Access bit
+#define STATUS_CONFIG_CHANGED 70                                                // 0x0006: Configuration changed (ToDo)
+#define STATUS_MAX 71                                                           // 0x0007: Maximum charging current (RO)
+#define STATUS_PHASE_COUNT 72                                                   // 0x0008: Number of used phases (RO) (ToDo)
+#define STATUS_REAL_CURRENT 73                                                  // 0x0009: Real charging current (RO) (ToDo)
+#define STATUS_TEMP 74                                                          // 0x000A: Temperature (RO)
+#define STATUS_SERIAL 75                                                        // 0x000B: Serial number (RO)
+#define STATUS_EVMETER 76                                                       // 0x000C: Type of EV electric meter
+#define STATUS_EVMETERADDRESS 77                                                // 0x000D: Address of EV electric meter
 
-// EVSE configuration
+// Node specific configuration
 #define MENU_ENTER 1
-#define MENU_CONFIG 2                                                           // 0xC0: Configuration
-#define MENU_LOADBL 3                                                           // 0xC1: Load Balance
-#define MENU_MIN 4                                                              // 0xC2: MIN Charge Current the EV will accept
-#define MENU_MAX 5                                                              // 0xC3: MAX Charge Current for this EVSE
-#define MENU_LOCK 6                                                             // 0xC4: Cable lock
-#define MENU_START 7                                                            // 0xC5: Surplus energy start Current
-#define MENU_STOP 8                                                             // 0xC6: Stop solar charging at 6A after this time
-#define MENU_SWITCH 9                                                           // 0xC7: External Start/Stop button
-#define MENU_RCMON 10                                                           // 0xC8: Residual Current Monitor
-#define MENU_IMPORT 11                                                          // 0xC9: Allow grid power when solar charging
-#define MENU_RFIDREADER 12                                                      // 0xCA: Use RFID reader
-#define MENU_EVMETER 13                                                         // 0xCB: Type of EV electric meter
-#define MENU_EVMETERADDRESS 14                                                  // 0xCC: Address of EV electric meter
+#define MENU_CONFIG 2                                                           // 0x0100: Configuration
+#define MENU_LOCK 3                                                             // 0x0101: Cable lock
+#define MENU_MIN 4                                                              // 0x0102: MIN Charge Current the EV will accept
+#define MENU_MAX 5                                                              // 0x0103: MAX Charge Current for this EVSE
+#define MENU_LOADBL 6                                                           // 0x0104: Load Balance
+#define MENU_SWITCH 7                                                           // 0x0105: External Start/Stop button
+#define MENU_RCMON 8                                                            // 0x0106: Residual Current Monitor
+#define MENU_RFIDREADER 9                                                       // 0x0107: Use RFID reader
+#define MENU_EVMETER 10                                                         // 0x0108: Type of EV electric meter
+#define MENU_EVMETERADDRESS 11                                                  // 0x0109: Address of EV electric meter
 
 // System configuration (same on all SmartEVSE in a LoadBalancing setup)
-#define MENU_CIRCUIT 15                                                         // 0xE0: EVSE Circuit max Current
-#define MENU_MODE 16                                                            // 0xE1: EVSE mode
-#define MENU_MAINS 17                                                           // 0xE2: Max Mains Current
-#define MENU_CAL 18                                                             // 0xE3: CT calibration value
-#define MENU_MAINSMETER 19                                                      // 0xE4: Type of Mains electric meter
-#define MENU_MAINSMETERADDRESS 20                                               // 0xE5: Address of Mains electric meter
-#define MENU_MAINSMETERMEASURE 21                                               // 0xE6: What does Mains electric meter measure
-#define MENU_PVMETER 22                                                         // 0xE7: Type of PV electric meter
-#define MENU_PVMETERADDRESS 23                                                  // 0xE8: Address of PV electric meter
-#define MENU_EMCUSTOM_ENDIANESS 24                                              // 0xE9: Byte order of custom electric meter
-#define MENU_EMCUSTOM_IREGISTER 25                                              // 0xEA: Register for Current (A) of custom electric meter
-#define MENU_EMCUSTOM_IDIVISOR 26                                               // 0xEB: Divisor for Current (A) of custom electric meter (10^x)
-#define MENU_EMCUSTOM_UREGISTER 27                                              // 0xEC: Register for Voltage (V) of custom electric meter
-#define MENU_EMCUSTOM_UDIVISOR 28                                               // 0xED: Divisor for Voltage (V) of custom electric meter (10^x)
-#define MENU_EMCUSTOM_PREGISTER 29                                              // 0xEE: Register for Power (W) of custom electric meter
-#define MENU_EMCUSTOM_PDIVISOR 30                                               // 0xEF: Divisor for Power (W) of custom electric meter (10^x)
-#define MENU_EMCUSTOM_EREGISTER 31                                              // 0xF0: Register for Energy (kWh) of custom electric meter
-#define MENU_EMCUSTOM_EDIVISOR 32                                               // 0xF1: Divisor for Energy (kWh) of custom electric meter (10^x)
-#define MENU_GRID 33                                                            // 0xF2: Grid type to which the Sensorbox is connected
-#define MENU_EMCUSTOM_ISDOUBLE 34                                               // 0xF3: Data type of custom electric meter
-#define MENU_EXIT 35
+#define MENU_MODE 12                                                            // 0x0200: EVSE mode
+#define MENU_CIRCUIT 13                                                         // 0x0201: EVSE Circuit max Current
+#define MENU_GRID 14                                                            // 0x0202: Grid type to which the Sensorbox is connected
+#define MENU_CAL 15                                                             // 0x0203: CT calibration value
+#define MENU_MAINS 16                                                           // 0x0204: Max Mains Current
+#define MENU_START 17                                                           // 0x0205: Surplus energy start Current
+#define MENU_STOP 18                                                            // 0x0206: Stop solar charging at 6A after this time
+#define MENU_IMPORT 19                                                          // 0x0207: Allow grid power when solar charging
+#define MENU_MAINSMETER 20                                                      // 0x0208: Type of Mains electric meter
+#define MENU_MAINSMETERADDRESS 21                                               // 0x0209: Address of Mains electric meter
+#define MENU_MAINSMETERMEASURE 22                                               // 0x020A: What does Mains electric meter measure
+#define MENU_PVMETER 23                                                         // 0x020B: Type of PV electric meter
+#define MENU_PVMETERADDRESS 24                                                  // 0x020C: Address of PV electric meter
+#define MENU_EMCUSTOM_ENDIANESS 25                                              // 0x020D: Byte order of custom electric meter
+#define MENU_EMCUSTOM_ISDOUBLE 26                                               // 0x020E: Data type of custom electric meter
+#define MENU_EMCUSTOM_READMAX 27                                                // 0x020F: Maximum register read (ToDo)
+#define MENU_EMCUSTOM_UREGISTER 28                                              // 0x0210: Register for Voltage (V) of custom electric meter
+#define MENU_EMCUSTOM_UDIVISOR 29                                               // 0x0211: Divisor for Voltage (V) of custom electric meter (10^x)
+#define MENU_EMCUSTOM_IREGISTER 30                                              // 0x0212: Register for Current (A) of custom electric meter
+#define MENU_EMCUSTOM_IDIVISOR 31                                               // 0x0213: Divisor for Current (A) of custom electric meter (10^x)
+#define MENU_EMCUSTOM_PREGISTER 32                                              // 0x0214: Register for Power (W) of custom electric meter
+#define MENU_EMCUSTOM_PDIVISOR 33                                               // 0x0215: Divisor for Power (W) of custom electric meter (10^x)
+#define MENU_EMCUSTOM_EREGISTER 34                                              // 0x0216: Register for Energy (kWh) of custom electric meter
+#define MENU_EMCUSTOM_EDIVISOR 35                                               // 0x0217: Divisor for Energy (kWh) of custom electric meter (10^x)
+#define MENU_EXIT 36
 
 #define MENU_STATE 50
 
@@ -337,42 +340,48 @@ const far struct {
     unsigned int Max;
     unsigned int Default;
 } MenuStr[MENU_EXIT + 1] = {
-    {"",       "",         "Not in menu", 0, 0, 0},
-    {"",       "",         "Hold 2 sec", 0, 0, 0},
-    {"CONFIG", "CONFIG",   "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
+    {"", "", "Not in menu", 0, 0, 0},
+    {"", "", "Hold 2 sec", 0, 0, 0},
+
+    // Node specific configuration
+    {"CONFIG", "CONFIG", "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
+    {"LOCK", "LOCK", "Cable locking actuator type", 0, 2, LOCK},
+    {"MIN", "MIN", "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
+    {"MAX", "MAX", "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
     {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-8 SmartEVSEs", 0, NR_EVSES, LOADBL},
-    {"MIN",    "MIN",      "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
-    {"MAX",    "MAX",      "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
-    {"LOCK",   "LOCK",     "Cable locking actuator type", 0, 2, LOCK},
-    {"START",  "START",    "Surplus energy start Current", 1, 16, START_CURRENT},
-    {"STOP",   "STOP",     "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
-    {"SW",     "SWITCH",   "Switch function control on pin SW", 0, 4, SWITCH},
-    {"RCMON",  "RCMON",    "Residual Current Monitor on pin RCM", 0, 1, RC_MON},
-    {"IMPORT", "IMPORT",   "Allow grid power when solar charging", 0, 6, IMPORT_CURRENT},
-    {"RFID",   "RFID",     "Use RFID reader, learn/remove cards", 0, 4, RFID_READER},
-    {"EVEM",   "EV METER", "Type of EV electric meter", 0, EM_CUSTOM, EV_METER},
-    {"EVAD",   "EV ADDR",  "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
-    {"CIRCUIT","CIRCUIT",  "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
-    {"MODE",   "MODE",     "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
-    {"MAINS",  "MAINS",    "Set Max MAINS Current", 10, 200, MAX_MAINS},
-    {"CAL",    "CAL",      "Calibrate CT1 (CT2+3 will also change)", (unsigned int)(ICAL * 0.3), (unsigned int)(ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
+    {"SW", "SWITCH", "Switch function control on pin SW", 0, 4, SWITCH},
+    {"RCMON", "RCMON", "Residual Current Monitor on pin RCM", 0, 1, RC_MON},
+    {"RFID", "RFID", "Use RFID reader, learn/remove cards", 0, 4, RFID_READER},
+    {"EVEM", "EV METER", "Type of EV electric meter", 0, EM_CUSTOM, EV_METER},
+    {"EVAD", "EV ADDR", "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
+
+    // System configuration
+    {"MODE", "MODE", "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
+    {"CIRCUIT", "CIRCUIT", "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
+    {"GRID", "GRID", "Grid type to which the Sensorbox is connected", 0, 1, GRID},
+    {"CAL", "CAL", "Calibrate CT1 (CT2+3 will also change)", (unsigned int) (ICAL * 0.3), (unsigned int) (ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
+    {"MAINS", "MAINS", "Set Max MAINS Current", 10, 200, MAX_MAINS},
+    {"START", "START", "Surplus energy start Current", 1, 16, START_CURRENT},
+    {"STOP", "STOP", "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
+    {"IMPORT", "IMPORT", "Allow grid power when solar charging", 0, 6, IMPORT_CURRENT},
     {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, EM_CUSTOM, MAINS_METER},
     {"MAINAD", "MAINSADR", "Address of mains electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
-    {"MAINM",  "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
-    {"PVEM",   "PV METER", "Type of PV electric meter", 0, EM_CUSTOM, PV_METER},
-    {"PVAD",   "PV ADDR",  "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
-    {"EMBO" ,  "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
-    {"EMIREG", "CUR REGI", "Register for Current (A) of custom electric meter", 0, 65530, EMCUSTOM_IREGISTER},
-    {"EMIDIV", "CUR DIVI", "Divisor for Current (A) of custom electric meter", 0, 7, EMCUSTOM_IDIVISOR},
+    {"MAINM", "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
+    {"PVEM", "PV METER", "Type of PV electric meter", 0, EM_CUSTOM, PV_METER},
+    {"PVAD", "PV ADDR", "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
+    {"EMBO", "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
+    {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, 1, EMCUSTOM_ISDOUBLE},
+    {"EMREAD", "READ MAX", "Max register read at once of custom electric meter", 3, 255, 3},
     {"EMUREG", "VOL REGI", "Register for Voltage (V) of custom electric meter", 0, 65530, EMCUSTOM_UREGISTER},
     {"EMUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 7, EMCUSTOM_UDIVISOR},
+    {"EMIREG", "CUR REGI", "Register for Current (A) of custom electric meter", 0, 65530, EMCUSTOM_IREGISTER},
+    {"EMIDIV", "CUR DIVI", "Divisor for Current (A) of custom electric meter", 0, 7, EMCUSTOM_IDIVISOR},
     {"EMPREG", "POW REGI", "Register for Power (W) of custom electric meter", 0, 65534, EMCUSTOM_PREGISTER},
     {"EMPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 7, EMCUSTOM_PDIVISOR},
     {"EMEREG", "ENE REGI", "Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
     {"EMEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 7, EMCUSTOM_EDIVISOR},
-    {"GRID",   "GRID",     "Grid type to which the Sensorbox is connected", 0, 1, GRID},
-    {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, 1, EMCUSTOM_ISDOUBLE},
-    {"EXIT",   "EXIT",     "EXIT", 0, 0, 0}
+
+    {"EXIT", "EXIT", "EXIT", 0, 0, 0}
 };
 
 struct {
@@ -399,15 +408,6 @@ struct {
 };
 
 struct NodeStatus {
-//    unsigned int State;
-//    unsigned int Error;
-//    unsigned int Max;
-//    unsigned int Min;
-//    unsigned int PhaseCount;
-//    unsigned int RealCurrent;
-//    unsigned int Current;
-//    unsigned int Access;
-//    unsigned int Mode;
     unsigned int EVMeter;
     unsigned int EVAddress;
 };

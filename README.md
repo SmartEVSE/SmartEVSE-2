@@ -110,9 +110,7 @@ Node 7 | 0x08
 
 Broadcast to all SmartEVSE with address 0x09.
 
-## Register for internal SmartEVSE communication
-
-### Register 0x000*: Broadcast Chargecurrent or Error
+## Register 0x000*: Broadcast Chargecurrent or Error
 
 Register | Access | Description | Unit | Values
 --- | --- | --- | --- | ---
@@ -123,74 +121,65 @@ Register 0x01 is written to every 2 seconds by the Master, and holds the Charge 
 Register 0x02 is written to only if an error occurred.<br>
 Use function code 0x10 (Preset Multiple Registers), and broadcast address 0x09 to use this feature.<br>
 
-### Register 0x008*: Ack State change
+## Register 0x00*: EVSE status
 
 Register | Access | Description | Unit | Values
 --- | --- | --- | --- | ---
-0x0082 | W | Ack State A->B | 0.1 A | Charge Current (0 A = no current available)
-0x0083 | W | Ack State B->C | 0.1 A | Charge Current (0 A = no current available)
+0x0000 | R/W | State | | A-D (EVSE State), E-H (A-D Waiting for Balance Master)
+0x0001 | R/W | Error | Bit | 1:LESS_6A / 2:NO_COMM / 4:TEMP_HIGH / 8:Unused / 16:RCD / 32:NO_SUN
+0x0002 | R/W | Charging current | 0.1 A | 0:no current available / 6-80
+0x0003 | R/W | EVSE mode (without saving) | | 0:Normal / 1:Smart / 2:Solar
+0x0004 | R/W | Solar Timer | s |
+0x0005 | R/W | Access bit | | 0:No Access / 1:Access
+0x0006 | R/W | Configuration changed (Not implemented) | |
+0x0007 | R | Maximum charging current | A |
+0x0008 | R | Number of used phases (Not implemented) | | 0:Undetected / 1 - 3
+0x0009 | R | Real charging current (Not implemented) | 0.1 A |
+0x000A | R | Temperature | K |
+0x000B | R | Serial number | |
 
-Register 0x82 and 0x83 are written by the Master to tell the Node that it recognised a state change request.<br>
-If ok, the value of the register contains the initial chargecurrent (usually 6.0 A)<br>
-Use function code 0x06 (Preset Single Register) to write to these registers.<br>
-
-## Register for external devices
-
-### Register 0x00A*: Current state
-
-Register | Access | Description | Unit | Values
---- | --- | --- | --- | ---
-0x00A0 | R/W | State | | A-D (EVSE State), E-H (A-D Waiting for Balance Master)
-0x00A1 | R/W | Error | Bit | 1:LESS_6A / 2:NO_COMM / 4:TEMP_HIGH / 8:Unused / 16:RCD / 32:NO_SUN
-0x00A2 | R | Maximum charging current | A |
-0x00A3 | R | Minimum charging current | A |
-0x00A4 | R | Number of used phases (Not implemented) | | 0:Undetected / 1 - 3
-0x00A5 | R | Real charging current (Not implemented) | 0.1 A |
-0x00A6 | R/W | Charging current | 0.1 A | 6 - 80
-0x00A7 | R/W | Access bit | | 0:No Access / 1:Access
-0x00A8 | R/W | EVSE mode (without saving) | | 0:Normal / 1:Smart / 2:Solar
-
-### Register 0x00C*: Individual configuration
+## Register 0x01*: Node specific configuration
 
 Register | Access | Description | Unit | Values
 --- | --- | --- | --- | ---
-0x00C0 | R/W | Configuration | | 0:Socket / 1:Fixed Cable
-0x00C1 | R/W | Load Balance (Also address of the device ) | | 0:Disabled / 1:Master / 2-4:Node
-0x00C2 | R/W | MIN Charge Current the EV will accept | A | 6 - 16
-0x00C3 | R/W | MAX Charge Current for this EVSE | A | 6 - 80
-0x00C4 | R/W | Cable lock | | 0:Disable / 1:Solenoid / 2:Motor
-0x00C5 | R/W | Surplus energy start Current | A | 1 - 16
-0x00C6 | R/W | Stop solar charging at 6A after this time | min | 0:Disable / 1 - 60
-0x00C7 | R/W | External Switch on pin SW | | 0:Disabled / 1:Access Push-Button / 2:Access Switch / 3:Smart-Solar Push-Button / 4:Smart-Solar Switch
-0x00C8 | R/W | Residual Current Monitor on pin RCM | | 0:Disabled / 1:Enabled
-0x00C9 | R/W | Allow grid power when solar charging | A | 0 - 6
-0x00CA | R/W | Use RFID reader | | 0:Disabled / 1:Enabled
-0x00CB | R/W | Type of EV electric meter | | *
-0x00CC | R/W | Address of EV electric meter | | 10 - 247
+0x0100 | R/W | Configuration | | 0:Socket / 1:Fixed Cable
+0x0101 | R/W | Cable lock | | 0:Disable / 1:Solenoid / 2:Motor
+0x0102 | R/W | MIN Charge Current the EV will accept | A | 6 - 16
+0x0103 | R/W | MAX Charge Current for this EVSE | A | 6 - 80
+0x0104 | R/W | Load Balance | | 0:Disabled / 1:Master / 2-8:Node
+0x0105 | R/W | External Switch on pin SW | | 0:Disabled / 1:Access Push-Button / 2:Access Switch / 3:Smart-Solar Push-Button / 4:Smart-Solar Switch
+0x0106 | R/W | Residual Current Monitor on pin RCM | | 0:Disabled / 1:Enabled
+0x0107 | R/W | Use RFID reader | | 0:Disabled / 1:Enabled
+0x0108 | R/W | Type of EV electric meter | | *
+0x0109 | R/W | Address of EV electric meter | | 10 - 247
 
-### Register 0x00E*: System configuration (same on all Load Balancing SmartEVSE)
+## Register 0x02*: System configuration (same on all SmartEVSE in a LoadBalancing setup)
 
 Register | Access | Description | Unit | Values
 --- | --- | --- | --- | ---
-0x00E0 | R/W | EVSE Circuit max Current | A | 10 - 160
-0x00E1 | R/W | EVSE mode | | 0:Normal / 1:Smart / 2:Solar
-0x00E2 | R/W | Max Mains Current | A | 10 - 200
-0x00E3 | R/W | CT calibration value | 0.01 | Multiplier
-0x00E4 | R/W | Type of Mains electric meter | | *
-0x00E5 | R/W | Address of Mains electric meter | | 10 - 247
-0x00E6 | R/W | What does Mains electric meter measure | | 0:Mains (Home+EVSE+PV) / 1:Home+EVSE
-0x00E7 | R/W | Type of PV electric meter | | *
-0x00E8 | R/W | Address of PV electric meter | | 10 - 247
-0x00E9 | R/W | Byte order of custom electric meter | | 0:LBF & LWF / 1:LBF &  HWF / 2:HBF & LWF / 3:HBF & HWF
-0x00EA | R/W | Register for Current (A) of custom electric meter | | 0 - 65530
-0x00EB | R/W | Divisor for Current (A) of custom electric meter | 10<sup>x</sup> | 0 - 7
-0x00EC | R/W | Register for Voltage (V) of custom electric meter | | 0 - 65530
-0x00ED | R/W | Divisor for Voltage (V) of custom electric meter | 10<sup>x</sup> | 0 - 7
-0x00EE | R/W | Register for Power (W) of custom electric meter | | 0 - 65534
-0x00EF | R/W | Divisor for Power (W) of custom electric meter | 10<sup>x</sup> | 0 - 7 /
-0x00F0 | R/W | Register for Energy (kWh) of custom electric meter | | 0 - 65534
-0x00F1 | R/W | Divisor for Energy (kWh) of custom electric meter | 10<sup>x</sup> | 0 - 7
-0x00F2 | R/W | Grid type to which the Sensorbox is connected | | 0:4Wire / 1:3Wire
-0x00F3 | R/W | Data type of custom electric meter | | 0:Integer / 1:Double
+0x0200 | R/W | EVSE mode | | 0:Normal / 1:Smart / 2:Solar
+0x0201 | R/W | EVSE Circuit max Current | A | 10 - 160
+0x0202 | R/W | Grid type to which the Sensorbox is connected | | 0:4Wire / 1:3Wire
+0x0203 | R/W | CT calibration value | 0.01 | Multiplier
+0x0204 | R/W | Max Mains Current | A | 10 - 200
+0x0205 | R/W | Surplus energy start Current | A | 1 - 16
+0x0206 | R/W | Stop solar charging at 6A after this time | min | 0:Disable / 1 - 60
+0x0207 | R/W | Allow grid power when solar charging | A | 0 - 6
+0x0208 | R/W | Type of Mains electric meter | | *
+0x0209 | R/W | Address of Mains electric meter | | 10 - 247
+0x020A | R/W | What does Mains electric meter measure | | 0:Mains (Home+EVSE+PV) / 1:Home+EVSE
+0x020B | R/W | Type of PV electric meter | | *
+0x020C | R/W | Address of PV electric meter | | 10 - 247
+0x020D | R/W | Byte order of custom electric meter | | 0:LBF & LWF / 1:LBF &  HWF / 2:HBF & LWF / 3:HBF & HWF
+0x020E | R/W | Data type of custom electric meter | | 0:Integer / 1:Double
+0x020F | R/W | Maximum register read (Not implemented) | |
+0x0210 | R/W | Register for Voltage (V) of custom electric meter | | 0 - 65530
+0x0211 | R/W | Divisor for Voltage (V) of custom electric meter | 10<sup>x</sup> | 0 - 7
+0x0212 | R/W | Register for Current (A) of custom electric meter | | 0 - 65530
+0x0213 | R/W | Divisor for Current (A) of custom electric meter | 10<sup>x</sup> | 0 - 7
+0x0214 | R/W | Register for Power (W) of custom electric meter | | 0 - 65534
+0x0215 | R/W | Divisor for Power (W) of custom electric meter | 10<sup>x</sup> | 0 - 7 /
+0x0216 | R/W | Register for Energy (kWh) of custom electric meter | | 0 - 65534
+0x0217 | R/W | Divisor for Energy (kWh) of custom electric meter | 10<sup>x</sup> | 0 - 7
 
  * Number in brackets in section "Predefined electric meters"

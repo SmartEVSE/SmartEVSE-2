@@ -162,7 +162,7 @@
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 
 #define MODBUS_EVSE_STATUS_START 0x0000
-#define MODBUS_EVSE_STATUS_COUNT 14
+#define MODBUS_EVSE_STATUS_COUNT 12
 #define MODBUS_EVSE_CONFIG_START 0x0100
 #define MODBUS_EVSE_CONFIG_COUNT 10
 #define MODBUS_SYS_CONFIG_START  0x0200
@@ -178,14 +178,12 @@
 #define STATUS_MODE 67                                                          // 0x0003: EVSE Mode
 #define STATUS_SOLAR_TIMER 68                                                   // 0x0004: Solar Timer
 #define STATUS_ACCESS 69                                                        // 0x0005: Access bit
-#define STATUS_CONFIG_CHANGED 70                                                // 0x0006: Configuration changed (ToDo)
+#define STATUS_CONFIG_CHANGED 70                                                // 0x0006: Configuration changed
 #define STATUS_MAX 71                                                           // 0x0007: Maximum charging current (RO)
 #define STATUS_PHASE_COUNT 72                                                   // 0x0008: Number of used phases (RO) (ToDo)
 #define STATUS_REAL_CURRENT 73                                                  // 0x0009: Real charging current (RO) (ToDo)
 #define STATUS_TEMP 74                                                          // 0x000A: Temperature (RO)
 #define STATUS_SERIAL 75                                                        // 0x000B: Serial number (RO)
-#define STATUS_EVMETER 76                                                       // 0x000C: Type of EV electric meter
-#define STATUS_EVMETERADDRESS 77                                                // 0x000D: Address of EV electric meter
 
 // Node specific configuration
 #define MENU_ENTER 1
@@ -408,8 +406,10 @@ struct {
 };
 
 struct NodeStatus {
-    unsigned int EVMeter;
-    unsigned int EVAddress;
+    bool Online;
+    unsigned char ConfigChanged;
+    unsigned char EVMeter;
+    unsigned char EVAddress;
 };
 
 void RS485SendBuf(char *buffer, unsigned char len);

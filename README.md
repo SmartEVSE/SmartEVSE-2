@@ -110,6 +110,8 @@ Node 7 | 0x08
 
 Broadcast to all SmartEVSE with address 0x09.
 
+Modbus register have changed after version 2.20. Use [this readme](https://github.com/SmartEVSE/SmartEVSE-2/tree/b8b6a1a2def22a2bfc3cc30be2f2ef639e2d4389#register-for-external-devices) as reference for version 2.20 or older
+
 ## Register 0x000*: Broadcast Chargecurrent or Error
 
 Register | Access | Description | Unit | Values

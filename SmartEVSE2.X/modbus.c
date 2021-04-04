@@ -37,7 +37,7 @@
 
 /**
  * Send data over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned char function
  * @param unsigned char byte
@@ -70,7 +70,7 @@ void ModbusSend(unsigned char address, unsigned char function, unsigned char byt
 
 /**
  * Send single value over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned char function
  * @param unsigned int register
@@ -78,16 +78,16 @@ void ModbusSend(unsigned char address, unsigned char function, unsigned char byt
  */
 void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg, unsigned int data) {
     unsigned int values[2];
-    
+
     values[0] = reg;
     values[1] = data;
-    
+
     ModbusSend(address, function, 0, values, 2);
 }
 
 /**
  * Combine Bytes received over modbus
- * 
+ *
  * @param pointer to var
  * @param pointer to buf
  * @param unsigned char pos
@@ -97,36 +97,48 @@ void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg
  *        2: high byte first, low word first\n
  *        3: high byte first, high word first (big endian)
  */
-void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned char endianness) {
+void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned char endianness, unsigned char len) {
     char *pBytes;
 
     pBytes = var;
-    
+
     // XC8 is little endian
     switch(endianness) {
         case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)
-            *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes++ = (unsigned char)buf[pos + 2];
-            *pBytes   = (unsigned char)buf[pos + 3];   
+            for (int i = 0; i < len; i++) {
+                *pBytes++ = (unsigned char)buf[pos + i];
+            }
+            //*pBytes++ = (unsigned char)buf[pos + 0];
+            //*pBytes++ = (unsigned char)buf[pos + 1];
+            //*pBytes++ = (unsigned char)buf[pos + 2];
+            //*pBytes   = (unsigned char)buf[pos + 3];
             break;
         case ENDIANESS_LBF_HWF: // low byte first, high word first
-            *pBytes++ = (unsigned char)buf[pos + 2];
-            *pBytes++ = (unsigned char)buf[pos + 3];
-            *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes   = (unsigned char)buf[pos + 1];   
+            for (int i = 0; i < len; i++) {
+                *pBytes++ = (unsigned char)buf[pos + len - i - 2*(~i & 0x1)];
+            }
+            //*pBytes++ = (unsigned char)buf[pos + 2]; // 4 - 0 - 2
+            //*pBytes++ = (unsigned char)buf[pos + 3]; // 4 - 1 - 0
+            //*pBytes++ = (unsigned char)buf[pos + 0]; // 4 - 2 - 2
+            //*pBytes   = (unsigned char)buf[pos + 1]; // 4 - 3 - 0
             break;
         case ENDIANESS_HBF_LWF: // high byte first, low word first
-            *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes++ = (unsigned char)buf[pos + 3];
-            *pBytes   = (unsigned char)buf[pos + 2];   
+            for (int i = 0; i < len; i++) {
+                *pBytes++ = (unsigned char)buf[pos + i + (~i & 0x1) - (i & 0x1)];
+            }
+            //*pBytes++ = (unsigned char)buf[pos + 1]; // 0 + 1 - 0
+            //*pBytes++ = (unsigned char)buf[pos + 0]; // 1 + 0 - 1
+            //*pBytes++ = (unsigned char)buf[pos + 3]; // 2 + 1 - 0
+            //*pBytes   = (unsigned char)buf[pos + 2]; // 3 + 0 - 1
             break;
         case ENDIANESS_HBF_HWF: // high byte first, high word first (big endian)
-            *pBytes++ = (unsigned char)buf[pos + 3];
-            *pBytes++ = (unsigned char)buf[pos + 2];
-            *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes   = (unsigned char)buf[pos + 0];   
+            for (int i = 0; i < len; i++) {
+                *pBytes++ = (unsigned char)buf[pos + len - i - 1];
+            }
+            //*pBytes++ = (unsigned char)buf[pos + 3];
+            //*pBytes++ = (unsigned char)buf[pos + 2];
+            //*pBytes++ = (unsigned char)buf[pos + 1];
+            //*pBytes   = (unsigned char)buf[pos + 0];
             break;
         default:
             break;
@@ -141,7 +153,7 @@ void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned cha
 
 /**
  * Request read holding (FC=3) or read input register (FC=04) to a device over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned char function
  * @param unsigned int register
@@ -156,7 +168,7 @@ void ModbusReadInputRequest(unsigned char address, unsigned char function, unsig
 
 /**
  * Response read holding (FC=3) or read input register (FC=04) to a device over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned char function
  * @param unsigned int pointer to values
@@ -168,7 +180,7 @@ void ModbusReadInputResponse(unsigned char address, unsigned char function, unsi
 
 /**
  * Request write single register (FC=06) to a device over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned int register
  * @param unsigned int value
@@ -177,24 +189,24 @@ void ModbusWriteSingleRequest(unsigned char address, unsigned int reg, unsigned 
     Modbus.RequestAddress = address;
     Modbus.RequestFunction = 0x06;
     Modbus.RequestRegister = reg;
-    ModbusSend8(address, 0x06, reg, value);  
+    ModbusSend8(address, 0x06, reg, value);
 }
 
 /**
  * Response write single register (FC=06) to a device over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned int register
  * @param unsigned int value
  */
 void ModbusWriteSingleResponse(unsigned char address, unsigned int reg, unsigned int value) {
-    ModbusSend8(address, 0x06, reg, value);  
+    ModbusSend8(address, 0x06, reg, value);
 }
 
 
 /**
  * Request write multiple register (FC=16) to a device over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned int register
  * @param unsigned char pointer to data
@@ -228,14 +240,14 @@ void ModbusWriteMultipleRequest(unsigned char address, unsigned int reg, unsigne
     // Calculate CRC16 from data
     cs = crc16(Tbuffer, n);
     Tbuffer[n++] = ((unsigned char)(cs));
-    Tbuffer[n++] = ((unsigned char)(cs>>8));	
+    Tbuffer[n++] = ((unsigned char)(cs>>8));
     // Send buffer to RS485 port
-    RS485SendBuf(Tbuffer, n);    
+    RS485SendBuf(Tbuffer, n);
 }
 
 /**
  * Response write multiple register (FC=16) to a device over modbus
- * 
+ *
  * @param unsigned char address
  * @param unsigned int register
  * @param unsigned int count
@@ -246,7 +258,7 @@ void ModbusWriteMultipleResponse(unsigned char address, unsigned int reg, unsign
 
 /**
  * Response an exception
- * 
+ *
  * @param unsigned char address
  * @param unsigned char function
  * @param unsigned char exeption
@@ -258,7 +270,7 @@ void ModbusException(unsigned char address, unsigned char function, unsigned cha
 
 /**
  * Decode received modbus packet
- * 
+ *
  * @param unsigned char pointer to buffer
  * @param unsigned char length of buffer
  */
@@ -383,7 +395,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                 // Modbus data is always at the end ahead the checksum
                 Modbus.Data = Modbus.Data + (len - Modbus.DataLength - 2);
             }
-            
+
             // Request - Response check
             switch (Modbus.Type) {
                 case MODBUS_REQUEST:
@@ -443,26 +455,26 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
 
 /**
  * Decode measurement value
- * 
+ *
  * @param pointer to buf
  * @param unsigned char pos
  * @param unsigned char Endianness
  * @param signed char Divisor
  * @return signed long Measurement
  */
-signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, bool IsDouble, signed char Divisor) {
+signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, bool IsDouble, signed char Divisor, unsigned char len) {
     signed double dCombined;
     signed long lCombined;
 
     if (IsDouble) {
-        combineBytes(&dCombined, buf, pos, Endianness);
+        combineBytes(&dCombined, buf, pos, Endianness, len);
         if (Divisor >= 0) {
             lCombined = dCombined / (signed long)pow10[Divisor];
         } else {
             lCombined = dCombined * (signed long)pow10[-Divisor];
         }
     } else {
-        combineBytes(&lCombined, buf, pos, Endianness);
+        combineBytes(&lCombined, buf, pos, Endianness, len);
         if (Divisor >= 0) {
             lCombined = lCombined / (signed long)pow10[Divisor];
         } else {
@@ -475,7 +487,7 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
 
 /**
  * Send Energy measurement request over modbus
- * 
+ *
  * @param unsigned char Meter
  * @param unsigned char Address
  */
@@ -485,18 +497,18 @@ void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
 
 /**
  * Read energy measurement from modbus
- * 
+ *
  * @param pointer to buf
  * @param unsigned char Meter
  * @return signed long Energy (Wh)
  */
 signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
-    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].EDivisor - 3);
+    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].EDivisor - 3, EMConfig[Meter].len);
 }
 
 /**
  * Send Power measurement request over modbus
- * 
+ *
  * @param unsigned char Meter
  * @param unsigned char Address
  */
@@ -506,18 +518,18 @@ void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
 
 /**
  * Read Power measurement from modbus
- * 
+ *
  * @param pointer to buf
  * @param unsigned char Meter
  * @return signed long Power (W)
   */
 signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
-    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor);
+    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor, EMConfig[Meter].len);
 }
 
 /**
  * Send current measurement request over modbus
- * 
+ *
  * @param unsigned char Meter
  * @param unsigned char Address
  */
@@ -537,14 +549,14 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
             ModbusReadInputRequest(Address, 3, 0x5B0C, 16);
             break;
         default:
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, 6);
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].len/2) * 3);
             break;
-    }  
+    }
 }
 
 /**
  * Read current measurement from modbus
- * 
+ *
  * @param pointer to buf
  * @param unsigned char Meter
  * @param pointer to Current (mA)
@@ -566,7 +578,12 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10
-                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
+                var[x] = receiveMeasurement(buf,
+                        offset + (x * EMConfig[Meter].len),
+                        EMConfig[Meter].Endianness,
+                        EMConfig[Meter].IsDouble,
+                        EMConfig[Meter].IDivisor - 3,
+                        EMConfig[Meter].len);
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) {
                     if (x == 0) Iuncal = abs((var[x]/10));                      // Store uncalibrated CT1 measurement (10mA)
@@ -588,9 +605,15 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 #endif
             } else GridActive = 0;
             break;
+
         default:
             for (x = 0; x < 3; x++) {
-                var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
+                var[x] = receiveMeasurement(buf,
+                        (x * EMConfig[Meter].len),
+                        EMConfig[Meter].Endianness,
+                        EMConfig[Meter].IsDouble,
+                        EMConfig[Meter].IDivisor - 3,
+                        EMConfig[Meter].len);
             }
             break;
     }
@@ -599,12 +622,12 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     switch(Meter) {
         case EM_EASTRON:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor, EMConfig[Meter].len) < 0) var[x] = -var[x];
             }
             break;
         case EM_ABB:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor, EMConfig[Meter].len) < 0) var[x] = -var[x];
             }
             break;
     }
@@ -615,7 +638,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
 
 /**
  * Map a Modbus register to an item ID (MENU_xxx or STATUS_xxx)
- * 
+ *
  * @return unsigned char ItemID
  */
 unsigned char mapModbusRegister2ItemID() {
@@ -642,7 +665,7 @@ unsigned char mapModbusRegister2ItemID() {
     } else {
         return 0;
     }
-    
+
     if (Modbus.RegisterCount <= (RegisterStart + Count) - Modbus.Register) {
         return (Modbus.Register - RegisterStart + ItemStart);
     } else {

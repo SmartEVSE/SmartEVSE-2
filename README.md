@@ -20,7 +20,7 @@ The project consists of two parts:
 
 - Fits into a standard DIN rail enclosure.
 - Measures the current consumption of other appliances, and automatically lowers or increases the charging current to the EV. (sensorbox required)
-- The load balancing feature let's you connect up to 8 SmartEVSE's to one mains supply.
+- The load balancing feature lets you connect up to 8 SmartEVSE's to one mains supply.
 - Switched 230VAC output, for contactor/relay.
 - Powered RS485 communication bus for sensorbox / Modbus kWh Meters.
 - Can be used with fixed cable, or socket and charging cable.
@@ -89,7 +89,8 @@ Information on how to compile and setup the controller can be found on the [smar
 - Finder 7E.78.8.400.0212 (3)
 - Eastron SDM630 (4)
 - ABB B23 212-100 (5)
-- Custom (6)
+- SolarEdge Inverters in SunSpec mode (6)
+- Custom (7)
 
 # Modbus
 

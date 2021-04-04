@@ -130,7 +130,7 @@ unsigned int CalcCurrent();
 
 
 // Configuration settings
-#pragma	config FCMEN = OFF,	IESO = OFF, PRICLKEN = ON
+#pragma	config FCMEN = ON, IESO = ON, PRICLKEN = ON                             // Enable Internal/External Oscillator Switchover
 #pragma config PLLCFG = OFF, FOSC = HSMP                                        // High Speed Medium power (4-16Mhz), PLL Off
 #pragma	config BORV = 285, BOREN = ON, PWRTEN = ON
 #pragma	config WDTPS = 2048, WDTEN = OFF                                        // WDT timeout

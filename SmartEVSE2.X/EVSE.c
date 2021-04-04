@@ -135,9 +135,9 @@ unsigned int CalcCurrent();
 #pragma	config BORV = 285, BOREN = ON, PWRTEN = ON
 #pragma	config WDTPS = 2048, WDTEN = OFF                                        // WDT timeout
 #pragma config CCP2MX = PORTB3, PBADEN = OFF, CCP3MX = PORTC6                   // PortB digital IO
-#pragma config HFOFST = OFF, T3CMX = PORTB5, P2BMX = PORTC0, MCLRE = INTMCLR
+#pragma config HFOFST = OFF, T3CMX = PORTB5, P2BMX = PORTC0, MCLRE = EXTMCLR    // MCLR Pin Enable bit (MCLR pin enabled, RE3 input pin disabled)
 
-#pragma config XINST = OFF, DEBUG = OFF, LVP = OFF, STVREN = ON
+#pragma config XINST = OFF, DEBUG = OFF, LVP = ON, STVREN = ON                  // Allow low voltage programming
 #pragma	config CP0 = OFF, CP1 = OFF, CP2 = OFF, CP3 = OFF, CPD = OFF, CPB = OFF
 #pragma	config WRT0 = OFF, WRT1 = OFF, WRT2 = OFF, WRT3 = OFF
 #pragma	config WRTC = OFF, WRTB = OFF, WRTD = OFF
@@ -1865,7 +1865,8 @@ void TestIO(void)                                                               
 }
 
 void init(void) {
-    OSCCON = 0b01101100;                                                        // setup external oscillator
+    OSCCON = 0b01111100;                                                        // use "primary clock" (FOSC<3:0> in CONFIG1H),
+                                                                                // Set INTOSC speed = 16 MHz
     OSCCON2 = 0b00000100;                                                       // primary Oscillator On.
 
     RCON = 0b11011111;                                                          // Set Interrupt priority, enable BOR
@@ -2600,7 +2601,7 @@ void main(void) {
                             for (x = 0; x < 3; x++) {
                                 // Calculate difference of Mains and PV electric meter
                                 if (PVMeter) CM[x] = CM[x] - PV[x];             // CurrentMeter and PV resolution are 1mA
-                                Irms[x] = CM[x]/100;                            // reduce resolution of Irms to 100mA
+                                Irms[x] = (int)CM[x]/100;                       // reduce resolution of Irms to 100mA
                                 Isum = Isum + Irms[x];                          // Isum has a resolution of 100mA
                             }
 

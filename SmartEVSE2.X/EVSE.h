@@ -61,7 +61,7 @@
 #define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
 #define IMPORT_CURRENT 0                                                        // Allow the use of grid power when solar charging (Amps)
-#define MAINS_METER 1                                                           // Mains Meter, 1= Sensorbox, 2=Phoenix, 3= Finder, 4= Eastron, 5=Custom
+#define MAINS_METER 0                                                           // Mains Meter, 1= Sensorbox, 2=Phoenix, 3= Finder, 4= Eastron, 5 = ABB, 6= SolarEdge, 7= Custom
 #ifdef SPECIAL
 #define GRID 1                                                                  // Grid, 0= 4-Wire CW, 1= 4-Wire CCW, 2= 3-Wire CW, 3= 3-Wire CCW
 #else
@@ -76,7 +76,8 @@
 #define MIN_METER_ADDRESS 10
 #define MAX_METER_ADDRESS 247
 #define EMCUSTOM_ENDIANESS 0
-#define EMCUSTOM_ISDOUBLE 0
+#define EMCUSTOM_DATATYPE 0
+#define EMCUSTOM_FUNCTION 3
 #define EMCUSTOM_UREGISTER 0
 #define EMCUSTOM_UDIVISOR 8
 #define EMCUSTOM_IREGISTER 0
@@ -213,7 +214,7 @@
 #define MENU_PVMETER 23                                                         // 0x020B: Type of PV electric meter
 #define MENU_PVMETERADDRESS 24                                                  // 0x020C: Address of PV electric meter
 #define MENU_EMCUSTOM_ENDIANESS 25                                              // 0x020D: Byte order of custom electric meter
-#define MENU_EMCUSTOM_ISDOUBLE 26                                               // 0x020E: Data type of custom electric meter
+#define MENU_EMCUSTOM_DATATYPE 26                                               // 0x020E: Data type of custom electric meter
 #define MENU_EMCUSTOM_READMAX 27                                                // 0x020F: Maximum register read (ToDo)
 #define MENU_EMCUSTOM_UREGISTER 28                                              // 0x0210: Register for Voltage (V) of custom electric meter
 #define MENU_EMCUSTOM_UDIVISOR 29                                               // 0x0211: Divisor for Voltage (V) of custom electric meter (10^x)
@@ -223,7 +224,8 @@
 #define MENU_EMCUSTOM_PDIVISOR 33                                               // 0x0215: Divisor for Power (W) of custom electric meter (10^x)
 #define MENU_EMCUSTOM_EREGISTER 34                                              // 0x0216: Register for Energy (kWh) of custom electric meter
 #define MENU_EMCUSTOM_EDIVISOR 35                                               // 0x0217: Divisor for Energy (kWh) of custom electric meter (10^x)
-#define MENU_EXIT 36
+#define MENU_EMCUSTOM_FUNCTION 36                                               // 0x0218: Modbus Function (3/4) of custom electric meter
+#define MENU_EXIT 37
 
 #define MENU_STATE 50
 
@@ -263,6 +265,14 @@
 #define ENDIANESS_LBF_HWF 1
 #define ENDIANESS_HBF_LWF 2
 #define ENDIANESS_HBF_HWF 3
+
+typedef enum mb_datatype {
+    MB_DATATYPE_INT16 = 0,
+    MB_DATATYPE_INT32 = 1,
+    MB_DATATYPE_FLOAT32 = 2,
+    MB_DATATYPE_MAX,
+} MBDataType;
+
 
 extern char GLCDbuf[512];                                                       // GLCD buffer (half of the display)
 
@@ -369,7 +379,7 @@ const far struct {
     {"PVEM", "PV METER", "Type of PV electric meter", 0, EM_CUSTOM, PV_METER},
     {"PVAD", "PV ADDR", "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
     {"EMBO", "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
-    {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, 1, EMCUSTOM_ISDOUBLE},
+    {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, MB_DATATYPE_MAX-1, EMCUSTOM_DATATYPE},
     {"EMREAD", "READ MAX", "Max register read at once of custom electric meter", 3, 255, 3},
     {"EMUREG", "VOL REGI", "Register for Voltage (V) of custom electric meter", 0, 65530, EMCUSTOM_UREGISTER},
     {"EMUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 7, EMCUSTOM_UDIVISOR},
@@ -379,6 +389,7 @@ const far struct {
     {"EMPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 7, EMCUSTOM_PDIVISOR},
     {"EMEREG", "ENE REGI", "Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
     {"EMEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 7, EMCUSTOM_EDIVISOR},
+    {"EMFUNC", "FUNCTION", "Modbus Function of custom electric meter", 3, 4, EMCUSTOM_FUNCTION},
 
     {"EXIT", "EXIT", "EXIT", 0, 0, 0}
 };
@@ -387,7 +398,7 @@ struct {
     unsigned char Desc[10];
     unsigned char Endianness; // 0: low byte first, low word first, 1: low byte first, high word first, 2: high byte first, low word first, 3: high byte first, high word first
     unsigned char Function; // 3: holding registers, 4: input registers
-    bool IsDouble;
+    MBDataType DataType; // How data is represented on this Modbus meter
     unsigned int URegister; // Single phase voltage (V)
     unsigned char UDivisor; // 10^x
     unsigned int IRegister; // Single phase current (A)
@@ -396,16 +407,15 @@ struct {
     unsigned char PDivisor; // 10^x
     unsigned int ERegister; // Total energy (kWh)
     unsigned char EDivisor; // 10^x
-    unsigned char len; // length in bytes of the modbus measurements (4 bytes = 2 registers = 32bit values, 2 bytes = 1 register = 16 bit values)
 } EMConfig[EM_CUSTOM + 1] = {
-    {"Disabled",  ENDIANESS_LBF_LWF, 0, false,      0, 0,      0, 0,      0, 0,      0, 0, 4}, // First entry!
-    {"Sensorbox", ENDIANESS_HBF_HWF, 4,  true, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0, 4}, // Sensorbox (Own routine for request/receive)
-    {"Phoenix C", ENDIANESS_HBF_LWF, 4, false,    0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1, 4}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh) max read count 11
-    {"Finder",    ENDIANESS_HBF_HWF, 4,  true, 0x1000, 0, 0x100E, 0, 0x1026, 0, 0x1106, 3, 4}, // Finder 7E.78.8.400.0212 (V / A / W / Wh) max read count 127
-    {"Eastron",   ENDIANESS_HBF_HWF, 4,  true,    0x0, 0,    0x6, 0,   0x34, 0,  0x156, 0, 4}, // Eastron SDM630 (V / A / W / kWh) max read count 80
-    {"ABB",       ENDIANESS_HBF_HWF, 3, false, 0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2, 4}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed / max read count 125
-    {"SolarEdge", ENDIANESS_HBF_HWF, 3, false,  40196, 2,  40191, 1,  40206, 0,  40226, 2, 2}, // SolarEdge SunSpec (0.01V (16bit) / 0.1A (16bit) / 1W  (16bit) / 1 Wh (32bit, not supported yet))
-    {"Custom",    ENDIANESS_LBF_LWF, 4, false,      0, 0,      0, 0,      0, 0,      0, 0, 0}  // Last entry!
+    {"Disabled",  ENDIANESS_LBF_LWF, 0, MB_DATATYPE_INT32,        0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
+    {"Sensorbox", ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
+    {"Phoenix C", ENDIANESS_HBF_LWF, 4, MB_DATATYPE_INT32,      0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh) max read count 11
+    {"Finder",    ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32, 0x1000, 0, 0x100E, 0, 0x1026, 0, 0x1106, 3}, // Finder 7E.78.8.400.0212 (V / A / W / Wh) max read count 127
+    {"Eastron",   ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32,    0x0, 0,    0x6, 0,   0x34, 0,  0x156, 0}, // Eastron SDM630 (V / A / W / kWh) max read count 80
+    {"ABB",       ENDIANESS_HBF_HWF, 3, MB_DATATYPE_INT32,   0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed / max read count 125
+    {"SolarEdge", ENDIANESS_HBF_HWF, 3, MB_DATATYPE_INT16,    40196, 2,  40191, 1,  40206, 0,  40226, 2}, // SolarEdge SunSpec (0.01V (16bit) / 0.1A (16bit) / 1W  (16bit) / 1 Wh (32bit, not supported yet))
+    {"Custom",    ENDIANESS_LBF_LWF, 4, MB_DATATYPE_INT32,        0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
 };
 
 struct NodeStatus {

@@ -463,11 +463,12 @@ void validate_settings(void) {
 
     // Backward compatibility < 2.20
     if (EMConfig[EM_CUSTOM].IRegister == 8 || EMConfig[EM_CUSTOM].URegister == 8 || EMConfig[EM_CUSTOM].PRegister == 8 || EMConfig[EM_CUSTOM].ERegister == 8) {
-        EMConfig[EM_CUSTOM].IsDouble = true;
+        EMConfig[EM_CUSTOM].DataType = MB_DATATYPE_FLOAT32;
         EMConfig[EM_CUSTOM].IRegister = 0;
         EMConfig[EM_CUSTOM].URegister = 0;
         EMConfig[EM_CUSTOM].PRegister = 0;
         EMConfig[EM_CUSTOM].ERegister = 0;
+        EMConfig[EM_CUSTOM].Function = 4;
     }
 }
 
@@ -514,7 +515,8 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].PDivisor, sizeof EMConfig[EM_CUSTOM].PDivisor);
     eeprom_read_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
     eeprom_read_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
-    eeprom_read_object(&EMConfig[EM_CUSTOM].IsDouble, sizeof EMConfig[EM_CUSTOM].IsDouble);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
 
     validate_settings();
 }
@@ -565,7 +567,9 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].PDivisor, sizeof EMConfig[EM_CUSTOM].PDivisor);
     eeprom_write_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
     eeprom_write_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
-    eeprom_write_object(&EMConfig[EM_CUSTOM].IsDouble, sizeof EMConfig[EM_CUSTOM].IsDouble);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
+
 
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
@@ -1144,7 +1148,8 @@ unsigned char getMenuItems (void) {
         if (LoadBl < 2) {                                                       // - ? Load Balancing Disabled/Master?
             if (MainsMeter == EM_CUSTOM || PVMeter == EM_CUSTOM || EVMeter == EM_CUSTOM) { // ? Custom electric meter used?
                 MenuItems[m++] = MENU_EMCUSTOM_ENDIANESS;                       // - - Byte order of custom electric meter
-                MenuItems[m++] = MENU_EMCUSTOM_ISDOUBLE;                        // - - Data type of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_DATATYPE;                        // - - Data type of custom electric meter
+                MenuItems[m++] = MENU_EMCUSTOM_FUNCTION;                        // - - Modbus Function of custom electric meter
                 MenuItems[m++] = MENU_EMCUSTOM_UREGISTER;                       // - - Starting register for voltage of custom electric meter
                 MenuItems[m++] = MENU_EMCUSTOM_UDIVISOR;                        // - - Divisor for voltage of custom electric meter
                 MenuItems[m++] = MENU_EMCUSTOM_IREGISTER;                       // - - Starting register for current of custom electric meter
@@ -1246,8 +1251,8 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case MENU_EMCUSTOM_ENDIANESS:
             EMConfig[EM_CUSTOM].Endianness = val;
             break;
-        case MENU_EMCUSTOM_ISDOUBLE:
-            EMConfig[EM_CUSTOM].IsDouble = val;
+        case MENU_EMCUSTOM_DATATYPE:
+            EMConfig[EM_CUSTOM].DataType = val;
             break;
         case MENU_EMCUSTOM_UREGISTER:
             EMConfig[EM_CUSTOM].URegister = val;
@@ -1272,6 +1277,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             break;
         case MENU_EMCUSTOM_EDIVISOR:
             EMConfig[EM_CUSTOM].EDivisor = val;
+            break;
+        case MENU_EMCUSTOM_FUNCTION:
+            EMConfig[EM_CUSTOM].Function = val;
             break;
         case MENU_RFIDREADER:
             RFIDReader = val;
@@ -1371,8 +1379,8 @@ unsigned int getItemValue(unsigned char nav) {
             return EVMeterAddress;
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
-        case MENU_EMCUSTOM_ISDOUBLE:
-            return EMConfig[EM_CUSTOM].IsDouble;
+        case MENU_EMCUSTOM_DATATYPE:
+            return EMConfig[EM_CUSTOM].DataType;
         case MENU_EMCUSTOM_UREGISTER:
             return EMConfig[EM_CUSTOM].URegister;
         case MENU_EMCUSTOM_UDIVISOR:
@@ -1389,6 +1397,8 @@ unsigned int getItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].ERegister;
         case MENU_EMCUSTOM_EDIVISOR:
             return EMConfig[EM_CUSTOM].EDivisor;
+        case MENU_EMCUSTOM_FUNCTION:
+            return EMConfig[EM_CUSTOM].Function;
         case MENU_RFIDREADER:
             return RFIDReader;
 
@@ -1426,7 +1436,7 @@ unsigned int getItemValue(unsigned char nav) {
  * @return unsigned char[] MenuItemOption
  */
 const far char * getMenuItemOption(unsigned char nav) {
-    unsigned char Str[10];
+    static unsigned char Str[10]; // must be declared static, since it's referenced outside of function scope
     unsigned int value;
 
     value = getItemValue(nav);
@@ -1490,18 +1500,26 @@ const far char * getMenuItemOption(unsigned char nav) {
                 case 1: return "LBF & HWF";
                 case 2: return "HBF & LWF";
                 case 3: return "HBF & HWF";
-                default:
-                    break;
+                default: return "";
             }
-        case MENU_EMCUSTOM_ISDOUBLE:
-            if (value) return "Double";
-            else return "Integer";
+        case MENU_EMCUSTOM_DATATYPE:
+            switch (value) {
+                case MB_DATATYPE_INT16: return "INT16";
+                case MB_DATATYPE_INT32: return "INT32";
+                case MB_DATATYPE_FLOAT32: return "FLOAT32";
+            }
         case MENU_EMCUSTOM_UDIVISOR:
         case MENU_EMCUSTOM_IDIVISOR:
         case MENU_EMCUSTOM_PDIVISOR:
         case MENU_EMCUSTOM_EDIVISOR:
             sprintf(Str, "%lu", pow10[value]);
             return Str;
+        case MENU_EMCUSTOM_FUNCTION:
+            switch (value) {
+                case 3: return "3:HoldingReg";
+                case 4: return "4:Input Reg";
+                default: return "";
+            }
         case MENU_RFIDREADER:
             return StrRFIDReader[RFIDReader];
         case MENU_EXIT:

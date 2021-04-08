@@ -242,7 +242,7 @@ unsigned char OldButtonState = 0x0f;                                            
 unsigned char LCDNav = 0;
 unsigned char SubMenu = 0;
 unsigned long ScrollTimer = 0;
-char LCDpos = 0;
+unsigned char LCDpos = 0;
 unsigned char ChargeDelay = 0;                                                  // Delays charging at least 60 seconds in case of not enough current available.
 unsigned char NoCurrent = 0;                                                    // counts overcurrent situations.
 unsigned char TestState = 0;
@@ -1426,7 +1426,7 @@ unsigned int getItemValue(unsigned char nav) {
  * @return unsigned char[] MenuItemOption
  */
 const char * getMenuItemOption(unsigned char nav) {
-    static unsigned char Str[10];
+    static unsigned char Str[10]; // must be declared static, since it's referenced outside of function scope
     unsigned int value;
 
     value = getItemValue(nav);
@@ -1536,7 +1536,7 @@ void RS232cli(void) {
     unsigned int n;
     unsigned int Inew;                                                          // resolution 0.1A
     unsigned char MenuItemsCount = getMenuItems();
-    
+
     printf("\n");
     if (menu == 0)                                                              // menu = Main Menu
     {

@@ -502,6 +502,7 @@ void read_settings(void) {
     eeprom_read_object(&PVMeter, sizeof PVMeter);
     eeprom_read_object(&PVMeterAddress, sizeof PVMeterAddress);
     eeprom_read_object(&EMConfig[EM_CUSTOM].Endianness, sizeof EMConfig[EM_CUSTOM].Endianness);
+    eeprom_read_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
     eeprom_read_object(&EMConfig[EM_CUSTOM].IRegister, sizeof EMConfig[EM_CUSTOM].IRegister);
     eeprom_read_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
     eeprom_read_object(&ImportCurrent, sizeof ImportCurrent);
@@ -516,7 +517,6 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
     eeprom_read_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
     eeprom_read_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
-    eeprom_read_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
 
     validate_settings();
 }
@@ -554,6 +554,7 @@ void write_settings(void) {
     eeprom_write_object(&PVMeter, sizeof PVMeter);
     eeprom_write_object(&PVMeterAddress, sizeof PVMeterAddress);
     eeprom_write_object(&EMConfig[EM_CUSTOM].Endianness, sizeof EMConfig[EM_CUSTOM].Endianness);
+    eeprom_write_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
     eeprom_write_object(&EMConfig[EM_CUSTOM].IRegister, sizeof EMConfig[EM_CUSTOM].IRegister);
     eeprom_write_object(&EMConfig[EM_CUSTOM].IDivisor, sizeof EMConfig[EM_CUSTOM].IDivisor);
     eeprom_write_object(&ImportCurrent, sizeof ImportCurrent);
@@ -568,7 +569,6 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].ERegister, sizeof EMConfig[EM_CUSTOM].ERegister);
     eeprom_write_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
     eeprom_write_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
-    eeprom_write_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
 
 
     unlock55 = 0;                                                               // clear unlock values
@@ -1254,6 +1254,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case MENU_EMCUSTOM_DATATYPE:
             EMConfig[EM_CUSTOM].DataType = val;
             break;
+        case MENU_EMCUSTOM_FUNCTION:
+            EMConfig[EM_CUSTOM].Function = val;
+            break;
         case MENU_EMCUSTOM_UREGISTER:
             EMConfig[EM_CUSTOM].URegister = val;
             break;
@@ -1277,9 +1280,6 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             break;
         case MENU_EMCUSTOM_EDIVISOR:
             EMConfig[EM_CUSTOM].EDivisor = val;
-            break;
-        case MENU_EMCUSTOM_FUNCTION:
-            EMConfig[EM_CUSTOM].Function = val;
             break;
         case MENU_RFIDREADER:
             RFIDReader = val;
@@ -1381,6 +1381,8 @@ unsigned int getItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].Endianness;
         case MENU_EMCUSTOM_DATATYPE:
             return EMConfig[EM_CUSTOM].DataType;
+        case MENU_EMCUSTOM_FUNCTION:
+            return EMConfig[EM_CUSTOM].Function;
         case MENU_EMCUSTOM_UREGISTER:
             return EMConfig[EM_CUSTOM].URegister;
         case MENU_EMCUSTOM_UDIVISOR:
@@ -1397,8 +1399,6 @@ unsigned int getItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].ERegister;
         case MENU_EMCUSTOM_EDIVISOR:
             return EMConfig[EM_CUSTOM].EDivisor;
-        case MENU_EMCUSTOM_FUNCTION:
-            return EMConfig[EM_CUSTOM].Function;
         case MENU_RFIDREADER:
             return RFIDReader;
 
@@ -1508,18 +1508,18 @@ const far char * getMenuItemOption(unsigned char nav) {
                 case MB_DATATYPE_INT32: return "INT32";
                 case MB_DATATYPE_FLOAT32: return "FLOAT32";
             }
-        case MENU_EMCUSTOM_UDIVISOR:
-        case MENU_EMCUSTOM_IDIVISOR:
-        case MENU_EMCUSTOM_PDIVISOR:
-        case MENU_EMCUSTOM_EDIVISOR:
-            sprintf(Str, "%lu", pow10[value]);
-            return Str;
         case MENU_EMCUSTOM_FUNCTION:
             switch (value) {
                 case 3: return "3:HoldingReg";
                 case 4: return "4:Input Reg";
                 default: return "";
             }
+        case MENU_EMCUSTOM_UDIVISOR:
+        case MENU_EMCUSTOM_IDIVISOR:
+        case MENU_EMCUSTOM_PDIVISOR:
+        case MENU_EMCUSTOM_EDIVISOR:
+            sprintf(Str, "%lu", pow10[value]);
+            return Str;
         case MENU_RFIDREADER:
             return StrRFIDReader[RFIDReader];
         case MENU_EXIT:

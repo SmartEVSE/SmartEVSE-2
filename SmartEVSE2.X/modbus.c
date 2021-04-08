@@ -488,7 +488,15 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
  * @param unsigned char Address
  */
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
+    switch (Meter) {
+        case EM_SOLAREDGE:
+            // Read 3 Current values + FIXME: scaling factor // 32bit values
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6) + 1);
+            break;
+        default:
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
+            break;
+    }
 }
 
 /**
@@ -509,7 +517,15 @@ signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
  * @param unsigned char Address
  */
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, 2);
+    switch (Meter) {
+        case EM_SOLAREDGE:
+            // Read 3 Current values + scaling factor
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6) + 1);
+            break;
+        default:
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, 2);
+            break;
+    }
 }
 
 /**
@@ -543,6 +559,10 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
             // Phase 1-3 current: Register 0x5B0C - 0x5B11 (unsigned)
             // Phase 1-3 power:   Register 0x5B16 - 0x5B1B (signed)
             ModbusReadInputRequest(Address, 3, 0x5B0C, 16);
+            break;
+        case EM_SOLAREDGE:
+            // Read 3 Current values + scaling factor
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6) + 1);
             break;
         default:
             // Read 3 Current values
@@ -602,10 +622,29 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             } else GridActive = 0;
             break;
 
-        default:
+        case EM_SOLAREDGE:
+        {
+            // Need to handle the extra scaling factor
+            int scalingFactor = -(int)receiveMeasurement(buf,
+                        6,
+                        EMConfig[Meter].Endianness,
+                        EMConfig[Meter].DataType,
+                        0);
+            // Now decode the three Current values using that scaling factor
             for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(buf,
                         x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2 : 4),
+                        EMConfig[Meter].Endianness,
+                        EMConfig[Meter].DataType,
+                        scalingFactor - 3);
+            }
+            break;
+        }
+
+        default:
+            for (x = 0; x < 3; x++) {
+                var[x] = receiveMeasurement(buf,
+                        offset + (x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2 : 4)),
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         EMConfig[Meter].IDivisor - 3);

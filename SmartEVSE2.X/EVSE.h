@@ -77,7 +77,7 @@
 #define MAX_METER_ADDRESS 247
 #define EMCUSTOM_ENDIANESS 0
 #define EMCUSTOM_DATATYPE 0
-#define EMCUSTOM_FUNCTION 3
+#define EMCUSTOM_FUNCTION 4
 #define EMCUSTOM_UREGISTER 0
 #define EMCUSTOM_UDIVISOR 8
 #define EMCUSTOM_IREGISTER 0
@@ -167,7 +167,7 @@
 #define MODBUS_EVSE_CONFIG_START 0x0100
 #define MODBUS_EVSE_CONFIG_COUNT 10
 #define MODBUS_SYS_CONFIG_START  0x0200
-#define MODBUS_SYS_CONFIG_COUNT  24
+#define MODBUS_SYS_CONFIG_COUNT  25
 
 #define MODBUS_MAX_REGISTER_READ MODBUS_SYS_CONFIG_COUNT
 #define MODBUS_BUFFER_SIZE MODBUS_MAX_REGISTER_READ * 2 + 10
@@ -215,7 +215,7 @@
 #define MENU_PVMETERADDRESS 24                                                  // 0x020C: Address of PV electric meter
 #define MENU_EMCUSTOM_ENDIANESS 25                                              // 0x020D: Byte order of custom electric meter
 #define MENU_EMCUSTOM_DATATYPE 26                                               // 0x020E: Data type of custom electric meter
-#define MENU_EMCUSTOM_READMAX 27                                                // 0x020F: Maximum register read (ToDo)
+#define MENU_EMCUSTOM_FUNCTION 27                                               // 0x020F: Modbus Function (3/4) of custom electric meter
 #define MENU_EMCUSTOM_UREGISTER 28                                              // 0x0210: Register for Voltage (V) of custom electric meter
 #define MENU_EMCUSTOM_UDIVISOR 29                                               // 0x0211: Divisor for Voltage (V) of custom electric meter (10^x)
 #define MENU_EMCUSTOM_IREGISTER 30                                              // 0x0212: Register for Current (A) of custom electric meter
@@ -224,7 +224,7 @@
 #define MENU_EMCUSTOM_PDIVISOR 33                                               // 0x0215: Divisor for Power (W) of custom electric meter (10^x)
 #define MENU_EMCUSTOM_EREGISTER 34                                              // 0x0216: Register for Energy (kWh) of custom electric meter
 #define MENU_EMCUSTOM_EDIVISOR 35                                               // 0x0217: Divisor for Energy (kWh) of custom electric meter (10^x)
-#define MENU_EMCUSTOM_FUNCTION 36                                               // 0x0218: Modbus Function (3/4) of custom electric meter
+#define MENU_EMCUSTOM_READMAX 36                                                // 0x0218: Maximum register read (ToDo)
 #define MENU_EXIT 37
 
 #define MENU_STATE 50
@@ -267,9 +267,9 @@
 #define ENDIANESS_HBF_HWF 3
 
 typedef enum mb_datatype {
-    MB_DATATYPE_INT16 = 0,
-    MB_DATATYPE_INT32 = 1,
-    MB_DATATYPE_FLOAT32 = 2,
+    MB_DATATYPE_INT32 = 0,
+    MB_DATATYPE_FLOAT32 = 1,
+    MB_DATATYPE_INT16 = 2,
     MB_DATATYPE_MAX,
 } MBDataType;
 
@@ -380,6 +380,7 @@ const far struct {
     {"PVAD", "PV ADDR", "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
     {"EMBO", "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
     {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, MB_DATATYPE_MAX-1, EMCUSTOM_DATATYPE},
+    {"EMFUNC", "FUNCTION", "Modbus Function of custom electric meter", 3, 4, EMCUSTOM_FUNCTION},
     {"EMREAD", "READ MAX", "Max register read at once of custom electric meter", 3, 255, 3},
     {"EMUREG", "VOL REGI", "Register for Voltage (V) of custom electric meter", 0, 65530, EMCUSTOM_UREGISTER},
     {"EMUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 7, EMCUSTOM_UDIVISOR},
@@ -389,7 +390,6 @@ const far struct {
     {"EMPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 7, EMCUSTOM_PDIVISOR},
     {"EMEREG", "ENE REGI", "Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
     {"EMEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 7, EMCUSTOM_EDIVISOR},
-    {"EMFUNC", "FUNCTION", "Modbus Function of custom electric meter", 3, 4, EMCUSTOM_FUNCTION},
 
     {"EXIT", "EXIT", "EXIT", 0, 0, 0}
 };

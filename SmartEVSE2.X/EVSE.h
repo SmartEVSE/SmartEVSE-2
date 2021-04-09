@@ -313,7 +313,7 @@ extern unsigned char OldButtonState;                                            
 extern unsigned char LCDNav;
 extern unsigned char SubMenu;
 extern unsigned long ScrollTimer;
-extern unsigned char LCDpos;
+extern char LCDpos;
 extern unsigned char ChargeDelay;                                               // Delays charging at least 60 seconds in case of not enough current available.
 extern unsigned char TestState;
 extern unsigned char unlockMagic;
@@ -330,7 +330,7 @@ extern unsigned char RFIDstatus;
 
 extern unsigned char MenuItems[MENU_EXIT];
 
-const far struct {
+const struct {
     char Key[8];
     char LCD[9];
     char Desc[52];
@@ -422,6 +422,6 @@ void setState(unsigned char NewState);
 unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);
-const far char * getMenuItemOption(unsigned char nav);
+const char * getMenuItemOption(unsigned char nav);
 
 #endif

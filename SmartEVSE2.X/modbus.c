@@ -465,9 +465,9 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
     if (dataType == MB_DATATYPE_FLOAT32) {
         combineBytes(&dCombined, buf, pos, Endianness, dataType);
         if (Divisor >= 0) {
-            lCombined = (signed long)(dCombined / (signed long)pow10[Divisor]);
+            lCombined = (signed long)dCombined / (signed long)pow10[Divisor];
         } else {
-            lCombined = (signed long)(dCombined * (signed long)pow10[-Divisor]);
+            lCombined = (signed long)dCombined * (signed long)pow10[-Divisor];
         }
     } else {
         combineBytes(&lCombined, buf, pos, Endianness, dataType);

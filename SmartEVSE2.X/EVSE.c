@@ -146,23 +146,23 @@ unsigned int CalcCurrent();
 
 
 // Text
-const far char StrFixed[]   = "Fixed";
-const far char StrSocket[]  = "Socket";
-const far char StrSmart[]   = "Smart";
-const far char StrNormal[]  = "Normal";
-const far char StrSolar[]   = "Solar";
-const far char StrSolenoid[] = "Solenoid";
-const far char StrMotor[]   = "Motor";
-const far char StrDisabled[] = "Disabled";
-const far char StrLoadBl[9][9]  = {"Disabled", "Master", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Node 6", "Node 7"};
-const far char StrSwitch[5][10] = {"Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S"};
-const far char StrGrid[2][10] = {"4Wire", "3Wire"};
-const far char StrEnabled[] = "Enabled";
-const far char StrExitMenu[] = "MENU";
-const far char StrMainsAll[] = "All"; // Everything
-const far char StrMainsHomeEVSE[] = "Home+EVSE";
-const far char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete", "DeleteAll"};
-const far char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
+const char StrFixed[]   = "Fixed";
+const char StrSocket[]  = "Socket";
+const char StrSmart[]   = "Smart";
+const char StrNormal[]  = "Normal";
+const char StrSolar[]   = "Solar";
+const char StrSolenoid[] = "Solenoid";
+const char StrMotor[]   = "Motor";
+const char StrDisabled[] = "Disabled";
+const char StrLoadBl[9][9]  = {"Disabled", "Master", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Node 6", "Node 7"};
+const char StrSwitch[5][10] = {"Disabled", "Access B", "Access S", "Sma-Sol B", "Sma-Sol S"};
+const char StrGrid[2][10] = {"4Wire", "3Wire"};
+const char StrEnabled[] = "Enabled";
+const char StrExitMenu[] = "MENU";
+const char StrMainsAll[] = "All"; // Everything
+const char StrMainsHomeEVSE[] = "Home+EVSE";
+const char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete", "DeleteAll"};
+const char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
 
 // Global data
 char U1buffer[MODBUS_BUFFER_SIZE], U1packet[MODBUS_BUFFER_SIZE];                // Uart1 Receive buffer /RS485
@@ -694,7 +694,7 @@ void SetCurrent(unsigned int current)                                           
  * @param unsigned char State
  * @return unsigned char[] Name
  */
-const far unsigned char * getStateName(unsigned char StateCode) {
+const unsigned char * getStateName(unsigned char StateCode) {
     if(StateCode < 9) return StrStateName[StateCode];
     else return "NOSTATE";
 }
@@ -1435,7 +1435,7 @@ unsigned int getItemValue(unsigned char nav) {
  * @param unsigned char nav
  * @return unsigned char[] MenuItemOption
  */
-const far char * getMenuItemOption(unsigned char nav) {
+const char * getMenuItemOption(unsigned char nav) {
     static unsigned char Str[10]; // must be declared static, since it's referenced outside of function scope
     unsigned int value;
 
@@ -1561,7 +1561,7 @@ void RS232cli(void) {
         for(i = 0; i < MenuItemsCount - 1; i++) {
             if (strcmp(U2buffer, MenuStr[MenuItems[i]].Key) == 0) menu = MenuItems[i];
         }
-        if (strcmp(U2buffer, (const far char *) "STATE?") == 0 ) {              // request charging state for all connected EVSE's
+        if (strcmp(U2buffer, (const char *) "STATE?") == 0 ) {              // request charging state for all connected EVSE's
             menu = MENU_STATE;
         }
     } else if (U2buffer[0] == 0) menu = 0;
@@ -1586,35 +1586,35 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_MODE:
-                if (strcmp(U2buffer, (const far char *) "SOLAR") == 0) {
+                if (strcmp(U2buffer, (const char *) "SOLAR") == 0) {
                     Mode = MODE_SOLAR;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SMART") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "SMART") == 0) {
                     Mode = MODE_SMART;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "NORMAL") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "NORMAL") == 0) {
                     Mode = MODE_NORMAL;
                     write_settings();
                     Error = NO_ERROR; // Clear Errors
                 }
                 break;
             case MENU_LOCK:
-                if (strcmp(U2buffer, (const far char *) "SOLENOID") == 0) {
+                if (strcmp(U2buffer, (const char *) "SOLENOID") == 0) {
                     Lock = 1;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "MOTOR") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "MOTOR") == 0) {
                     Lock = 2;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "DISABLE") == 0) {
                     Lock = 0;
                     write_settings();
                 }
                 break;
             case MENU_CONFIG:
-                if (strcmp(U2buffer, (const far char *) "FIXED") == 0) {
+                if (strcmp(U2buffer, (const char *) "FIXED") == 0) {
                     Config = 1;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "SOCKET") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "SOCKET") == 0) {
                     Config = 0;
                     write_settings();
                 }
@@ -1644,10 +1644,10 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_RCMON:
-                if (strcmp(U2buffer, (const far char *) "DISABLE") == 0) {
+                if (strcmp(U2buffer, (const char *) "DISABLE") == 0) {
                     RCmon = 0;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "ENABLE") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "ENABLE") == 0) {
                     RCmon = 1;
                     write_settings();
                 }
@@ -1663,10 +1663,10 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_MAINSMETERMEASURE:
-                if (strcmp(U2buffer, (const far char *) "ALL") == 0) {
+                if (strcmp(U2buffer, (const char *) "ALL") == 0) {
                     MainsMeterMeasure = 0;
                     write_settings();
-                } else if (strcmp(U2buffer, (const far char *) "HOME") == 0) {
+                } else if (strcmp(U2buffer, (const char *) "HOME") == 0) {
                     MainsMeterMeasure = 1;
                     write_settings();
                 }

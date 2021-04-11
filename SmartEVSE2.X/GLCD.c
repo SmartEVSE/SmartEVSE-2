@@ -32,7 +32,7 @@
 #include "utils.h"
 
 // LCD font 8x5
-const far unsigned char font[] = {
+const unsigned char font[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, // 0x00
     0x3E, 0x5B, 0x4F, 0x5B, 0x3E, // 0x01
     0x3E, 0x6B, 0x4F, 0x6B, 0x3E, // 0x02
@@ -330,7 +330,7 @@ unsigned char LCDText = 0;                                                      
 unsigned int GLCDx, GLCDy;
 
 // uses buffer
-void GLCD_print_row(const far char *data)                                       // write 10+ characters to LCD
+void GLCD_print_row(const char *data)                                       // write 10+ characters to LCD
 {
     GLCD_buffer_clr();                                                          // Clear buffer
     GLCDx = 2;
@@ -341,7 +341,7 @@ void GLCD_print_row(const far char *data)                                       
     GLCD_sendbuf2(2);                                                           // copy buffer to LCD
 }
 
-void GLCD_print_buf2_noclr(unsigned char y, const far char* str) {
+void GLCD_print_buf2_noclr(unsigned char y, const char* str) {
     unsigned char i = 0, s, e;
 
     GLCDx = 65;
@@ -361,7 +361,7 @@ void GLCD_print_buf2_noclr(unsigned char y, const far char* str) {
 
 
 // Write Menu to buffer, then send to GLCD
-void GLCD_print_menu(unsigned char y, const far char* str) {
+void GLCD_print_menu(unsigned char y, const char* str) {
     GLCD_buffer_clr();                                                          // Clear buffer
 
     if ((SubMenu && y == 4) || (!SubMenu && y == 2)) {                          // navigation arrows
@@ -373,8 +373,7 @@ void GLCD_print_menu(unsigned char y, const far char* str) {
     GLCD_print_buf2_noclr(y, str);
 }
 
-
-void GLCD_print_buf2(unsigned char y, const far char* str) {
+void GLCD_print_buf2(unsigned char y, const char* str) {
     GLCD_buffer_clr();                                                          // Clear buffer
     GLCD_print_buf2_noclr(y, str);
 }
@@ -450,11 +449,11 @@ void GLCD(void) {
 
     if (LCDNav) {
         if (LCDNav == MENU_RFIDREADER && SubMenu) {
-            if (RFIDstatus == 2) GLCD_print(0,0, (const far char*) "Card Stored");
-            else if (RFIDstatus == 3) GLCD_print(0,0, (const far char*) "Card Deleted");
-            else if (RFIDstatus == 4) GLCD_print(0,0, (const far char*) "Card already stored!");
-            else if (RFIDstatus == 5) GLCD_print(0,0, (const far char*) "Card not in storage!");
-            else if (RFIDstatus == 6) GLCD_print(0,0, (const far char*) "Card storage full!");
+            if (RFIDstatus == 2) GLCD_print(0,0, (const char*) "Card Stored");
+            else if (RFIDstatus == 3) GLCD_print(0,0, (const char*) "Card Deleted");
+            else if (RFIDstatus == 4) GLCD_print(0,0, (const char*) "Card already stored!");
+            else if (RFIDstatus == 5) GLCD_print(0,0, (const char*) "Card not in storage!");
+            else if (RFIDstatus == 6) GLCD_print(0,0, (const char*) "Card storage full!");
             else glcd_clrln(0, 0x00);                                           // Clear line
             LCDTimer = 0;                                                       // reset timer, so it will not exit the menu when learning/deleting cards
         }
@@ -478,45 +477,45 @@ void GLCD(void) {
         BacklightTimer = BACKLIGHT;                                             // Backlight timer is set to 60 seconds
 
         if (Error & CT_NOCOMM) {                                                // No serial communication for 10 seconds
-            GLCD_print_buf2(0, (const far char *) "ERROR NO");
-            GLCD_print_buf2(2, (const far char *) "SERIAL COM");
-            GLCD_print_buf2(4, (const far char *) "CHECK");
-            GLCD_print_buf2(6, (const far char *) "WIRING");
+            GLCD_print_buf2(0, (const char *) "ERROR NO");
+            GLCD_print_buf2(2, (const char *) "SERIAL COM");
+            GLCD_print_buf2(4, (const char *) "CHECK");
+            GLCD_print_buf2(6, (const char *) "WIRING");
             return;
         } else if (Error & TEMP_HIGH) {                                         // Temperature reached 65C
-            GLCD_print_buf2(0, (const far char *) "HIGH TEMP");
-            GLCD_print_buf2(2, (const far char *) "ERROR");
-            GLCD_print_buf2(4, (const far char *) "CHARGING");
-            GLCD_print_buf2(6, (const far char *) "STOPPED");
+            GLCD_print_buf2(0, (const char *) "HIGH TEMP");
+            GLCD_print_buf2(2, (const char *) "ERROR");
+            GLCD_print_buf2(4, (const char *) "CHARGING");
+            GLCD_print_buf2(6, (const char *) "STOPPED");
             return;
         } else if (Error & RCD_TRIPPED) {                                       // RCD sensor tripped
             if (!LCDToggle) {
-                GLCD_print_buf2(0, (const far char *) "RESIDUAL");
-                GLCD_print_buf2(2, (const far char *) "FAULT");
-                GLCD_print_buf2(4, (const far char *) "CURRENT");
-                GLCD_print_buf2(6, (const far char *) "DETECTED");
+                GLCD_print_buf2(0, (const char *) "RESIDUAL");
+                GLCD_print_buf2(2, (const char *) "FAULT");
+                GLCD_print_buf2(4, (const char *) "CURRENT");
+                GLCD_print_buf2(6, (const char *) "DETECTED");
             } else {
-                GLCD_print_buf2(0, (const far char *) "PRESS");
-                GLCD_print_buf2(2, (const far char *) "BUTTON");
-                GLCD_print_buf2(4, (const far char *) "TO");
-                GLCD_print_buf2(6, (const far char *) "RESET");
+                GLCD_print_buf2(0, (const char *) "PRESS");
+                GLCD_print_buf2(2, (const char *) "BUTTON");
+                GLCD_print_buf2(4, (const char *) "TO");
+                GLCD_print_buf2(6, (const char *) "RESET");
             }
             return;
         } else if (Error & Test_IO) {                                           // Only used when testing the module
-            GLCD_print_buf2(2, (const far char *) "IO Test");
+            GLCD_print_buf2(2, (const char *) "IO Test");
             sprintf(Str, "FAILED! %u", TestState);
             GLCD_print_buf2(4, Str);
             return;
         } else if (Error & BL_FLASH) {                                          // Bootloader update error
-            GLCD_print_buf2(2, (const far char *) "BOOTLOADER");
-            GLCD_print_buf2(4, (const far char *) "UPDATE ERR");
+            GLCD_print_buf2(2, (const char *) "BOOTLOADER");
+            GLCD_print_buf2(4, (const char *) "UPDATE ERR");
             return;
         }
     }   // end of ERROR()                                                       // more specific error handling in the code below
 
     if (TestState == 80) {                                                      // Only used when testing the module
-        GLCD_print_buf2(2, (const far char *) "IO Test");
-        GLCD_print_buf2(4, (const far char *) "Passed");
+        GLCD_print_buf2(2, (const char *) "IO Test");
+        GLCD_print_buf2(4, (const char *) "Passed");
         return;
     }
 
@@ -529,18 +528,18 @@ void GLCD(void) {
         glcd_clrln(7, 0x00);
 
         if (Error & LESS_6A) {
-            GLCD_print_buf2(2, (const far char *) "WAITING");
-            GLCD_print_buf2(4, (const far char *) "FOR POWER");
+            GLCD_print_buf2(2, (const char *) "WAITING");
+            GLCD_print_buf2(4, (const char *) "FOR POWER");
         } else if (State == STATE_C) {                                          // STATE C
             
             BacklightTimer = BACKLIGHT;
             
-            GLCD_print_buf2(2, (const far char *) "CHARGING");
+            GLCD_print_buf2(2, (const char *) "CHARGING");
             sprintf(Str, "%u.%uA",Balanced[0] / 10, Balanced[0] % 10);
             GLCD_print_buf2(4, Str);
         } else {                                                                // STATE A and STATE B
             if (Access_bit) {
-                GLCD_print_buf2(2, (const far char *) "READY TO");
+                GLCD_print_buf2(2, (const char *) "READY TO");
                 sprintf(Str, "CHARGE %u", ChargeDelay);
                 if (ChargeDelay) {
                     BacklightTimer = BACKLIGHT;
@@ -549,15 +548,15 @@ void GLCD(void) {
             } else {
                 if (RFIDReader) {
                     if (RFIDstatus == 7) {
-                        GLCD_print_buf2(2, (const far char *) "INVALID");
-                        GLCD_print_buf2(4, (const far char *) "RFID CARD");
+                        GLCD_print_buf2(2, (const char *) "INVALID");
+                        GLCD_print_buf2(4, (const char *) "RFID CARD");
                     } else {
-                        GLCD_print_buf2(2, (const far char *) "PRESENT");
-                        GLCD_print_buf2(4, (const far char *) "RFID CARD");
+                        GLCD_print_buf2(2, (const char *) "PRESENT");
+                        GLCD_print_buf2(4, (const char *) "RFID CARD");
                     }
                 } else {
-                    GLCD_print_buf2(2, (const far char *) "ACCESS");
-                    GLCD_print_buf2(4, (const far char *) "DENIED");
+                    GLCD_print_buf2(2, (const char *) "ACCESS");
+                    GLCD_print_buf2(4, (const char *) "DENIED");
                 }
             }
         }
@@ -644,12 +643,12 @@ void GLCD(void) {
         glcd_clrln(4, 0);                                                       // Clear line 4
         if (Error & LESS_6A) {
             if (!LCDToggle) {
-                GLCD_print_buf2(5, (const far char *) "WAITING");
-            } else GLCD_print_buf2(5, (const far char *) "FOR POWER");
+                GLCD_print_buf2(5, (const char *) "WAITING");
+            } else GLCD_print_buf2(5, (const char *) "FOR POWER");
         } else if (Error & NO_SUN) {
             if (!LCDToggle) {
-                GLCD_print_buf2(5, (const far char *) "WAITING");
-            } else GLCD_print_buf2(5, (const far char *) "FOR SOLAR");
+                GLCD_print_buf2(5, (const char *) "WAITING");
+            } else GLCD_print_buf2(5, (const char *) "FOR SOLAR");
         } else if (State != STATE_C) {
             sprintf(Str, "READY %u", ChargeDelay);
             if (ChargeDelay) {
@@ -661,12 +660,12 @@ void GLCD(void) {
                 default:
                     LCDText = 0;
                     if (Mode != MODE_NORMAL) {
-                        if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const far char *) "SOLAR");
-                        else GLCD_print_buf2(5, (const far char *) "SMART");
+                        if (Mode == MODE_SOLAR) GLCD_print_buf2(5, (const char *) "SOLAR");
+                        else GLCD_print_buf2(5, (const char *) "SMART");
                         break;
                     } else LCDText++;
                 case 1:
-                    GLCD_print_buf2(5, (const far char *) "CHARGING");
+                    GLCD_print_buf2(5, (const char *) "CHARGING");
                     break;
                 case 2:
                     if (EVMeter) {
@@ -822,8 +821,8 @@ void GLCDMenu(unsigned char Buttons) {
         if (LCDNav == 1) {
             glcd_clrln(0, 0x00);
             glcd_clrln(1, 0x04);                                                // horizontal line
-            GLCD_print_buf2(2, (const far char *) "Hold 2 sec");
-            GLCD_print_buf2(4, (const far char *) "for Menu");
+            GLCD_print_buf2(2, (const char *) "Hold 2 sec");
+            GLCD_print_buf2(4, (const char *) "for Menu");
             glcd_clrln(6, 0x10);                                                // horizontal line
             glcd_clrln(7, 0x00);
 
@@ -849,7 +848,7 @@ void GLCDMenu(unsigned char Buttons) {
             GLCD_print(0,7, Str);                                               // show the internal temperature
             sprintf(Str, "%2u/%u", GetPosInMenu(MenuItemsCount), MenuItemsCount);
             GLCD_print(64-15,7, Str);                                           // show navigation position in the menu
-            GLCD_print(122-(strlen(VERSION)*6),7, (const far char *) "v"VERSION);// show software version in bottom right corner.
+            GLCD_print(122-(strlen(VERSION)*6),7, (const char *) "v"VERSION);// show software version in bottom right corner.
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once
     }
@@ -1011,7 +1010,7 @@ void GLCD_write_buf2(unsigned int c) {
 
 // Write a string directly to LCD
 //
-void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
+void GLCD_print(unsigned char x, unsigned char y, const char* str) {
     unsigned char i = 0;
 
     GLCDx = x;
@@ -1022,7 +1021,7 @@ void GLCD_print(unsigned char x, unsigned char y, const far char* str) {
 }
 
 // Write a string to LCD buffer
-void GLCD_print_buf(unsigned char x, unsigned char y, const far char* str) {
+void GLCD_print_buf(unsigned char x, unsigned char y, const char* str) {
     unsigned char i = 0;
 
     GLCDx = x;
@@ -1065,8 +1064,8 @@ void GLCD_init(void) {
 
 void GLCD_version(void) {
     glcd_clear();                                                               // Clear whole display
-    GLCD_print_buf2(2, (const far char *) "Smart EVSE");
-    GLCD_print_buf2(4, (const far char *) "Ver "VERSION);
+    GLCD_print_buf2(2, (const char *) "Smart EVSE");
+    GLCD_print_buf2(4, (const char *) "Ver "VERSION);
 
     delay(2000);                                                                // show version for 2 seconds
 }

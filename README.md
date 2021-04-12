@@ -112,17 +112,6 @@ Broadcast to all SmartEVSE with address 0x09.
 
 Modbus register have changed after version 2.20. Use [this readme](https://github.com/SmartEVSE/SmartEVSE-2/tree/b8b6a1a2def22a2bfc3cc30be2f2ef639e2d4389#register-for-external-devices) as reference for version 2.20 or older
 
-## Register 0x000*: Broadcast Chargecurrent or Error
-
-Register | Access | Description | Unit | Values
---- | --- | --- | --- | ---
-0x01 | W | Broadcast ChargeCurrent | 0.1 A | Charge Current (0 A = no current available)
-0x02 | W | Broadcast Error | Bit | 1:LESS_6A / 2:NO_COMM / 4:TEMP_HIGH / 8:NO_CURRENT / 16:RCD / 32:NO_SUN
-
-Register 0x01 is written to every 2 seconds by the Master, and holds the Charge Current per Node EVSE. A total of 4 words (8 bytes) are written, One word per EVSE(0-3).<br>
-Register 0x02 is written to only if an error occurred.<br>
-Use function code 0x10 (Preset Multiple Registers), and broadcast address 0x09 to use this feature.<br>
-
 ## Register 0x00*: EVSE status
 
 Register | Access | Description | Unit | Values
@@ -139,6 +128,7 @@ Register | Access | Description | Unit | Values
 0x0009 | R | Real charging current (Not implemented) | 0.1 A |
 0x000A | R | Temperature | K |
 0x000B | R | Serial number | |
+0x0020 - 0x0027 | W | Broadcast charge current. SmartEVSE uses only one value depending on the "Load Balancing" configuration | 0.1 A | 0:no current available
 
 ## Register 0x01*: Node specific configuration
 

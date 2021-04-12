@@ -465,16 +465,19 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
     if (dataType == MB_DATATYPE_FLOAT32) {
         combineBytes(&dCombined, buf, pos, Endianness, dataType);
         if (Divisor >= 0) {
-            lCombined = (signed long)dCombined / (signed long)pow10[Divisor];
+            lCombined = ((signed long)dCombined) / (signed long)pow10[(unsigned)Divisor];
         } else {
-            lCombined = (signed long)dCombined * (signed long)pow10[-Divisor];
+            lCombined = ((signed long)dCombined) * (signed long)pow10[(unsigned)-Divisor];
         }
     } else {
         combineBytes(&lCombined, buf, pos, Endianness, dataType);
+        if (dataType == MB_DATATYPE_INT16) {
+            lCombined = (signed long)((int)lCombined); /* sign extend 16bit into 32bit */
+        }
         if (Divisor >= 0) {
-            lCombined = lCombined / ((signed long)pow10[Divisor]);
+            lCombined = (signed long)(lCombined / (signed long)pow10[(unsigned)Divisor]);
         } else {
-            lCombined = lCombined * ((signed long)pow10[-Divisor]);
+            lCombined = (signed long)(lCombined * (signed long)(pow10[(unsigned)-Divisor]));
         }
     }
 
@@ -490,11 +493,13 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
     switch (Meter) {
         case EM_SOLAREDGE:
-            // Read 3 Current values + FIXME: scaling factor // 32bit values
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6) + 1);
+            // Note:
+            // - SolarEdge uses 16-bit values, except for this measurement it uses 32bit int format
+            // - EM_SOLAREDGE should not be used for EV Energy Measurements
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
             break;
         default:
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 1U : 2U));
             break;
     }
 }
@@ -507,7 +512,19 @@ void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
  * @return signed long Energy (Wh)
  */
 signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
-    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].EDivisor - 3);
+    signed long energy;
+    switch (Meter) {
+        case EM_SOLAREDGE:
+            // Note:
+            // - SolarEdge uses 16-bit values, except for this measurement it uses 32bit int format
+            // - EM_SOLAREDGE should not be used for EV Energy Measurements
+            energy = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, MB_DATATYPE_INT32, EMConfig[Meter].EDivisor - 3);
+            break;
+        default:
+            energy = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].EDivisor - 3);
+            break;
+    }
+    return energy;
 }
 
 /**
@@ -517,15 +534,7 @@ signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
  * @param unsigned char Address
  */
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
-    switch (Meter) {
-        case EM_SOLAREDGE:
-            // Read 3 Current values + scaling factor
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6) + 1);
-            break;
-        default:
             ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, 2);
-            break;
-    }
 }
 
 /**
@@ -536,7 +545,27 @@ void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
  * @return signed long Power (W)
   */
 signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
-    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor);
+    signed long power;
+
+    switch (Meter) {
+        case EM_SOLAREDGE:
+        {
+            // Note:
+            // - SolarEdge uses 16-bit values, with a extra 16-bit scaling factor
+            // - EM_SOLAREDGE should not be used for EV power measurements, only PV power measurements are supported
+            int scalingFactor = -(int)receiveMeasurement(buf,
+                        2,
+                        EMConfig[Meter].Endianness,
+                        EMConfig[Meter].DataType,
+                        0);
+            power = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, scalingFactor);
+            break;
+        }
+        default:
+            power = receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor);
+            break;
+    }
+    return power;
 }
 
 /**
@@ -562,11 +591,11 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
             break;
         case EM_SOLAREDGE:
             // Read 3 Current values + scaling factor
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6) + 1);
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3U : 6U) + 1U);
             break;
         default:
             // Read 3 Current values
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3 : 6));
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3U : 6U));
             break;
     }
 }
@@ -596,7 +625,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10
                 var[x] = receiveMeasurement(buf,
-                        offset + (x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2 : 4)),
+                        offset + (x * 4U),
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         EMConfig[Meter].IDivisor - 3);
@@ -633,7 +662,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // Now decode the three Current values using that scaling factor
             for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(buf,
-                        x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2 : 4),
+                        x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2U : 4U),
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         scalingFactor - 3);
@@ -644,7 +673,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
         default:
             for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(buf,
-                        offset + (x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2 : 4)),
+                        offset + (x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2U : 4U)),
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         EMConfig[Meter].IDivisor - 3);
@@ -656,14 +685,14 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     switch(Meter) {
         case EM_EASTRON:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) {
+                if (receiveMeasurement(buf, ((x + 3U) * 4U), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) {
                     var[x] = -var[x];
                 }
             }
             break;
         case EM_ABB:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) {
+                if (receiveMeasurement(buf, ((x + 5U) * 4U), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) {
                     var[x] = -var[x];
                 }
             }

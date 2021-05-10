@@ -50,7 +50,7 @@ void ModbusDecode(unsigned char *buf, unsigned char len);
 
 // ########################### EVSE modbus functions ###########################
 
-signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, bool IsDouble, signed char Divisor);
+signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, MBDataType dataType, signed char Divisor);
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address);
 signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter);
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address);

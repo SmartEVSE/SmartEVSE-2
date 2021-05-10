@@ -96,37 +96,45 @@ void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg
  *        1: low byte first, high word first\n
  *        2: high byte first, low word first\n
  *        3: high byte first, high word first (big endian)
+ * @param MBDataType dataType: used to determine how many bytes should be combined
  */
-void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned char endianness) {
+void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned char endianness, MBDataType dataType) {
     char *pBytes;
-
     pBytes = var;
-    
+
     // XC8 is little endian
     switch(endianness) {
         case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)
             *pBytes++ = (unsigned char)buf[pos + 0];
             *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes++ = (unsigned char)buf[pos + 2];
-            *pBytes   = (unsigned char)buf[pos + 3];   
+            if (dataType != MB_DATATYPE_INT16) {
+                *pBytes++ = (unsigned char)buf[pos + 2];
+                *pBytes   = (unsigned char)buf[pos + 3];
+            }
             break;
         case ENDIANESS_LBF_HWF: // low byte first, high word first
-            *pBytes++ = (unsigned char)buf[pos + 2];
-            *pBytes++ = (unsigned char)buf[pos + 3];
+            if (dataType != MB_DATATYPE_INT16) {
+                *pBytes++ = (unsigned char)buf[pos + 2];
+                *pBytes++ = (unsigned char)buf[pos + 3];
+            }
             *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes   = (unsigned char)buf[pos + 1];   
+            *pBytes   = (unsigned char)buf[pos + 1];
             break;
         case ENDIANESS_HBF_LWF: // high byte first, low word first
             *pBytes++ = (unsigned char)buf[pos + 1];
             *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes++ = (unsigned char)buf[pos + 3];
-            *pBytes   = (unsigned char)buf[pos + 2];   
+            if (dataType != MB_DATATYPE_INT16) {
+                *pBytes++ = (unsigned char)buf[pos + 3];
+                *pBytes   = (unsigned char)buf[pos + 2];
+            }
             break;
         case ENDIANESS_HBF_HWF: // high byte first, high word first (big endian)
-            *pBytes++ = (unsigned char)buf[pos + 3];
-            *pBytes++ = (unsigned char)buf[pos + 2];
+            if (dataType != MB_DATATYPE_INT16) {
+                *pBytes++ = (unsigned char)buf[pos + 3];
+                *pBytes++ = (unsigned char)buf[pos + 2];
+            }
             *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes   = (unsigned char)buf[pos + 0];   
+            *pBytes   = (unsigned char)buf[pos + 0];
             break;
         default:
             break;
@@ -447,26 +455,30 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
  * @param pointer to buf
  * @param unsigned char pos
  * @param unsigned char Endianness
+ * @param MBDataType dataType
  * @param signed char Divisor
  * @return signed long Measurement
  */
-signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, bool IsDouble, signed char Divisor) {
+signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, MBDataType dataType, signed char Divisor) {
     signed double dCombined;
     signed long lCombined;
 
-    if (IsDouble) {
-        combineBytes(&dCombined, buf, pos, Endianness);
+    if (dataType == MB_DATATYPE_FLOAT32) {
+        combineBytes(&dCombined, buf, pos, Endianness, dataType);
         if (Divisor >= 0) {
-            lCombined = (signed long)(dCombined / (signed long)pow10[Divisor]);
+            lCombined = (signed long)(dCombined / (signed long)pow10[(unsigned)Divisor]);
         } else {
-            lCombined = (signed long)(dCombined * (signed long)pow10[-Divisor]);
+            lCombined = (signed long)(dCombined * (signed long)pow10[(unsigned)-Divisor]);
         }
     } else {
-        combineBytes(&lCombined, buf, pos, Endianness);
+        combineBytes(&lCombined, buf, pos, Endianness, dataType);
+        if (dataType == MB_DATATYPE_INT16) {
+            lCombined = (signed long)((signed int)lCombined); /* sign extend 16bit into 32bit */
+        }
         if (Divisor >= 0) {
-            lCombined = lCombined / (signed long)pow10[Divisor];
+            lCombined = lCombined / (signed long)pow10[(unsigned)Divisor];
         } else {
-            lCombined = lCombined * (signed long)pow10[-Divisor];
+            lCombined = lCombined * (signed long)pow10[(unsigned)-Divisor];
         }
     }
 
@@ -480,7 +492,7 @@ signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned c
  * @param unsigned char Address
  */
 void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
+    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 1u : 2u));
 }
 
 /**
@@ -491,7 +503,7 @@ void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
  * @return signed long Energy (Wh)
  */
 signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
-    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].EDivisor - 3);
+    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].EDivisor - 3);
 }
 
 /**
@@ -501,7 +513,7 @@ signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
  * @param unsigned char Address
  */
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, 2);
+    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 1u : 2u));
 }
 
 /**
@@ -512,7 +524,7 @@ void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
  * @return signed long Power (W)
   */
 signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
-    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor);
+    return receiveMeasurement(buf, 0, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor);
 }
 
 /**
@@ -537,7 +549,7 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
             ModbusReadInputRequest(Address, 3, 0x5B0C, 16);
             break;
         default:
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, 6);
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3u : 6u));
             break;
     }  
 }
@@ -566,7 +578,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10
-                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
+                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].IDivisor - 3);
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) {
                     if (x == 0) Iuncal = abs((var[x]/10));                      // Store uncalibrated CT1 measurement (10mA)
@@ -590,7 +602,13 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             break;
         default:
             for (x = 0; x < 3; x++) {
-                var[x] = receiveMeasurement(buf, (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].IDivisor - 3);
+                var[x] = receiveMeasurement(
+                        buf,
+                        x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2u : 4u),
+                        EMConfig[Meter].Endianness,
+                        EMConfig[Meter].DataType,
+                        EMConfig[Meter].IDivisor - 3
+                );
             }
             break;
     }
@@ -599,12 +617,12 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     switch(Meter) {
         case EM_EASTRON:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
         case EM_ABB:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].IsDouble, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
     }

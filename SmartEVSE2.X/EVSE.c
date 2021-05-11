@@ -2616,7 +2616,7 @@ void main(void) {
                             for (x = 0; x < 3; x++) {
                                 // Calculate difference of Mains and PV electric meter
                                 if (PVMeter) CM[x] = CM[x] - PV[x];             // CurrentMeter and PV resolution are 1mA
-                                Irms[x] = CM[x]/100;                            // reduce resolution of Irms to 100mA
+                                Irms[x] = (signed int)(CM[x] / 100);            // reduce resolution of Irms to 100mA
                                 Isum = Isum + Irms[x];                          // Isum has a resolution of 100mA
                             }
 

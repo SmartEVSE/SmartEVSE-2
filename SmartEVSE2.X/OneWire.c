@@ -104,7 +104,7 @@ unsigned char OneWireReadBit(void) {
 void OneWireWrite(unsigned char v) {
     unsigned char bitmask;
     for (bitmask = 0x01; bitmask ; bitmask <<= 1) {
-        OneWireWriteBit( (bitmask & v)?1:0);
+        OneWireWriteBit( (bitmask & v) ? 1u : 0);
     }
 }
 
@@ -155,8 +155,8 @@ void ReadRFIDlist(void) {
 void WriteRFIDlist(void) {
     char savint;
 
-    unlock55 = unlockMagic + 0x33;
-    unlockAA = unlockMagic + 0x88;                                              // set unlock variables to magic values
+    unlock55 = unlockMagic + 0x33u;
+    unlockAA = unlockMagic + 0x88u;                                             // set unlock variables to magic values
 
     savint = INTCON;                                                            // Save interrupts state
     INTCONbits.GIE = 0;                                                         // Disable interrupts
@@ -181,7 +181,7 @@ unsigned char MatchRFID(void) {
     unsigned char offset = 0, r;
 
     do {
-        r = memcmp(RFID + 1, RFIDlist + offset, 6 );                            // compare read RFID with list of stored RFID's
+        r = memcmp(RFID + 1, RFIDlist + offset, 6);                            // compare read RFID with list of stored RFID's
         offset += 6;
     } while (r !=0 && offset < 114);
 
@@ -202,7 +202,7 @@ unsigned char StoreRFID(void) {
     if ( MatchRFID() ) return 2;                                                // already stored, that's ok.
 
     do {
-        r = memcmp(empty, RFIDlist + offset, 6 );
+        r = memcmp(empty, RFIDlist + offset, 6);
         offset += 6;
     } while (r !=0 && offset < 120);
     if (r != 0) return 0;                                                       // no more room to store RFID

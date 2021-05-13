@@ -96,7 +96,7 @@ void delay(unsigned int d) {
 void sprintfl(unsigned char *str, const unsigned char *Format, signed long Value, unsigned char Divisor, unsigned char Decimal) {
     signed long val;
 
-    val = Value / (signed long) pow10[Divisor - Decimal - 1];
+    val = Value / (signed long) pow10[(unsigned)(Divisor - Decimal - 1)];
     // Round value
     if(val < 0) val -= 5;
     else val += 5;
@@ -118,7 +118,7 @@ unsigned char triwave8(unsigned char in) {
     if (in & 0x80) {
         in = 255u - in;
     }
-    unsigned char out = in << 1;
+    unsigned char out = (unsigned char)(in << 1);
     return out;
 }
 

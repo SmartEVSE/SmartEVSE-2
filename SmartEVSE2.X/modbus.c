@@ -323,9 +323,9 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                         // request packet
                         Modbus.Type = MODBUS_REQUEST;
                         // Modbus register
-                        Modbus.Register = (buf[2] <<8) | buf[3];
+                        Modbus.Register = (unsigned int)(buf[2] <<8) | buf[3];
                         // Modbus register count
-                        Modbus.RegisterCount = (buf[4] <<8) | buf[5];
+                        Modbus.RegisterCount = (unsigned int)(buf[4] <<8) | buf[5];
                     } else {
                         // Modbus datacount
                         Modbus.DataLength = buf[2];
@@ -346,11 +346,11 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                         // request and response packet are the same
                         Modbus.Type = MODBUS_OK;
                         // Modbus register
-                        Modbus.Register = (buf[2] <<8) | buf[3];
+                        Modbus.Register = (unsigned int)(buf[2] <<8) | buf[3];
                         // Modbus register count
                         Modbus.RegisterCount = 1;
                         // value
-                        Modbus.Value = (buf[4] <<8) | buf[5];
+                        Modbus.Value = (unsigned int)(buf[4] <<8) | buf[5];
 #ifdef LOG_WARN_MODBUS
                     } else {
                         printf("\nInvalid modbus FC=06 packet");
@@ -360,9 +360,9 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
                 case 0x10:
                     // (Write multiple register))
                     // Modbus register
-                    Modbus.Register = (buf[2] <<8) | buf[3];
+                    Modbus.Register = (unsigned int)(buf[2] <<8) | buf[3];
                     // Modbus register count
-                    Modbus.RegisterCount = (buf[4] <<8) | buf[5];
+                    Modbus.RegisterCount = (unsigned int)(buf[4] <<8) | buf[5];
                     if (len == 8) {
                         // response packet
                         Modbus.Type = MODBUS_RESPONSE;
@@ -618,10 +618,10 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10
-                var[x] = receiveMeasurement(buf, offset + (x * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].IDivisor - 3);
+                var[x] = receiveMeasurement(buf, offset + (x * 4u), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].IDivisor - 3u);
                 // When using CT's , adjust the measurements with calibration value
                 if (offset == 28) {
-                    if (x == 0) Iuncal = abs((var[x]/10));                      // Store uncalibrated CT1 measurement (10mA)
+                    if (x == 0) Iuncal = abs((var[x] / 10));                    // Store uncalibrated CT1 measurement (10mA)
                     var[x] = (signed long)var[x] * (signed int)ICal / ICAL;
                     // When MaxMains is set to >100A, it's assumed 200A:50ma CT's are used.
                     if (MaxMains > 100) var[x] = var[x] * 2;                    // Multiply measured currents with 2
@@ -679,12 +679,12 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     switch(Meter) {
         case EM_EASTRON:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 3) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 3u) * 4u), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
         case EM_ABB:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 5) * 4), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, ((x + 5u) * 4u), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
     }

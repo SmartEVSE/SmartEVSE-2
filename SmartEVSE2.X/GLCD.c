@@ -330,7 +330,7 @@ unsigned char LCDText = 0;                                                      
 unsigned int GLCDx, GLCDy;
 
 // uses buffer
-void GLCD_print_row(const char *data)                                       // write 10+ characters to LCD
+void GLCD_print_row(const char *data)                                           // write 10+ characters to LCD
 {
     GLCD_buffer_clr();                                                          // Clear buffer
     GLCDx = 2;
@@ -468,7 +468,7 @@ void GLCD(void) {
         LCDText = 0;
     } else if (LCDTimer > 4) {
         LCDTimer = 1;
-        LCDToggle = 1 - LCDToggle;
+        LCDToggle = 1u - LCDToggle;
         LCDText++;
     }
 
@@ -705,7 +705,7 @@ unsigned char GetPosInMenu (unsigned char count) {
     unsigned char i;
 
     for (i = 0; i < count; i++) {
-        if (MenuItems[i] == LCDNav) return i+1;
+        if (MenuItems[i] == LCDNav) return i + 1u;
     }
     return 0;
 }
@@ -936,11 +936,11 @@ void glcd_clear(void) {
 void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
     if(c >= '0' && c <= '9') return;
     if(c == ' ' && space) return;
-    if(font[(5 * c)] == 0) {
-        if(font[(5 * c) + 1] == 0) *start = 2;
+    if(font[(5u * c)] == 0) {
+        if(font[(5u * c) + 1] == 0) *start = 2;
         else *start = 1;
     }
-    if(font[(5 * c) + 4] == 0) *end = 4;
+    if(font[(5u * c) + 4] == 0) *end = 4;
 }
 
 void GLCD_write(unsigned int c) {
@@ -985,23 +985,23 @@ void GLCD_write_buf2(unsigned int c) {
     x = GLCDx;
 
     font_condense(c, &i, &m, 0);
-    GLCDx = GLCDx + ((m - i) * 2) +2;
+    GLCDx = GLCDx + ((m - i) * 2) + 2;
 
     do {
         z1 = 0;
         ch = font[(5 * c) + i];
-        if (ch & 0x01) z1 = z1 | 0x3;
-        if (ch & 0x02) z1 = z1 | 0xc;
-        if (ch & 0x04) z1 = z1 | 0x30;
-        if (ch & 0x08) z1 = z1 | 0xc0;
+        if (ch & 0x01u) z1 = z1 | 0x3u;
+        if (ch & 0x02u) z1 = z1 | 0xcu;
+        if (ch & 0x04u) z1 = z1 | 0x30u;
+        if (ch & 0x08u) z1 = z1 | 0xc0u;
         GLCDbuf[x] = z1;
         GLCDbuf[x + 1] = z1;
         z1 = 0;
         ch = ch >> 4;
-        if (ch & 0x01) z1 = z1 | 0x3;
-        if (ch & 0x02) z1 = z1 | 0xc;
-        if (ch & 0x04) z1 = z1 | 0x30;
-        if (ch & 0x08) z1 = z1 | 0xc0;
+        if (ch & 0x01u) z1 = z1 | 0x3u;
+        if (ch & 0x02u) z1 = z1 | 0xcu;
+        if (ch & 0x04u) z1 = z1 | 0x30u;
+        if (ch & 0x08u) z1 = z1 | 0xc0u;
         GLCDbuf[x + 128] = z1;
         GLCDbuf[x + 129] = z1;
         x = x + 2;

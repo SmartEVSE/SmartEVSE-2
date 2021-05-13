@@ -106,8 +106,8 @@ unsigned char checkbootloader(void) {
 
     // now erase and overwrite the bootloader @ FD00-FFFF, 12 blocks of 64 bytes
 
-    unlock55 = unlockMagic + 0x33;                                              // to protect against unintended flash writes/erase 
-    unlockAA = unlockMagic + 0x88;                                              // we calculate the magic values
+    unlock55 = unlockMagic + 0x33u;                                             // to protect against unintended flash writes/erase 
+    unlockAA = unlockMagic + 0x88u;                                             // we calculate the magic values
     
     do {
         i = 0;

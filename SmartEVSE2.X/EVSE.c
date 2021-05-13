@@ -335,7 +335,7 @@ void interrupt high_isr(void)
                 if (unlocktimer++ > 700) {
                     if (PORTCbits.RC1 == lock1 )                                // still locked...
                     {
-                        if (unlocktimer > 5000) unlocktimer = 0;                //try to unlock again in 5 seconds
+                        if (unlocktimer > 5000) unlocktimer = 0;                // try to unlock again in 5 seconds
                     } else unlocktimer = 700;
                 }
                 locktimer = 0;
@@ -412,8 +412,8 @@ void eeprom_write_object(void *obj_p, size_t obj_size) {
     unsigned char *p = obj_p;
 
     while (obj_size--) {
-        EECON1 = 0;                                                             //ensure CFGS=0 and EEPGD=0
-        EECON1bits.WREN = 1;                                                    //enable write to EEPROM
+        EECON1 = 0;                                                             // ensure CFGS=0 and EEPGD=0
+        EECON1bits.WREN = 1;                                                    // enable write to EEPROM
 
         EEDATA = *p++;                                                          // set data
         if (!INTCONbits.GIE)                                                    // Interrupts should have been disabled!
@@ -525,8 +525,8 @@ void read_settings(void) {
 void write_settings(void) {
     char savint;
 
-    unlock55 = unlockMagic + 0x33;
-    unlockAA = unlockMagic + 0x88;                                              // set unlock variables to magic values
+    unlock55 = unlockMagic + 0x33u;
+    unlockAA = unlockMagic + 0x88u;                                             // set unlock variables to magic values
 
     validate_settings();
 
@@ -842,7 +842,7 @@ void CalcBalancedCurrent(char mod) {
         #ifdef SPECIAL                                                          // Import option not visible , make sure it's set to 0
         ImportCurrent = 0;
         #endif
-        IsumImport = Isum - (10 * ImportCurrent);                               // Allow Import of power from the grid when solar charging
+        IsumImport = Isum - (signed int)(10 * ImportCurrent);                   // Allow Import of power from the grid when solar charging
 
         if (IsumImport < 0)                                                     // If it's negative, we have surplus (solar) power available
         {
@@ -954,7 +954,7 @@ void BroadcastCurrent(void) {
  * @param unsigned char NodeNr (1-7)
  */
 void requestNodeConfig(unsigned char NodeNr) {
-    ModbusReadInputRequest(NodeNr + 1, 4, 0x0108, 2);
+    ModbusReadInputRequest(NodeNr + 1u, 4, 0x0108, 2);
 }
 
 /**
@@ -968,7 +968,7 @@ void receiveNodeConfig(unsigned char *buf, unsigned char NodeNr) {
     Node[NodeNr].EVAddress = buf[3];
 
     Node[NodeNr].ConfigChanged = 0;                                             // Reset flag on master
-    ModbusWriteSingleRequest(NodeNr + 1, 0x0006, 0);                            // Reset flag on node
+    ModbusWriteSingleRequest(NodeNr + 1u, 0x0006, 0);                           // Reset flag on node
 }
 
 /**
@@ -979,7 +979,7 @@ void receiveNodeConfig(unsigned char *buf, unsigned char NodeNr) {
  */
 void requestNodeStatus(unsigned char NodeNr) {
     Node[NodeNr].Online = false;
-    ModbusReadInputRequest(NodeNr + 1, 4, 0x0000, 8);
+    ModbusReadInputRequest(NodeNr + 1u, 4, 0x0000, 8);
 }
 
 /**
@@ -1380,7 +1380,7 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_EMCUSTOM_ENDIANESS:
             return EMConfig[EM_CUSTOM].Endianness;
         case MENU_EMCUSTOM_DATATYPE:
-            return EMConfig[EM_CUSTOM].DataType;
+            return (unsigned int)EMConfig[EM_CUSTOM].DataType;
         case MENU_EMCUSTOM_FUNCTION:
             return EMConfig[EM_CUSTOM].Function;
         case MENU_EMCUSTOM_UREGISTER:
@@ -1420,7 +1420,7 @@ unsigned int getItemValue(unsigned char nav) {
         case STATUS_MAX:
             return MaxCapacity;
         case STATUS_TEMP:
-            return (signed int)TempEVSE + 273;
+            return (unsigned int)((signed int)TempEVSE + 273);
         case STATUS_SERIAL:
             return serialnr;
 
@@ -1559,7 +1559,7 @@ void RS232cli(void) {
         for(i = 0; i < MenuItemsCount - 1; i++) {
             if (strcmp(U2buffer, MenuStr[MenuItems[i]].Key) == 0) menu = MenuItems[i];
         }
-        if (strcmp(U2buffer, (const char *) "STATE?") == 0 ) {              // request charging state for all connected EVSE's
+        if (strcmp(U2buffer, (const char *) "STATE?") == 0 ) {                  // request charging state for all connected EVSE's
             menu = MENU_STATE;
         }
     } else if (U2buffer[0] == 0) menu = 0;
@@ -1570,8 +1570,8 @@ void RS232cli(void) {
                 do {                                                            // remove decimal point from string
                     i = U2buffer[x];                                            // so 23.5 becomes 235
                     if (i == '.') {
-                        U2buffer[x] = U2buffer[x+1];
-                        U2buffer[x+1] = '\0';
+                        U2buffer[x] = U2buffer[x + 1u];
+                        U2buffer[x + 1u] = '\0';
                     }
                     x++;
                 } while (i != '\0');
@@ -2552,7 +2552,7 @@ void main(void) {
                 case 11:
                 case 12:
                     if (LoadBl == 1) {
-                        requestNodeStatus(ModbusRequest - 6);                   // Master, Request Node 1-8 status
+                        requestNodeStatus(ModbusRequest - 6u);                   // Master, Request Node 1-8 status
                         break;
                     }
                     ModbusRequest = 12;
@@ -2564,7 +2564,7 @@ void main(void) {
                 case 18:
                 case 19:
                     if (LoadBl == 1) {
-                        processAllNodeStates(ModbusRequest - 13);
+                        processAllNodeStates(ModbusRequest - 13u);
                         break;
                     }
                 default:
@@ -2630,10 +2630,10 @@ void main(void) {
                             PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
                         }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0x0000) {
                             // Status packet from Node EVSE received
-                            receiveNodeStatus(Modbus.Data, Modbus.Address - 1);
+                            receiveNodeStatus(Modbus.Data, Modbus.Address - 1u);
                         }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0x0108) {
                             // Configuration packet from Node EVSE received
-                            receiveNodeConfig(Modbus.Data, Modbus.Address - 1);
+                            receiveNodeConfig(Modbus.Data, Modbus.Address - 1u);
                         }
                         break;
                     default:

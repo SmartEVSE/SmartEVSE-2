@@ -450,6 +450,18 @@ void ModbusDecode(unsigned char *buf, unsigned char len) {
 
 
 /**
+ * Send measurement request over modbus
+ * 
+ * @param unsigned char Meter
+ * @param unsigned char Address
+ * @param unsigned int Register
+ * @param unsigned char Count
+ */
+void requestMeasurement(unsigned char Meter, unsigned char Address, unsigned int Register, unsigned char Count) {
+    ModbusReadInputRequest(Address, EMConfig[Meter].Function, Register, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? Count : (Count * 2u)));
+}
+
+/**
  * Decode measurement value
  * 
  * @param pointer to buf
@@ -500,7 +512,7 @@ void requestEnergyMeasurement(unsigned char Meter, unsigned char Address) {
             ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, 2);
             break;
         default:
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].ERegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 1u : 2u));
+            requestMeasurement(Meter, Address, EMConfig[Meter].ERegister, 1);
             break;
     }
 }
@@ -531,7 +543,7 @@ signed long receiveEnergyMeasurement(unsigned char *buf, unsigned char Meter) {
  * @param unsigned char Address
  */
 void requestPowerMeasurement(unsigned char Meter, unsigned char Address) {
-    ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].PRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 1u : 2u));
+    requestMeasurement(Meter, Address, EMConfig[Meter].PRegister, 1);
 }
 
 /**
@@ -585,11 +597,11 @@ void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
             break;
         case EM_SOLAREDGE:
             // Read 3 Current values + scaling factor
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3u : 6u) + 1u);
+            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, 4);
             break;
         default:
             // Read 3 Current values
-            ModbusReadInputRequest(Address, EMConfig[Meter].Function, EMConfig[Meter].IRegister, (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 3u : 6u));
+            requestMeasurement(Meter, Address, EMConfig[Meter].IRegister, 3);
             break;
     }  
 }

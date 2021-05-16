@@ -465,25 +465,25 @@ void requestMeasurement(unsigned char Meter, unsigned char Address, unsigned int
  * Decode measurement value
  * 
  * @param pointer to buf
- * @param unsigned char pos
+ * @param unsigned char Count
  * @param unsigned char Endianness
  * @param MBDataType dataType
  * @param signed char Divisor
  * @return signed long Measurement
  */
-signed long receiveMeasurement(unsigned char *buf, unsigned char pos, unsigned char Endianness, MBDataType dataType, signed char Divisor) {
+signed long receiveMeasurement(unsigned char *buf, unsigned char Count, unsigned char Endianness, MBDataType dataType, signed char Divisor) {
     signed double dCombined;
     signed long lCombined;
 
     if (dataType == MB_DATATYPE_FLOAT32) {
-        combineBytes(&dCombined, buf, pos, Endianness, dataType);
+        combineBytes(&dCombined, buf, Count * (dataType == MB_DATATYPE_INT16 ? 2u : 4u), Endianness, dataType);
         if (Divisor >= 0) {
             lCombined = (signed long)(dCombined / (signed long)pow10[(unsigned)Divisor]);
         } else {
             lCombined = (signed long)(dCombined * (signed long)pow10[(unsigned)-Divisor]);
         }
     } else {
-        combineBytes(&lCombined, buf, pos, Endianness, dataType);
+        combineBytes(&lCombined, buf, Count * (dataType == MB_DATATYPE_INT16 ? 2u : 4u), Endianness, dataType);
         if (dataType == MB_DATATYPE_INT16) {
             lCombined = (signed long)((signed int)lCombined); /* sign extend 16bit into 32bit */
         }
@@ -562,7 +562,7 @@ signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
             // - EM_SOLAREDGE should not be used for EV power measurements, only PV power measurements are supported
             int scalingFactor = -(int)receiveMeasurement(
                         buf,
-                        2,
+                        1,
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         0
@@ -625,14 +625,14 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // return immediately if the data contains no new P1 or CT measurement
             if (buf[3] == 0) return 0;  // error!!
             // determine if there is P1 data present, otherwise use CT data
-            if (buf[3] & 0x80) offset = 16;                                     // P1 data present
-            else offset = 28;                                                   // Use CTs
+            if (buf[3] & 0x80) offset = 4;                                      // P1 data present
+            else offset = 7;                                                    // Use CTs
             // offset 16 is Smart meter P1 current
             for (x = 0; x < 3; x++) {
                 // SmartEVSE works with Amps * 10
-                var[x] = receiveMeasurement(buf, offset + (x * 4u), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].IDivisor - 3u);
+                var[x] = receiveMeasurement(buf, offset + x, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].IDivisor - 3u);
                 // When using CT's , adjust the measurements with calibration value
-                if (offset == 28) {
+                if (offset == 7) {
                     if (x == 0) Iuncal = abs((var[x] / 10));                    // Store uncalibrated CT1 measurement (10mA)
                     var[x] = (signed long)var[x] * (signed int)ICal / ICAL;
                     // When MaxMains is set to >100A, it's assumed 200A:50ma CT's are used.
@@ -643,7 +643,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                 }
             }
             // Set Sensorbox 2 to 3/4 Wire configuration (and phase Rotation) (v2.16)
-            if (buf[1] >= 0x10 && offset == 28) {
+            if (buf[1] >= 0x10 && offset == 7) {
                 GridActive = 1;                                                 // Enable the GRID menu option
                 #ifdef SPECIAL                                                  // Only when Load balancing is Disabled/Master
                 if ((buf[1] & 0x3) != GRID && (LoadBl < 2)) ModbusWriteSingleRequest(0x0A, 0x800, GRID);
@@ -657,7 +657,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             // Need to handle the extra scaling factor
             int scalingFactor = -(int)receiveMeasurement(
                         buf,
-                        6,
+                        3,
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         0
@@ -666,7 +666,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(
                         buf,
-                        x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2u : 4u),
+                        x,
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         scalingFactor - 3
@@ -678,7 +678,7 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
             for (x = 0; x < 3; x++) {
                 var[x] = receiveMeasurement(
                         buf,
-                        x * (EMConfig[Meter].DataType == MB_DATATYPE_INT16 ? 2u : 4u),
+                        x,
                         EMConfig[Meter].Endianness,
                         EMConfig[Meter].DataType,
                         EMConfig[Meter].IDivisor - 3
@@ -691,12 +691,12 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
     switch(Meter) {
         case EM_EASTRON:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 3u) * 4u), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, x + 3u, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
         case EM_ABB:
             for (x = 0; x < 3; x++) {
-                if (receiveMeasurement(buf, ((x + 5u) * 4u), EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
+                if (receiveMeasurement(buf, x + 5u, EMConfig[Meter].Endianness, EMConfig[Meter].DataType, EMConfig[Meter].PDivisor) < 0) var[x] = -var[x];
             }
             break;
     }

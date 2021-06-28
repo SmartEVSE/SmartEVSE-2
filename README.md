@@ -89,7 +89,9 @@ Information on how to compile and setup the controller can be found on the [smar
 - Finder 7E.78.8.400.0212 (3)
 - Eastron SDM630 (4)
 - ABB B23 212-100 (5)
-- Custom (6)
+- SolarEdge SunSpec (6)
+- WAGO 879-30x0 (7)
+- Custom (8)
 
 # Modbus
 

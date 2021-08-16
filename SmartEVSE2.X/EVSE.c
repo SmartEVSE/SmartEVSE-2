@@ -268,6 +268,7 @@ signed long EnergyCharged = 0;                                                  
 signed long EnergyMeterStart = 0;                                               // kWh meter value is stored once EV is connected to EVSE (Wh)
 signed long PowerMeasured = 0;                                                  // Measured Charge power in Watt by kWh meter
 unsigned char RFIDstatus = 0;
+unsigned char ExternalMaster = 0;
 
 void interrupt high_isr(void)
 {
@@ -1458,7 +1459,8 @@ const char * getMenuItemOption(unsigned char nav) {
                 return Str;
             } else return StrDisabled;
         case MENU_LOADBL:
-            return StrLoadBl[LoadBl];
+            if (ExternalMaster && value == 1) return "Node 0";
+            else return StrLoadBl[LoadBl];
         case MENU_MAINS:
         case MENU_MIN:
         case MENU_MAX:
@@ -2442,8 +2444,11 @@ void main(void) {
                 ModbusWriteSingleRequest(BROADCAST_ADR, 0x0001, Error);         // Broadcast
             }
 
-            if ((timeout == 0) && !(Error & CT_NOCOMM))                         // timeout if CT current measurement takes > 10 secs
-            {
+            if (ExternalMaster) {
+                ExternalMaster--;
+            }
+
+            if ((timeout == 0) && !(Error & CT_NOCOMM)) {                       // timeout if CT current measurement takes > 10 secs
                 Error |= CT_NOCOMM;
                 setState(STATE_A);                                              // switch back to state A
 #ifdef LOG_WARN_EVSE
@@ -2452,8 +2457,7 @@ void main(void) {
                 ResetBalancedStates();
             } else if (timeout) timeout--;
 
-            if (TempEVSE >= 65 && !(Error & TEMP_HIGH))                         // Temperature too High?
-            {
+            if (TempEVSE >= 65 && !(Error & TEMP_HIGH)) {                       // Temperature too High?
                 Error |= TEMP_HIGH;
                 setState(STATE_A);                                              // ERROR, switch back to STATE_A
 #ifdef LOG_WARN_EVSE
@@ -2479,7 +2483,7 @@ void main(void) {
 
             // Every two seconds request measurement data from sensorbox/kwh meters.
             // and send broadcast to Node controllers.
-            if (LoadBl < 2 && !Broadcast--) {                                   // Load Balancing mode: Master or Disabled
+            if (LoadBl < 2 && !ExternalMaster && !Broadcast--) {                                   // Load Balancing mode: Master or Disabled
                 if (Mode) {                                                     // Smart or Solar mode
                     ModbusRequest = 1;                                          // Start with state 1
                 } else {                                                        // Normal mode
@@ -2647,6 +2651,14 @@ void main(void) {
                 if (Modbus.Address == 0x0a && Modbus.Function == 0x06 && Modbus.Register == 0xa8 && Modbus.Value == 0x494f && !TestState) {
                     TestState = 255;
                     break;
+                }
+
+                // Master receive modbus request (by Sensorbox or other device)
+                if (LoadBl < 2) {
+                    ExternalMaster = 4;
+#ifdef LOG_WARN_MODBUS
+                    printf("\nAnother modbus master detected");
+#endif
                 }
 
                 // Broadcast or addressed to this device

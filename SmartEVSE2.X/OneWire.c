@@ -233,6 +233,7 @@ unsigned char DeleteRFID(void) {
 //    printf("deleted %u ",offset);
 //    for (r=0; r<120; r++) printf("%02x",RFIDlist[r]);
 
+    WriteRFIDlist();
     return 1;
 }
 
@@ -249,12 +250,13 @@ void DeleteAllRFID(void) {
 
 void CheckRFID(void) {
     unsigned char x;
+    static unsigned char cardoffset = 0;
 
     // When RFID is enabled, a OneWire RFID reader is expected on the SW input
     if (RFIDReader) {                                                           // RFID Reader set to Enabled, Learn or Delete
         if (OneWireReadCardId() ) {                                             // Read card ID
             switch (RFIDReader) {
-                case 1:                                                         // Enabled
+                case 1:                                                         // EnableAll. All learned cards accepted for locking /unlocking
                     x = MatchRFID();
                     if (x && !RFIDstatus) {
                         //printf("RFID card found!\n");
@@ -267,7 +269,22 @@ void CheckRFID(void) {
                     }  else if (!x) RFIDstatus = 7;                             // invalid card
                     BacklightTimer = BACKLIGHT;
                     break;
-                case 2:                                                         // Learn Card
+                case 2:                                                         // EnableOne. Only the card that unlocks, can re-lock the EVSE
+                    x = MatchRFID();
+                    if (x && !RFIDstatus) {
+                        //printf("RFID card found!\n");
+                        if (!Access_bit) {
+                            cardoffset = x;                                     // store cardoffset from current card
+                            Access_bit = 1;                                     // Access On
+                        } else if (cardoffset == x) {
+                            Access_bit = 0;                                     // Access Off
+                            setState(STATE_A);                                  // Switch back to state A
+                        }
+                        RFIDstatus = 1;
+                    }  else if (!x) RFIDstatus = 7;                             // invalid card
+                    BacklightTimer = BACKLIGHT;
+                    break;
+                case 3:                                                         // Learn Card
                     x = StoreRFID();
                     if (x == 1) {
                         printf("\nRFID card stored!");
@@ -280,7 +297,7 @@ void CheckRFID(void) {
                         RFIDstatus = 6;
                     }
                     break;
-                case 3:                                                         // Delete Card
+                case 4:                                                         // Delete Card
                     x = DeleteRFID();
                     if (x) {
                         printf("\nRFID card deleted!");

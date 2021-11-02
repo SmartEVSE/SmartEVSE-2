@@ -161,7 +161,7 @@ const char StrEnabled[] = "Enabled";
 const char StrExitMenu[] = "MENU";
 const char StrMainsAll[] = "All"; // Everything
 const char StrMainsHomeEVSE[] = "Home+EVSE";
-const char StrRFIDReader[5][10] = {"Disabled", "Enabled", "Learn", "Delete", "DeleteAll"};
+const char StrRFIDReader[6][10] = {"Disabled", "EnableAll", "EnableOne", "Learn", "Delete", "DeleteAll"};
 const char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
 
 // Global data
@@ -231,6 +231,7 @@ unsigned char idx = 0, idx2 = 0, ISRFLAG = 0, ISR2FLAG = 0, ISRTXFLAG = 0, ISRTX
 unsigned char menu = 0;
 unsigned int locktimer = 0, unlocktimer = 0;                                    // solenoid timers
 unsigned char lock1 = 0, lock2 = 1;
+unsigned char UnlockCable = 0, LockCable = 0;
 unsigned long Timer = 0;                                                        // mS counter
 unsigned long ModbusTimer;
 unsigned char BacklightTimer = 0;                                               // Backlight timer (sec)
@@ -329,7 +330,8 @@ void interrupt high_isr(void)
     {
         if (Lock)                                                               // Cable lock enabled?
         {
-            if (Error || (State != STATE_C)) {
+            // Unlock Cable
+            if (UnlockCable) {
                 if (unlocktimer < 600) {                                        // 600ms pulse
                     SOLENOID_UNLOCK;
                 } else SOLENOID_OFF;
@@ -340,7 +342,8 @@ void interrupt high_isr(void)
                     } else unlocktimer = 700;
                 }
                 locktimer = 0;
-            } else {                                                            // State C
+            // Lock Cable
+            } else if (LockCable) {
                 if (locktimer < 600) {                                          // 600ms pulse
                     SOLENOID_LOCK;
                 } else SOLENOID_OFF;
@@ -446,8 +449,10 @@ void validate_settings(void) {
         }
     }
 
+    // RFID reader set to Enable One card, the EVSE is disabled by default
+    if (RFIDReader == 2) Access_bit = 0;
     // Enable access if no access switch used
-    if (Switch != 1 && Switch != 2) Access_bit = 1;
+    else if (Switch != 1 && Switch != 2) Access_bit = 1;
     // Sensorbox v2 has always address 0x0A
     if (MainsMeter == EM_SENSORBOX) MainsMeterAddress = 0x0A;
     // Disable modbus reception on normal mode
@@ -458,7 +463,7 @@ void validate_settings(void) {
     if (Lock == 1) { lock1=0; lock2=1; }
     else if (Lock == 2) { lock1=1; lock2=0; }
     // Erase all RFID cards from ram + eeprom if set to EraseAll
-    if (RFIDReader == 4) {
+    if (RFIDReader == 5) {
         DeleteAllRFID();
     }
     // Default to modbus input registers
@@ -1124,7 +1129,7 @@ unsigned char getMenuItems (void) {
     MenuItems[m++] = MENU_MAX;                                                  // Max Charge current (A)
     MenuItems[m++] = MENU_SWITCH;                                               // External Switch on SW (0:Disable / 1:Access / 2:Smart-Solar)
     MenuItems[m++] = MENU_RCMON;                                                // Residual Current Monitor on RCM (0:Disable / 1:Enable)
-    MenuItems[m++] = MENU_RFIDREADER;                                           // RFID Reader connected to SW (0:Disable / 1:Enable / 2:Learn / 3:Delete / 4:Delate All)
+    MenuItems[m++] = MENU_RFIDREADER;                                           // RFID Reader connected to SW (0:Disable / 1:EnableAll / 2:EnableOne / 3:Learn / 4:Delete / 5:Delete All)
     if (Mode) {                                                                 // ? Smart or Solar mode?
         if (LoadBl < 2) {                                                       // - ? Load Balancing Disabled/Master?
             MenuItems[m++] = MENU_MAINSMETER;                                   // - - Type of Mains electric meter (0: Disabled / Constants EM_*)
@@ -1672,7 +1677,7 @@ void RS232cli(void) {
                 }
                 break;
             case MENU_RFIDREADER:
-                for(i = 0; i < 5; i++) {
+                for(i = 0; i < 6; i++) {
                     if (strcmp(U2buffer, StrRFIDReader[i]) == 0) {
                         RFIDReader = i;
                         write_settings();
@@ -1796,7 +1801,7 @@ void RS232cli(void) {
             break;
         case MENU_RFIDREADER:
             printf("RFID reader is set to: %s\nEnter new RFID reader mode (%s", getMenuItemOption(menu), StrRFIDReader[0]);
-            for(i = 1; i < 5; i++) {
+            for(i = 1; i < 6; i++) {
                 printf("/%s", StrRFIDReader[i]);
             }
             printf("): ");
@@ -2013,7 +2018,7 @@ void UpdateCurrentData(void) {
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
     unsigned char pilot, count = 0, timeout = 5;
-    unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0;
+    unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0, AccessTimer = 0;
     unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
     signed long CM[3]={0, 0, 0};
     signed long PV[3]={0, 0, 0};
@@ -2187,6 +2192,20 @@ void main(void) {
             }
         }
 
+        // One RFID card can Lock/Unlock the charging socket (like a public charging station)
+        if (RFIDReader == 2) {
+           if (Access_bit == 0) UnlockCable = 1;
+           else UnlockCable = 0;
+        // The charging socket is unlocked when charging stops.
+        } else {
+            if (State != STATE_C) UnlockCable = 1;
+            else UnlockCable = 0;
+        }
+        // If the cable is connected to the EV, the cable will be locked.
+        if (State == STATE_B || State == STATE_C) LockCable = 1;
+        else LockCable = 0;
+
+
         // ############### EVSE State A #################
 
         if (State == STATE_A || State == STATE_COMM_B)
@@ -2199,6 +2218,10 @@ void main(void) {
             pilot = ReadPilot();
 
             if (pilot == PILOT_12V) {                                           // Check if we are disconnected, or forced to State A, but still connected to the EV
+
+                // If the RFID reader is set to EnableOne mode, and the Charging cable is disconnected
+                // We start a timer to re-lock the EVSE (and unlock the cable) after 60 seconds.
+                if (RFIDReader == 2 && AccessTimer == 0 && Access_bit == 1) AccessTimer = RFIDLOCKTIME;
 
                 if (State == STATE_COMM_B) setState(STATE_A);                   // reset state, incase we were stuck in STATE_COMM_B
                 Error &= ~NO_SUN;
@@ -2232,6 +2255,7 @@ void main(void) {
                             setState(STATE_B);                                  // switch to State B
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
                             BacklightTimer = BACKLIGHT;                         // Backlight ON
+                            AccessTimer = 0;
                         }
                    }
                 } else {
@@ -2245,6 +2269,7 @@ void main(void) {
             setState(STATE_B);
             ActivationMode = 30;                                                // Activation mode is triggered if state C is not entered in 30 seconds.
             BacklightTimer = BACKLIGHT;                                         // Backlight ON
+            AccessTimer = 0;
         }
 
         // ############### EVSE State B #################
@@ -2429,6 +2454,13 @@ void main(void) {
             }
 
             if (ChargeDelay) ChargeDelay--;                                     // Decrease Charge Delay counter
+
+            if (AccessTimer && State == STATE_A) {
+                if (--AccessTimer == 0) {
+                    Access_bit = 0;                                             // re-lock EVSE
+                    BacklightTimer = BACKLIGHT;                                 // Backlight ON
+                }
+            } else AccessTimer = 0;                                             // Not in state A, then disable timer
 
             if ((TempEVSE < 55) && (Error & TEMP_HIGH)) // Temperature below limit?
             {

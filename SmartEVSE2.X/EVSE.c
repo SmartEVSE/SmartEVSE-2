@@ -216,14 +216,16 @@ unsigned int BalancedMax[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                  
 char BalancedState[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                        // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C)
 unsigned int BalancedError[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                // Error state of EVSE
 struct NodeStatus Node[NR_EVSES] = {                                            // 0: Master / 1: Node 1 ...
-    {false, 0, 0, 0},
-    {false, 1, 0, 0},
-    {false, 1, 0, 0},
-    {false, 1, 0, 0},
-    {false, 1, 0, 0},
-    {false, 1, 0, 0},
-    {false, 1, 0, 0},
-    {false, 1, 0, 0}
+   /*         Config   EV     EV      *
+    * Online, Changed, Meter, Address */
+    {   true,       0,     0,       0 },
+    {  false,       1,     0,       0 },
+    {  false,       1,     0,       0 },
+    {  false,       1,     0,       0 },
+    {  false,       1,     0,       0 },
+    {  false,       1,     0,       0 },
+    {  false,       1,     0,       0 },
+    {  false,       1,     0,       0 }
 };
 
 unsigned char RX1byte;
@@ -466,6 +468,11 @@ void validate_settings(void) {
     if (RFIDReader == 5) {
         DeleteAllRFID();
     }
+
+    // Update master node config
+    Node[0].EVMeter = EVMeter;
+    Node[0].EVAddress = EVMeterAddress;
+
     // Default to modbus input registers
     if (EMConfig[EM_CUSTOM].Function != 3) EMConfig[EM_CUSTOM].Function = 4;
 
@@ -742,6 +749,14 @@ void setState(unsigned char NewState) {
     }
 #endif
 #endif
+    switch (NewState) {
+        case STATE_C:
+            CONTACTOR_ON;                                                       // Contactor ON
+            LCDTimer = 0;
+            Timer = 0;                                                          // reset msTimer and ChargeTimer
+            break;
+    }
+
     State = NewState;
 }
 
@@ -852,7 +867,7 @@ void CalcBalancedCurrent(char mod) {
 
         if (IsumImport < 0)                                                     // If it's negative, we have surplus (solar) power available
         {
-            if (IsumImport < -10) IsetBalanced = IsetBalanced - (IsumImport / 3); //IsetBalanced + 5; // still more then 1A available, increase Balanced charge current with 0.5A
+            if (IsumImport < -10) IsetBalanced = IsetBalanced + 5;              // still more then 1A available, increase Balanced charge current with 0.5A
             else IsetBalanced = IsetBalanced - (IsumImport / 4);                // less then 1A difference, increase with 1/4th of difference.
         } else IsetBalanced = IsetBalanced - (IsumImport / 2);                  // Positive, decrease Balanced charge current.
                                                                                 // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
@@ -2310,12 +2325,9 @@ void main(void) {
                                         Balanced[0] = 0;                        // For correct baseload calculation set current to zero
                                         CalcBalancedCurrent(1);                 // Calculate charge current for all connected EVSE's
 
-                                        CONTACTOR_ON;                           // Contactor ON
                                         ActivationMode = 255;                   // Disable ActivationMode
                                         DiodeCheck = 0;
                                         setState(STATE_C);                      // switch to STATE_C
-                                        LCDTimer = 0;
-                                        Timer = 0;                              // reset msTimer and ChargeTimer
                                         if (!LCDNav) GLCD();                    // Don't update the LCD if we are navigating the menu
                                                                                 // immediately update LCD (20ms)
                                     }
@@ -2357,14 +2369,10 @@ void main(void) {
         }
 
         if (State == STATE_COMM_C_OK) {
-            CONTACTOR_ON;                                                       // Contactor ON
+            ActivationMode = 255;                                               // Disable ActivationMode
             DiodeCheck = 0;
             setState(STATE_C);                                                  // switch to STATE_C
-            ActivationMode = 255;                                               // Disable ActivationMode
             NextState = NOSTATE;                                                // no State to switch to
-            LCDTimer = 0;
-            Timer = 0;                                                          // reset msTimer and ChargeTimer
-                                                                                // Don't update the LCD if we are navigating the menu
             if (!LCDNav) GLCD();                                                // immediately update LCD
         }
 
@@ -2546,9 +2554,6 @@ void main(void) {
                     break;
                 case 3:
                     // Find next online SmartEVSE
-                    Node[0].Online = true;
-                    Node[0].EVMeter = EVMeter;
-                    Node[0].EVAddress = EVMeterAddress;
                     do {
                         PollEVNode++;
                         if (PollEVNode >= NR_EVSES) PollEVNode = 0;
@@ -2656,20 +2661,26 @@ void main(void) {
                                 Isum = Isum + Irms[x];                          // Isum has a resolution of 100mA
                             }
 
-                        } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].ERegister) {
-                            // packet from EV kWh meter
-                            EnergyEV = receiveEnergyMeasurement(Modbus.Data, EVMeter);
-                            if (ResetKwh == 2) EnergyMeterStart = EnergyEV;     // At powerup, set EnergyEV to kwh meter value
-                            EnergyCharged = EnergyEV - EnergyMeterStart;        // Calculate Energy
-                        } else if (EVMeter && Modbus.Address == EVMeterAddress && Modbus.Register == EMConfig[EVMeter].PRegister) {
-                            // packet from EV kWh meter
-                            PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
-                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0x0000) {
-                            // Status packet from Node EVSE received
-                            receiveNodeStatus(Modbus.Data, Modbus.Address - 1u);
-                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES && Modbus.Register == 0x0108) {
-                            // Configuration packet from Node EVSE received
-                            receiveNodeConfig(Modbus.Data, Modbus.Address - 1u);
+                        } else if (EVMeter && Modbus.Address == EVMeterAddress) {
+                            // Packet from EV electric meter
+                            if (Modbus.Register == EMConfig[EVMeter].ERegister) {
+                                // Energy measurement
+                                EnergyEV = receiveEnergyMeasurement(Modbus.Data, EVMeter);
+                                if (ResetKwh == 2) EnergyMeterStart = EnergyEV; // At powerup, set EnergyEV to kwh meter value
+                                EnergyCharged = EnergyEV - EnergyMeterStart;    // Calculate Energy
+                            } else if (Modbus.Register == EMConfig[EVMeter].PRegister) {
+                                // Power measurement
+                                PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
+                            }
+                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES) {
+                            // Packet from Node EVSE
+                            if (Modbus.Register == 0x0000) {
+                                // Node status
+                                receiveNodeStatus(Modbus.Data, Modbus.Address - 1u);
+                            }  else if (Modbus.Register == 0x0108) {
+                                // Node configuration
+                                receiveNodeConfig(Modbus.Data, Modbus.Address - 1u);
+                            }
                         }
                         break;
                     default:

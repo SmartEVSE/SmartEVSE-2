@@ -37,7 +37,7 @@
 #define LOG_EVSE LOG_INFO                                                       // Default: LOG_INFO
 #define LOG_MODBUS LOG_WARN                                                     // Default: LOG_WARN
 
-#define VERSION "2.20"                                                          // SmartEVSE software version
+#define VERSION "2.30"                                                          // SmartEVSE software version
 #define TRANSFORMER_COMP 100                                                    // Current calculation compensation option for use with 230V-400V transformers,
                                                                                 // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.
                                                                                 // set to 100 for normal use, and to 173 for use with a transformer.

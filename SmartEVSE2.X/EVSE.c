@@ -80,6 +80,14 @@
 ;           Enabling the RFID reader will lock/unlock the SmartEVSE with a valid RFID card.
 ;           Status messages when learning/deleting cards are displayed on the LCD.
 ;           Erase all cards by selecting EraseAll from the menu, and then Exit Menu.
+; 2.30  Rearranged the modbus registers.
+;       Set modbus address 0x01 when load balancing is disabled.
+;       Interrupt sending modbus requests for 4 seconds when receiving requests from another device to avoid collisions.
+;       Added RFID EnableOne option, that will allow only the RFID card to unlock the EVSE that lock (start charge) the EVSE.
+;           In this mode it will lock the charging cable when connected, and only unlock the cable if the same RFID card
+;           is presented (like a public charging station)
+;       Allow custom meter FUNCTION config.
+;       Added support for WAGO electric meter and SolarEdge Inverter in SunSpec mode.
 ;
 ;
 ;   Build with MPLAB X v5.25 and XC8 compiler version 2.10

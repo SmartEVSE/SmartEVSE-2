@@ -214,7 +214,6 @@ unsigned int MaxCapacity;                                                       
 unsigned int ChargeCurrent;                                                     // Calculated Charge Current (Amps *10)
 unsigned int OverrideCurrent = 0;                                               // Temporary assigned current (Amps *10) (modbus)
 signed int Imeasured = 0;                                                       // Max of all Phases (Amps *10) of mains power
-signed int ImeasuredNegative = 0;                                               // Max of all Phases (Amps *10) of generated surplus power (negative)
 signed int Isum = 0;                                                            // Sum of all measured Phases (Amps *10) (can be negative)
 
 // Load Balance variables
@@ -806,11 +805,11 @@ char IsCurrentAvailable(void) {
 
     }
 
-    // Allow solar Charging if surplus current is above 'StartCurrent' (on one of the phases)
+    // Allow solar Charging if surplus current is above 'StartCurrent' (sum of all phases)
     // Charging will start after the timeout (chargedelay) period has ended
     // now set to -4A (configurable)
     if (Mode == MODE_SOLAR) {                                                   // no active EVSE yet?
-        if (ActiveEVSE == 0 && ImeasuredNegative >= ((signed int)StartCurrent *-10)) return 0;
+        if (ActiveEVSE == 0 && Isum >= ((signed int)StartCurrent *-10)) return 0;
         else if ((ActiveEVSE * MinCurrent * 10) > TotalCurrent) return 0;       // check if we can split the available current between all active EVSE's
     }
 
@@ -1995,12 +1994,9 @@ void UpdateCurrentData(void) {
 
     // reset Imeasured value (grid power used)
     Imeasured = 0;
-    // reset ImeasuredNegative (surplus power generated)
-    ImeasuredNegative = 0;
     for (x=0; x<3; x++) {
         // Imeasured holds highest Irms of all channels
         if (Irms[x] > Imeasured) Imeasured = Irms[x];
-        if (Irms[x] < ImeasuredNegative) ImeasuredNegative = Irms[x];
     }
 
 
@@ -2027,8 +2023,8 @@ void UpdateCurrentData(void) {
             SetCurrent(Balanced[0]);
         }
 #ifdef LOG_DEBUG_EVSE
-        printf("\nSTATE: %c Error: %u StartCurrent: -%i ImeasuredNegative: %.1f A ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A", State +'A', Error, StartCurrent,
-                                                                        (double)ImeasuredNegative/10, ChargeDelay, SolarStopTimer,  NoCurrent,
+        printf("\nSTATE: %c Error: %u StartCurrent: -%i ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A", State +'A', Error, StartCurrent,
+                                                                        ChargeDelay, SolarStopTimer,  NoCurrent,
                                                                         (double)Imeasured/10,
                                                                         (double)IsetBalanced/10);
 

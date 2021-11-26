@@ -291,7 +291,6 @@ extern char RCmon;                                                              
 extern char Grid;
 extern unsigned int StartCurrent;
 extern unsigned int StopTime;
-extern unsigned int ImportCurrent;
 extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / Constants EM_*)
 extern unsigned char MainsMeterAddress;
 extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
@@ -354,43 +353,45 @@ const struct {
     {"", "", "Hold 2 sec", 0, 0, 0},
 
     // Node specific configuration
-    {"CONFIG", "CONFIG", "Set to Fixed Cable or Type 2 Socket", 0, 1, CONFIG},
-    {"LOCK", "LOCK", "Cable locking actuator type", 0, 2, LOCK},
-    {"MIN", "MIN", "Set MIN Charge Current the EV will accept", 6, 16, MIN_CURRENT},
-    {"MAX", "MAX", "Set MAX Charge Current for this EVSE", 6, 80, MAX_CURRENT},
-    {"LOADBL", "LOAD BAL", "Set Load Balancing mode for 2-8 SmartEVSEs", 0, NR_EVSES, LOADBL},
-    {"SW", "SWITCH", "Switch function control on pin SW", 0, 4, SWITCH},
-    {"RCMON", "RCMON", "Residual Current Monitor on pin RCM", 0, 1, RC_MON},
-    {"RFID", "RFID", "Use RFID reader, learn/remove cards", 0, 5, RFID_READER},
-    {"EVEM", "EV METER", "Type of EV electric meter", 0, EM_CUSTOM, EV_METER},
-    {"EVAD", "EV ADDR", "Address of EV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
+    /* Key,    LCD,       Desc,                                                 Min, Max, Default */
+    {"CONFIG", "CONFIG",  "Set to Fixed Cable or Type 2 Socket",                0, 1, CONFIG},
+    {"LOCK",   "LOCK",    "Cable locking actuator type",                        0, 2, LOCK},
+    {"MIN",    "MIN",     "Set MIN Charge Current the EV will accept (per ph)", 6, 16, MIN_CURRENT},
+    {"MAX",    "MAX",     "Set MAX Charge Current for this EVSE (per phase)",   6, 80, MAX_CURRENT},
+    {"LOADBL", "LOAD BAL","Set Load Balancing mode for 2-8 SmartEVSEs",         0, NR_EVSES, LOADBL},
+    {"SW",     "SWITCH",  "Switch function control on pin SW",                  0, 4, SWITCH},
+    {"RCMON",  "RCMON",   "Residual Current Monitor on pin RCM",                0, 1, RC_MON},
+    {"RFID",   "RFID",    "Use RFID reader, learn/remove cards",                0, 5, RFID_READER},
+    {"EVEM",   "EV METER","Type of EV electric meter",                          0, EM_CUSTOM, EV_METER},
+    {"EVAD",   "EV ADDR", "Address of EV electric meter",                       MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
 
     // System configuration
-    {"MODE", "MODE", "Set to Normal, Smart or Solar EVSE mode", 0, 2, MODE},
-    {"CIRCUIT", "CIRCUIT", "Set EVSE Circuit max Current", 10, 160, MAX_CIRCUIT},
-    {"GRID", "GRID", "Grid type to which the Sensorbox is connected", 0, 1, GRID},
-    {"CAL", "CAL", "Calibrate CT1 (CT2+3 will also change)", (unsigned int) (ICAL * 0.3), (unsigned int) (ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
-    {"MAINS", "MAINS", "Set Max MAINS Current", 10, 200, MAX_MAINS},
-    {"START", "START", "Surplus energy start Current", 1, 16, START_CURRENT},
-    {"STOP", "STOP", "Stop solar charging at 6A after this time", 0, 60, STOP_TIME},
-    {"IMPORT", "IMPORT", "Allow grid power when solar charging", 0, 6, IMPORT_CURRENT},
-    {"MAINEM", "MAINSMET", "Type of mains electric meter", 1, EM_CUSTOM, MAINS_METER},
-    {"MAINAD", "MAINSADR", "Address of mains electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
-    {"MAINM", "MAINSMES", "Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
-    {"PVEM", "PV METER", "Type of PV electric meter", 0, EM_CUSTOM, PV_METER},
-    {"PVAD", "PV ADDR", "Address of PV electric meter", MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
-    {"EMBO", "BYTE ORD", "Byte order of custom electric meter", 0, 3, EMCUSTOM_ENDIANESS},
-    {"EMDATA", "DATATYPE", "Data type of custom electric meter", 0, MB_DATATYPE_MAX - 1, EMCUSTOM_DATATYPE},
-    {"EMFUNC", "FUNCTION", "Modbus Function of custom electric meter", 3, 4, EMCUSTOM_FUNCTION},
-    {"EMUREG", "VOL REGI", "Register for Voltage (V) of custom electric meter", 0, 65530, EMCUSTOM_UREGISTER},
-    {"EMUDIV", "VOL DIVI", "Divisor for Voltage (V) of custom electric meter", 0, 7, EMCUSTOM_UDIVISOR},
-    {"EMIREG", "CUR REGI", "Register for Current (A) of custom electric meter", 0, 65530, EMCUSTOM_IREGISTER},
-    {"EMIDIV", "CUR DIVI", "Divisor for Current (A) of custom electric meter", 0, 7, EMCUSTOM_IDIVISOR},
-    {"EMPREG", "POW REGI", "Register for Power (W) of custom electric meter", 0, 65534, EMCUSTOM_PREGISTER},
-    {"EMPDIV", "POW DIVI", "Divisor for Power (W) of custom electric meter", 0, 7, EMCUSTOM_PDIVISOR},
-    {"EMEREG", "ENE REGI", "Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
-    {"EMEDIV", "ENE DIVI", "Divisor for Energy (kWh) of custom electric meter", 0, 7, EMCUSTOM_EDIVISOR},
-    {"EMREAD", "READ MAX", "Max register read at once of custom electric meter", 3, 255, 3},
+    /* Key,    LCD,       Desc,                                                 Min, Max, Default */
+    {"MODE",   "MODE",    "Set to Normal, Smart or Solar EVSE mode",            0, 2, MODE},
+    {"CIRCUIT","CIRCUIT", "Set EVSE Circuit max Current",                       10, 160, MAX_CIRCUIT},
+    {"GRID",   "GRID",    "Grid type to which the Sensorbox is connected",      0, 1, GRID},
+    {"CAL",    "CAL",     "Calibrate CT1 (CT2+3 will also change)",             (unsigned int) (ICAL * 0.3), (unsigned int) (ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
+    {"MAINS",  "MAINS",   "Set Max MAINS Current (per phase)",                  10, 200, MAX_MAINS},
+    {"START",  "START",   "Surplus energy start Current (sum of phases)",       1, 48, START_CURRENT},
+    {"STOP",   "STOP",    "Stop solar charging at 6A after this time",          0, 60, STOP_TIME},
+    {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 20, IMPORT_CURRENT},
+    {"MAINEM", "MAINSMET","Type of mains electric meter",                       1, EM_CUSTOM, MAINS_METER},
+    {"MAINAD", "MAINSADR","Address of mains electric meter",                    MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
+    {"MAINM",  "MAINSMES","Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},
+    {"PVEM",   "PV METER","Type of PV electric meter",                          0, EM_CUSTOM, PV_METER},
+    {"PVAD",   "PV ADDR", "Address of PV electric meter",                       MIN_METER_ADDRESS, MAX_METER_ADDRESS, PV_METER_ADDRESS},
+    {"EMBO",   "BYTE ORD","Byte order of custom electric meter",                0, 3, EMCUSTOM_ENDIANESS},
+    {"EMDATA", "DATATYPE","Data type of custom electric meter",                 0, MB_DATATYPE_MAX - 1, EMCUSTOM_DATATYPE},
+    {"EMFUNC", "FUNCTION","Modbus Function of custom electric meter",           3, 4, EMCUSTOM_FUNCTION},
+    {"EMUREG", "VOL REGI","Register for Voltage (V) of custom electric meter",  0, 65530, EMCUSTOM_UREGISTER},
+    {"EMUDIV", "VOL DIVI","Divisor for Voltage (V) of custom electric meter",   0, 7, EMCUSTOM_UDIVISOR},
+    {"EMIREG", "CUR REGI","Register for Current (A) of custom electric meter",  0, 65530, EMCUSTOM_IREGISTER},
+    {"EMIDIV", "CUR DIVI","Divisor for Current (A) of custom electric meter",   0, 7, EMCUSTOM_IDIVISOR},
+    {"EMPREG", "POW REGI","Register for Power (W) of custom electric meter",    0, 65534, EMCUSTOM_PREGISTER},
+    {"EMPDIV", "POW DIVI","Divisor for Power (W) of custom electric meter",     0, 7, EMCUSTOM_PDIVISOR},
+    {"EMEREG", "ENE REGI","Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
+    {"EMEDIV", "ENE DIVI","Divisor for Energy (kWh) of custom electric meter",  0, 7, EMCUSTOM_EDIVISOR},
+    {"EMREAD", "READ MAX","Max register read at once of custom electric meter", 3, 255, 3},
 
     {"EXIT", "EXIT", "EXIT", 0, 0, 0}
 };
@@ -409,7 +410,7 @@ struct {
     unsigned int ERegister; // Total energy (kWh)
     unsigned char EDivisor; // 10^x
 } EMConfig[EM_CUSTOM + 1] = {
-    /* DESC,      ENDIANNESS,      FCT, DATATYPE,            U_REG,DIV, I_REG,DIV, P_REG,DIV, E_REG,DIV */
+    /* Desc,      Endianness, Function, DataType,            U_Reg,Div, I_Reg,Div, P_Reg,Div, E_Reg,Div */
     {"Disabled",  ENDIANESS_LBF_LWF, 0, MB_DATATYPE_INT32,        0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
     {"Sensorbox", ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
     {"Phoenix C", ENDIANESS_HBF_LWF, 4, MB_DATATYPE_INT32,      0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh) max read count 11

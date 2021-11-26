@@ -354,24 +354,24 @@ const struct {
 
     // Node specific configuration
     /* Key,    LCD,       Desc,                                                 Min, Max, Default */
-    {"CONFIG", "CONFIG",  "Set to Fixed Cable or Type 2 Socket",                0, 1, CONFIG},
+    {"CONFIG", "CONFIG",  "Fixed Cable or Type 2 Socket",                       0, 1, CONFIG},
     {"LOCK",   "LOCK",    "Cable locking actuator type",                        0, 2, LOCK},
-    {"MIN",    "MIN",     "Set MIN Charge Current the EV will accept (per ph)", 6, 16, MIN_CURRENT},
-    {"MAX",    "MAX",     "Set MAX Charge Current for this EVSE (per phase)",   6, 80, MAX_CURRENT},
-    {"LOADBL", "LOAD BAL","Set Load Balancing mode for 2-8 SmartEVSEs",         0, NR_EVSES, LOADBL},
+    {"MIN",    "MIN",     "MIN Charge Current the EV will accept (per phase)",  6, 16, MIN_CURRENT},
+    {"MAX",    "MAX",     "MAX Charge Current for this EVSE (per phase)",       6, 80, MAX_CURRENT},
+    {"LOADBL", "LOAD BAL","Load Balancing mode for 2-8 SmartEVSEs",             0, NR_EVSES, LOADBL},
     {"SW",     "SWITCH",  "Switch function control on pin SW",                  0, 4, SWITCH},
     {"RCMON",  "RCMON",   "Residual Current Monitor on pin RCM",                0, 1, RC_MON},
-    {"RFID",   "RFID",    "Use RFID reader, learn/remove cards",                0, 5, RFID_READER},
+    {"RFID",   "RFID",    "RFID reader, learn/remove cards",                    0, 5, RFID_READER},
     {"EVEM",   "EV METER","Type of EV electric meter",                          0, EM_CUSTOM, EV_METER},
     {"EVAD",   "EV ADDR", "Address of EV electric meter",                       MIN_METER_ADDRESS, MAX_METER_ADDRESS, EV_METER_ADDRESS},
 
     // System configuration
     /* Key,    LCD,       Desc,                                                 Min, Max, Default */
-    {"MODE",   "MODE",    "Set to Normal, Smart or Solar EVSE mode",            0, 2, MODE},
-    {"CIRCUIT","CIRCUIT", "Set EVSE Circuit max Current",                       10, 160, MAX_CIRCUIT},
+    {"MODE",   "MODE",    "Normal, Smart or Solar EVSE mode",                   0, 2, MODE},
+    {"CIRCUIT","CIRCUIT", "EVSE Circuit max Current",                           10, 160, MAX_CIRCUIT},
     {"GRID",   "GRID",    "Grid type to which the Sensorbox is connected",      0, 1, GRID},
     {"CAL",    "CAL",     "Calibrate CT1 (CT2+3 will also change)",             (unsigned int) (ICAL * 0.3), (unsigned int) (ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
-    {"MAINS",  "MAINS",   "Set Max MAINS Current (per phase)",                  10, 200, MAX_MAINS},
+    {"MAINS",  "MAINS",   "Max MAINS Current (per phase)",                      10, 200, MAX_MAINS},
     {"START",  "START",   "Surplus energy start Current (sum of phases)",       1, 48, START_CURRENT},
     {"STOP",   "STOP",    "Stop solar charging at 6A after this time",          0, 60, STOP_TIME},
     {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 20, IMPORT_CURRENT},

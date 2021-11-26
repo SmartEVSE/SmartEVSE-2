@@ -1719,7 +1719,11 @@ void RS232cli(void) {
     }
 
     // Show active item configuration
-    if (menu > 14 && menu < MENU_EXIT) printf("%s is set to %s\n", MenuStr[menu].Desc, getMenuItemOption(menu));
+    if (menu > MENU_ENTER && menu < MENU_EXIT) printf("%s is set to: %s\n", MenuStr[menu].Desc, getMenuItemOption(menu));
+    if (menu == MENU_MAINS || menu == MENU_MAX || menu == MENU_CIRCUIT) {
+        printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
+        printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
+    }
 
     switch (menu) {
         case 0:
@@ -1729,7 +1733,7 @@ void RS232cli(void) {
             printf(" Internal Temperature: %i C  SN: %06u\n", TempEVSE, serialnr);
             printf("----------------------------------------------------------------------\n");
             for(i = 0; i < MenuItemsCount - 1; i++) {
-                printf("%-07s - %-50s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
+                printf("%-07s - %-51s - ", MenuStr[MenuItems[i]].Key, MenuStr[MenuItems[i]].Desc);
                 if (MenuItems[i] == MENU_CAL) {
                     for (x = 0 ; x < 3 ; x++)
                         printf("CT%u:%d.%u A ", x+1, Irms[x]/10, (unsigned int)abs(Irms[x])%10 );
@@ -1742,60 +1746,36 @@ void RS232cli(void) {
             printf(">");
             break;
         case MENU_CONFIG:
-            printf("Configuration : %s\nEnter new Configuration (FIXED/SOCKET): ", getMenuItemOption(menu));
+            printf("Enter new Configuration (FIXED/SOCKET): ");
             break;
         case MENU_MODE:
-            printf("EVSE set to : %s\nEnter new EVSE Mode (NORMAL/SMART/SOLAR): ", getMenuItemOption(menu));
+            printf("Enter new EVSE Mode (NORMAL/SMART/SOLAR): ");
             break;
         case MENU_START:
-            printf("Surplus energy start Current set to: %u A\nEnter new Surplus start Current (1-16): -", StartCurrent);
-            break;
-        case MENU_STOP:
-            printf("Stop solar charging at 6A after %u min.\nEnter new time (0-60) min: ", StopTime);
-            break;
-        case MENU_IMPORT:
-            printf("Allow Import from grid. Current set to: %u A\nEnter new Import Current (0-6): ", ImportCurrent);
+            printf("Enter new Surplus start Current (%u-%u): -", MenuStr[menu].Min, MenuStr[menu].Max);
             break;
         case MENU_LOADBL:
-            printf("Load Balancing set to : %s\nEnter Load Balancing mode (%s", getMenuItemOption(menu), StrLoadBl[0]);
+            printf("Enter Load Balancing mode (%s", StrLoadBl[0]);
             for(i = 1; i <= NR_EVSES; i++) {
                 printf("/%s", StrLoadBl[i]);
             }
             printf("): ");
             break;
-        case MENU_MAINS:
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
-            printf("MAINS Current set to: %u A\nEnter new max MAINS Current (10-200): ", MaxMains);
-            break;
-        case MENU_MIN:
-            printf("MIN Charge Current set to: %u A\nEnter new MIN Charge Current (6-16): ", MinCurrent);
-            break;
-        case MENU_MAX:
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
-            printf("MAX Current set to: %u A\nEnter new MAX Charge Current (6-80): ", MaxCurrent);
-            break;
-        case MENU_CIRCUIT:
-            printf("WARNING - DO NOT SET CURRENT HIGHER THAN YOUR CIRCUIT BREAKER\n");
-            printf("OR GREATER THAN THE RATED VALUE OF THE EVSE\n");
-            printf("EVSE Circuit Current limit set to: %u A\nEnter new limit (10-160): ", MaxCircuit);
-            break;
         case MENU_LOCK:
-            printf("Cable lock set to : %s\nEnter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ", getMenuItemOption(menu));
+            printf("Enter new Cable lock mode (DISABLE/SOLENOID/MOTOR): ");
             break;
         case MENU_SWITCH:
-            printf("Access Control on pin SW set to : %s\nAccess Control on SW (%s", getMenuItemOption(menu), StrSwitch[0]);
+            printf("Access Control on SW (%s", StrSwitch[0]);
             for(i = 1; i < 5; i++) {
                 printf("/%s", StrSwitch[i]);
             }
             printf("): ");
             break;
         case MENU_RCMON:
-            printf("Residual Current Monitor on pin RCM set to : %s\nResidual Current Monitor (DISABLE/ENABLE): ", getMenuItemOption(menu));
+            printf("Residual Current Monitor (DISABLE/ENABLE): ");
             break;
         case MENU_GRID:
-            printf("GRID connection (for correct Sensorbox measurement) set to : %s\nGrid set to (4Wire/3Wire): ", getMenuItemOption(menu));
+            printf("Grid set to (4Wire/3Wire): ");
             break;
         case MENU_CAL:
             printf("CT1 reads: %d.%u A\nEnter new Measured Current for CT1: ", Irms[0]/10, (unsigned int)abs(Irms[0])%10);
@@ -1815,14 +1795,17 @@ void RS232cli(void) {
         case MENU_EMCUSTOM_ENDIANESS:
             printf("Enter new Byte order (0: LBF & LWF, 1: LBF & HWF, 2: HBF & LWF, 3: HBF & HWF): ");
             break;
+        case MENU_EMCUSTOM_DATATYPE:
+            printf("Enter new Datatype (0: INT32, 1: FLOAT32, 2: INT16): ");
+            break;
         case MENU_EMCUSTOM_UDIVISOR:
         case MENU_EMCUSTOM_IDIVISOR:
         case MENU_EMCUSTOM_PDIVISOR:
         case MENU_EMCUSTOM_EDIVISOR:
-            printf("Enter new exponent of divisor (0-7) or 8 for double: ");
+            printf("Enter new exponent of divisor (0-7): ");
             break;
         case MENU_RFIDREADER:
-            printf("RFID reader is set to: %s\nEnter new RFID reader mode (%s", getMenuItemOption(menu), StrRFIDReader[0]);
+            printf("Enter new RFID reader mode (%s", StrRFIDReader[0]);
             for(i = 1; i < 6; i++) {
                 printf("/%s", StrRFIDReader[i]);
             }

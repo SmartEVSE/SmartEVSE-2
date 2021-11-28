@@ -574,11 +574,11 @@ void GLCD(void) {
         if (SolarStopTimer) {
             seconds = SolarStopTimer;                                           // display remaining time before charging is stopped
             minutes = seconds / 60;
-            seconds = seconds % 60;
+            seconds %= 60;
             sprintf(Str, "%02u:%02u", minutes, seconds);
             GLCD_print_buf(100, 0, Str);                                        // print to buffer
         } else {
-            for (x=0; x<8; x++) GLCDbuf[x+92u] = 0;                             // remove the clock from the LCD buffer
+            for (x = 0; x < 8; x++) GLCDbuf[x + 92u] = 0;                       // remove the clock from the LCD buffer
         }
 
 
@@ -948,7 +948,7 @@ void GLCD_write(unsigned int c) {
     goto_xy(GLCDx, GLCDy);
 
     font_condense(c, &i , &m, 1);
-    GLCDx = GLCDx + (m - i) + 1;
+    GLCDx += (m - i) + 1;
 
     do {
         st7565_data(font[(5 * c) + i]);
@@ -964,13 +964,13 @@ void GLCD_buffer_clr(void) {
 
 void GLCD_write_buf(unsigned int c) {
     unsigned int x;
-    unsigned char i=0, m=5;
+    unsigned char i = 0, m = 5;
 
     x = 128 * GLCDy;
-    x = x + GLCDx;
+    x += GLCDx;
 
     font_condense(c, &i, &m, 1);                                                // remove whitespace from font
-    GLCDx = GLCDx + (m - i) + 1;
+    GLCDx += (m - i) + 1;
 
     do {
         GLCDbuf[x++] = font[(5 * c) + i];
@@ -980,31 +980,31 @@ void GLCD_write_buf(unsigned int c) {
 // Write one double height character to the GLCD buffer
 // special characters '.' and ' ' will use reduced width in the buffer
 void GLCD_write_buf2(unsigned int c) {
-    unsigned char i=0, m=5, ch, z1;
+    unsigned char i = 0, m = 5, ch, z1;
     unsigned int x;
     x = GLCDx;
 
     font_condense(c, &i, &m, 0);
-    GLCDx = GLCDx + ((m - i) * 2) + 2;
+    GLCDx += ((m - i) * 2) + 2;
 
     do {
         z1 = 0;
         ch = font[(5 * c) + i];
-        if (ch & 0x01u) z1 = z1 | 0x3u;
-        if (ch & 0x02u) z1 = z1 | 0xcu;
-        if (ch & 0x04u) z1 = z1 | 0x30u;
-        if (ch & 0x08u) z1 = z1 | 0xc0u;
+        if (ch & 0x01u) z1 |= 0x3u;
+        if (ch & 0x02u) z1 |= 0xcu;
+        if (ch & 0x04u) z1 |= 0x30u;
+        if (ch & 0x08u) z1 |= 0xc0u;
         GLCDbuf[x] = z1;
         GLCDbuf[x + 1] = z1;
         z1 = 0;
         ch = ch >> 4;
-        if (ch & 0x01u) z1 = z1 | 0x3u;
-        if (ch & 0x02u) z1 = z1 | 0xcu;
-        if (ch & 0x04u) z1 = z1 | 0x30u;
-        if (ch & 0x08u) z1 = z1 | 0xc0u;
+        if (ch & 0x01u) z1 |= 0x3u;
+        if (ch & 0x02u) z1 |= 0xcu;
+        if (ch & 0x04u) z1 |= 0x30u;
+        if (ch & 0x08u) z1 |= 0xc0u;
         GLCDbuf[x + 128] = z1;
         GLCDbuf[x + 129] = z1;
-        x = x + 2;
+        x += 2;
     } while (++i < 5);
 }
 

@@ -1111,7 +1111,7 @@ void processAllNodeStates(unsigned char NodeNr) {
 #ifdef LOG_DEBUG_EVSE
         printf("\nNodeAdr %u, BalancedError:%u",NodeNr, BalancedError[NodeNr]);
 #endif
-        ModbusWriteMultipleRequest(NodeNr+1 , 0x0000, values, 2);                 // Write State and Error to Node
+        ModbusWriteMultipleRequest(NodeNr+1 , 0x0000, values, 2);               // Write State and Error to Node
     }
 
 }
@@ -1977,7 +1977,7 @@ void UpdateCurrentData(void) {
 
     // reset Imeasured value (grid power used)
     Imeasured = 0;
-    for (x=0; x<3; x++) {
+    for (x = 0; x < 3; x++) {
         // Imeasured holds highest Irms of all channels
         if (Irms[x] > Imeasured) Imeasured = Irms[x];
     }
@@ -2073,8 +2073,8 @@ void main(void) {
         NOP();
         x = (PORTC & 0b00100001);                                               // Read Two Button Inputs on RC5(>) and RC0(select)
         ButtonState = (x >> 3);
-        ButtonState = ButtonState | ((x << 1) & 0x02);                          // arranged to lowest bits
-        ButtonState = ButtonState | (PORTB & 0x01);                             // Read the state of the last button RB0(<).
+        ButtonState |= ((x << 1) & 0x02);                                       // arranged to lowest bits
+        ButtonState |= (PORTB & 0x01);                                          // Read the state of the last button RB0(<).
         TRISC = 0b10000010;                                                     // RC1 and RC7 input (RX1), all other output
 
                                                                                 // Any button pressed or just released?
@@ -2643,9 +2643,9 @@ void main(void) {
                             Isum = 0;
                             for (x = 0; x < 3; x++) {
                                 // Calculate difference of Mains and PV electric meter
-                                if (PVMeter) CM[x] = CM[x] - PV[x];             // CurrentMeter and PV resolution are 1mA
+                                if (PVMeter) CM[x] -= PV[x];                    // CurrentMeter and PV resolution are 1mA
                                 Irms[x] = (signed int)(CM[x] / 100);            // reduce resolution of Irms to 100mA
-                                Isum = Isum + Irms[x];                          // Isum has a resolution of 100mA
+                                Isum += Irms[x];                                // Isum has a resolution of 100mA
                             }
 
                         } else if (EVMeter && Modbus.Address == EVMeterAddress) {

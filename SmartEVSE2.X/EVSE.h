@@ -98,6 +98,7 @@
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
 #define NR_EVSES 8
 #define BROADCAST_ADR 0x09
+#define STARTCURRENT_AUTO_TIMER 10                                              // Automatic measure StartCurrent after 10 seconds
 
 #define STATE_A 0                                                               // A Vehicle not connected
 #define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy
@@ -182,7 +183,7 @@
 #define STATUS_ACCESS 69                                                        // 0x0005: Access bit
 #define STATUS_CONFIG_CHANGED 70                                                // 0x0006: Configuration changed
 #define STATUS_MAX 71                                                           // 0x0007: Maximum charging current (RO)
-#define STATUS_PHASE_COUNT 72                                                   // 0x0008: Number of used phases (RO) (ToDo)
+#define STATUS_PHASE_COUNT 72                                                   // 0x0008: Number of used phases (RO)
 #define STATUS_REAL_CURRENT 73                                                  // 0x0009: Real charging current (RO) (ToDo)
 #define STATUS_TEMP 74                                                          // 0x000A: Temperature (RO)
 #define STATUS_SERIAL 75                                                        // 0x000B: Serial number (RO)
@@ -372,7 +373,7 @@ const struct {
     {"GRID",   "GRID",    "Grid type to which the Sensorbox is connected",      0, 1, GRID},
     {"CAL",    "CAL",     "Calibrate CT1 (CT2+3 will also change)",             (unsigned int) (ICAL * 0.3), (unsigned int) (ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
     {"MAINS",  "MAINS",   "Max MAINS Current (per phase)",                      10, 200, MAX_MAINS},
-    {"START",  "START",   "Surplus energy start Current (sum of phases)",       1, 48, START_CURRENT},
+    {"START",  "START",   "Surplus energy start Current (sum of phases)",       0, 48, START_CURRENT},
     {"STOP",   "STOP",    "Stop solar charging at 6A after this time",          0, 60, STOP_TIME},
     {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 20, IMPORT_CURRENT},
     {"MAINEM", "MAINSMET","Type of mains electric meter",                       1, EM_CUSTOM, MAINS_METER},
@@ -427,6 +428,9 @@ struct NodeStatus {
     unsigned char ConfigChanged;
     unsigned char EVMeter;
     unsigned char EVAddress;
+    unsigned char MinCurrent; // 0.1A
+    unsigned char Phases;
+    unsigned int Timer; // 1s
 };
 
 void RS485SendBuf(char *buffer, unsigned char len);

@@ -133,9 +133,6 @@
 #include "OneWire.h"
 #include "utils.h"
 
-void SetCurrent(unsigned int);
-unsigned int CalcCurrent();
-
 
 // Configuration settings
 #pragma	config FCMEN = OFF,	IESO = OFF, PRICLKEN = ON
@@ -223,16 +220,16 @@ unsigned int BalancedMax[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                  
 char BalancedState[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                        // State of all EVSE's 0=not active (state A), 1=charge request (State B), 2= Charging (State C)
 unsigned int BalancedError[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                // Error state of EVSE
 struct NodeStatus Node[NR_EVSES] = {                                            // 0: Master / 1: Node 1 ...
-   /*         Config   EV     EV      *
-    * Online, Changed, Meter, Address */
-    {   true,       0,     0,       0 },
-    {  false,       1,     0,       0 },
-    {  false,       1,     0,       0 },
-    {  false,       1,     0,       0 },
-    {  false,       1,     0,       0 },
-    {  false,       1,     0,       0 },
-    {  false,       1,     0,       0 },
-    {  false,       1,     0,       0 }
+   /*         Config   EV     EV       Min                    *
+    * Online, Changed, Meter, Address, Current, Phases, Timer */
+    {   true,       0,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 },
+    {  false,       1,     0,       0,       0,      0,     0 }
 };
 
 unsigned char RX1byte;
@@ -279,6 +276,7 @@ signed long EnergyMeterStart = 0;                                               
 signed long PowerMeasured = 0;                                                  // Measured Charge power in Watt by kWh meter
 unsigned char RFIDstatus = 0;
 unsigned char ExternalMaster = 0;
+unsigned char EVMeasureNode = 255;
 
 void interrupt high_isr(void)
 {
@@ -767,16 +765,20 @@ void setState(unsigned char NewState) {
     State = NewState;
 }
 
-// Is there at least 6A(configurable MinCurrent) available for a EVSE?
-// returns 1 if there is 6A available
-// returns 0 if there is no current available
-//
-char IsCurrentAvailable(void) {
+/**
+ * Is there at least 6A (configurable MinCurrent) available for a EVSE?
+ *
+ * @param NodeNr
+ * @return
+ * returns 1 if there is 6A available
+ * returns 0 if there is no current available
+ */
+char IsCurrentAvailable(unsigned char NodeNr) {
     unsigned char n, ActiveEVSE = 0;
     int Baseload, TotalCurrent = 0;
 
 
-    for (n = 0; n < NR_EVSES; n++) if (BalancedState[n] == STATE_C)                    // must be in STATE_C
+    for (n = 0; n < NR_EVSES; n++) if (BalancedState[n] == STATE_C)             // must be in STATE_C
     {
         ActiveEVSE++;                                                           // Count nr of active (charging) EVSE's
         TotalCurrent += Balanced[n];                                            // Calculate total max charge current for all active EVSE's
@@ -805,12 +807,24 @@ char IsCurrentAvailable(void) {
 
     }
 
+    if (StartCurrent == 0 && !Node[NodeNr].EVMeter && !Node[NodeNr].MinCurrent) {
+        Node[NodeNr].MinCurrent = MinCurrent * 10;
+    }
+
     // Allow solar Charging if surplus current is above 'StartCurrent' (sum of all phases)
     // Charging will start after the timeout (chargedelay) period has ended
-    // now set to -4A (configurable)
-    if (Mode == MODE_SOLAR) {                                                   // no active EVSE yet?
-        if (ActiveEVSE == 0 && Isum >= ((signed int)StartCurrent *-10)) return 0;
-        else if ((ActiveEVSE * MinCurrent * 10) > TotalCurrent) return 0;       // check if we can split the available current between all active EVSE's
+    // Only when StartCurrent configured or Node MinCurrent detected or Node inactive
+    if (Mode == MODE_SOLAR && (StartCurrent || Node[NodeNr].MinCurrent || BalancedState[NodeNr] == STATE_A)) {
+        // no active EVSE yet?
+        if (ActiveEVSE == 0) {
+            if (StartCurrent == 0) {
+                if (Isum >= ((signed int)Node[NodeNr].MinCurrent *-1) + (signed int)(ImportCurrent * 10)) return 0;
+            } else {
+                if (Isum >= ((signed int)StartCurrent *-10)) return 0;
+            }
+        }
+        // check if we can split the available current between all active EVSE's
+        else if ((ActiveEVSE * MinCurrent * 10) > TotalCurrent) return 0;
     }
 
     return 1;
@@ -921,6 +935,24 @@ void CalcBalancedCurrent(char mod) {
         if (IsetBalanced > ActiveMax) IsetBalanced = ActiveMax;                 // limit to total maximum Amps (of all active EVSE's)
 
         MaxBalanced = IsetBalanced;                                             // convert to Amps
+
+        // Automatic StartCurrent detection
+        if (StartCurrent == 0) {
+            for (n = 0; n < NR_EVSES; n++) {
+                if(BalancedState[n] == STATE_C && !Node[n].MinCurrent) {
+                    if(Node[n].Timer >= STARTCURRENT_AUTO_TIMER) {
+                        if (Node[n].EVMeter) {
+                            // Request EV current measurement
+                            EVMeasureNode = n;
+                        }
+                    }
+                    Balanced[n] = MinCurrent * 10;
+                    CurrentSet[n] = true;                                       // mark this EVSE as set.
+                    BalancedLeft--;                                             // decrease counter of active EVSE's
+                    MaxBalanced -= Balanced[n];                                 // Update total current to new (lower) value
+                }
+            }
+        }
 
         // Calculate average current per EVSE
         n = 0;
@@ -1038,7 +1070,7 @@ void processAllNodeStates(unsigned char NodeNr) {
 
     values[0] = BalancedState[NodeNr];
 
-    current = IsCurrentAvailable();
+    current = IsCurrentAvailable(NodeNr);
     if (current) {                                                              // Yes enough current
         if (BalancedError[NodeNr] & (LESS_6A|NO_SUN)) {
             BalancedError[NodeNr] &= ~(LESS_6A | NO_SUN);                       // Clear Error flags
@@ -1053,6 +1085,10 @@ void processAllNodeStates(unsigned char NodeNr) {
 #ifdef LOG_INFO_EVSE
             printf("\nNode %u State A->B request ", NodeNr);
 #endif
+            // Reset Node
+            Node[NodeNr].Timer = 0;
+            Node[NodeNr].MinCurrent = 0;
+
             if (current) {                                                      // check if we have enough current
                                                                                 // Yes enough current..
                 BalancedState[NodeNr] = STATE_B;                                // Mark Node EVSE as active (State B)
@@ -1447,6 +1483,8 @@ unsigned int getItemValue(unsigned char nav) {
         // Status readonly
         case STATUS_MAX:
             return MaxCapacity;
+        case STATUS_PHASE_COUNT:
+            return Node[0].Phases;
         case STATUS_TEMP:
             return (unsigned int)((signed int)TempEVSE + 273);
         case STATUS_SERIAL:
@@ -1478,7 +1516,8 @@ const char * getMenuItemOption(unsigned char nav) {
             else if (Mode == MODE_SOLAR) return StrSolar;
             else return StrNormal;
         case MENU_START:
-                sprintf(Str, "-%2u A", value);
+                if (value == 0) return "Automatic";
+                else sprintf(Str, "-%2u A", value);
                 return Str;
         case MENU_STOP:
             if (value) {
@@ -2017,6 +2056,30 @@ void UpdateCurrentData(void) {
 }
 
 
+void receiveEVCurrentMeasurement(unsigned char *buf, unsigned char NodeNr) {
+    unsigned char x;
+    signed long EV[3]={0, 0, 0};
+
+    x = receiveCurrentMeasurement(buf, Node[NodeNr].EVMeter, EV);
+    Node[NodeNr].MinCurrent = 0;
+    Node[NodeNr].Phases = 0;
+    for (x = 0; x < 3; x++) {
+        Node[NodeNr].MinCurrent += (unsigned char)(EV[x] / 100);
+        if (EV[x] > 100) Node[NodeNr].Phases++;
+    }
+#ifdef LOG_INFO_EVSE
+    printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (measured)", NodeNr, Node[NodeNr].MinCurrent, Node[NodeNr].Phases);
+#endif
+    if (Node[NodeNr].MinCurrent <= 1) {
+        Node[NodeNr].MinCurrent = MinCurrent * 10;
+#ifdef LOG_WARN_EVSE
+        printf("\nMinimum current to low!");
+#endif
+    }
+    EVMeasureNode = 255;
+}
+
+
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
     unsigned char pilot, count = 0, timeout = 5;
@@ -2231,6 +2294,9 @@ void main(void) {
                 ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
                 NextState = NOSTATE;
                 if (!ResetKwh) ResetKwh = 1;                                    // when set, reset EV kWh meter on state B->C change.
+                // Reset Node
+                Node[0].Timer = 0;
+                Node[0].MinCurrent = 0;
             } else if ( (pilot == PILOT_9V || pilot == STATE_A_TO_C)
                 && Error == NO_ERROR && ChargeDelay == 0 && Access_bit
                 && State != STATE_COMM_B) {                                     // switch to State B ?
@@ -2307,8 +2373,8 @@ void main(void) {
                                     if (State != STATE_COMM_C) setState(STATE_COMM_C);
                                 } else {                                        // Load Balancing: Master or Disabled
                                     BalancedMax[0] = ChargeCurrent;
-                                    if (IsCurrentAvailable()) {
-                                        BalancedState[0] = STATE_C;                   // Mark as Charging
+                                    if (IsCurrentAvailable(0)) {
+                                        BalancedState[0] = STATE_C;             // Mark as Charging
                                         Balanced[0] = 0;                        // For correct baseload calculation set current to zero
                                         CalcBalancedCurrent(1);                 // Calculate charge current for all connected EVSE's
 
@@ -2462,7 +2528,7 @@ void main(void) {
                 Error &= ~TEMP_HIGH; // clear Error
             }
 
-            if ( (Error & (LESS_6A|NO_SUN) ) && (LoadBl < 2) && (IsCurrentAvailable())) {
+            if ( (Error & (LESS_6A|NO_SUN) ) && (LoadBl < 2) && (IsCurrentAvailable(0))) {
                 Error &= ~LESS_6A;                                              // Clear Errors if there is enough current available, and Load Balancing is disabled or we are Master
                 Error &= ~NO_SUN;
 #ifdef LOG_DEBUG_EVSE
@@ -2473,6 +2539,11 @@ void main(void) {
 
             if (ExternalMaster) {
                 ExternalMaster--;
+            }
+
+            // Charge timer
+            for (x = 0; x < NR_EVSES; x++) {
+                if (BalancedState[x] == STATE_C) Node[x].Timer++;
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM)) {                       // timeout if CT current measurement takes > 10 secs
@@ -2566,8 +2637,12 @@ void main(void) {
                     }
                     ModbusRequest++;
                 case 5:                                                         // EV kWh meter, Power measurement (momentary power in Watt)
+                    // Request currents for automatic StartCurrent detection
+                    if (EVMeasureNode <= NR_EVSES) {
+                        requestCurrentMeasurement(Node[EVMeasureNode].EVMeter, Node[EVMeasureNode].EVAddress);
+                        break;
                     // Request Power if EV meter is configured
-                    if (Node[PollEVNode].EVMeter) {
+                    } else if (Node[PollEVNode].EVMeter) {
                         requestPowerMeasurement(Node[PollEVNode].EVMeter, Node[PollEVNode].EVAddress);
                         break;
                     }
@@ -2658,8 +2733,11 @@ void main(void) {
                             } else if (Modbus.Register == EMConfig[EVMeter].PRegister) {
                                 // Power measurement
                                 PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
+                            } else if (Modbus.Register == EMConfig[EVMeter].IRegister) {
+                                // Current measurement
+                                receiveEVCurrentMeasurement(Modbus.Data, 0);
                             }
-                        }  else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES) {
+                        } else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES) {
                             // Packet from Node EVSE
                             if (Modbus.Register == 0x0000) {
                                 // Node status
@@ -2667,6 +2745,11 @@ void main(void) {
                             }  else if (Modbus.Register == 0x0108) {
                                 // Node configuration
                                 receiveNodeConfig(Modbus.Data, Modbus.Address - 1u);
+                            }
+                        } else if (EVMeasureNode <= NR_EVSES) {
+                            // Automatic StartCurrent detection for Node on Master
+                            if (Modbus.Address == Node[EVMeasureNode].EVAddress && Modbus.Register == EMConfig[Node[EVMeasureNode].EVMeter].IRegister) {
+                                receiveEVCurrentMeasurement(Modbus.Data, EVMeasureNode);
                             }
                         }
                         break;

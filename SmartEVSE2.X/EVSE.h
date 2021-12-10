@@ -99,6 +99,7 @@
 #define NR_EVSES 8
 #define BROADCAST_ADR 0x09
 #define STARTCURRENT_AUTO_TIMER 10                                              // Automatic measure StartCurrent after 10 seconds
+#define IMPORTCURRENT_ALWAYS                                                    // Import always configured current (not only on start or stop)
 
 #define STATE_A 0                                                               // A Vehicle not connected
 #define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy

@@ -202,7 +202,8 @@ unsigned char EVMeterAddress = EV_METER_ADDRESS;
 unsigned char RFIDReader = RFID_READER;                                         // RFID Reader Disabled/Enabled (Learn / Delete, Delete All)
 
 signed int Irms[3]={0, 0, 0};                                                   // Momentary current per Phase (23 = 2.3A) (resolution 100mA)
-                                                                                // Max 3 phases supported
+signed int Imem[3];                                                             // Max 3 phases supported
+
 unsigned char State = STATE_A;
 unsigned char Error = NO_ERROR;
 unsigned char NextState;
@@ -277,6 +278,9 @@ signed long PowerMeasured = 0;                                                  
 unsigned char RFIDstatus = 0;
 unsigned char ExternalMaster = 0;
 unsigned char EVMeasureNode = 255;
+unsigned char CMMeasureNode = 0;
+unsigned char CMMeasureTimer = 0;
+bool CMMeasured = false;
 
 void interrupt high_isr(void)
 {
@@ -807,10 +811,6 @@ char IsCurrentAvailable(unsigned char NodeNr) {
 
     }
 
-    if (StartCurrent == 0 && !Node[NodeNr].EVMeter && !Node[NodeNr].MinCurrent) {
-        Node[NodeNr].MinCurrent = MinCurrent * 10;
-    }
-
     // Allow solar Charging if surplus current is above 'StartCurrent' (sum of all phases)
     // Charging will start after the timeout (chargedelay) period has ended
     // Only when StartCurrent configured or Node MinCurrent detected or Node inactive
@@ -952,9 +952,16 @@ void CalcBalancedCurrent(char mod) {
                         if (Node[n].EVMeter) {
                             // Request EV current measurement
                             EVMeasureNode = n;
+                        } else if(!CMMeasureTimer) {
+                            CMMeasureNode = n;
+                            CMMeasureTimer = 12 * 3 + 4 + 1;
                         }
                     }
-                    Balanced[n] = MinCurrent * 10;
+                    if (Node[n].EVMeter || CMMeasured) {
+                        Balanced[n] = MinCurrent * 10;
+                    } else {
+                        Balanced[n] = (MinCurrent + 2) * 10;
+                    }
                     CurrentSet[n] = true;                                       // mark this EVSE as set.
                     BalancedLeft--;                                             // decrease counter of active EVSE's
                     MaxBalanced -= Balanced[n];                                 // Update total current to new (lower) value
@@ -1095,6 +1102,7 @@ void processAllNodeStates(unsigned char NodeNr) {
 #endif
             // Reset Node
             Node[NodeNr].Timer = 0;
+            Node[NodeNr].Phases = 0;
             Node[NodeNr].MinCurrent = 0;
 
             if (current) {                                                      // check if we have enough current
@@ -2100,6 +2108,7 @@ void main(void) {
     unsigned long RB2Timer = 0;                                                 // 1500ms
     unsigned char ResetKwh = 2;                                                 // if set, reset EV kwh meter at state transition B->C
                                                                                 // cleared when charging, reset to 1 when disconnected (state A)
+    unsigned char CMMeasurePhases;
 
     init();                                                                     // initialize ports, ADC, UARTs etc
 
@@ -2304,6 +2313,7 @@ void main(void) {
                 if (!ResetKwh) ResetKwh = 1;                                    // when set, reset EV kWh meter on state B->C change.
                 // Reset Node
                 Node[0].Timer = 0;
+                Node[0].Phases = 0;
                 Node[0].MinCurrent = 0;
             } else if ( (pilot == PILOT_9V || pilot == STATE_A_TO_C)
                 && Error == NO_ERROR && ChargeDelay == 0 && Access_bit
@@ -2552,6 +2562,54 @@ void main(void) {
             // Charge timer
             for (x = 0; x < NR_EVSES; x++) {
                 if (BalancedState[x] == STATE_C) Node[x].Timer++;
+            }
+            if (CMMeasureTimer) {
+                CMMeasureTimer--;
+                switch (CMMeasureTimer % 12) {
+                    case 4:
+                        // Store 8 A measurements (and continue charging with 6 A)
+                        memcpy (Imem, Irms, 3 * sizeof(int));
+#ifdef LOG_DEBUG_EVSE
+                        printf("\nRemember Irms");
+#endif
+                        CMMeasured = true;
+                        break;
+                    case 0:
+                        // Count used phases
+                        CMMeasurePhases = 0;
+                        for (x = 0; x < 3; x++) {
+                            // Phase change between -3 A and -1 A
+                            if (Imem[x] - 30 < Irms[x] && Irms[x] < Imem[x] - 10) CMMeasurePhases++;
+                        }
+#ifdef LOG_DEBUG_EVSE
+                        printf("\nCount %u phases on change from 8 A to 6 A", CMMeasurePhases);
+#endif
+                        CMMeasured = false;
+
+                        // Is previous phase count available
+                        if (Node[CMMeasureNode].Phases) {
+                            // Compare phase count
+                            if (Node[CMMeasureNode].Phases == CMMeasurePhases) {
+                                Node[CMMeasureNode].MinCurrent = Node[CMMeasureNode].Phases * MinCurrent * 10;
+#ifdef LOG_INFO_EVSE
+                                printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (guessed)", CMMeasureNode, Node[CMMeasureNode].MinCurrent, Node[CMMeasureNode].Phases);
+#endif
+                                CMMeasureTimer = 0;
+                            }
+                        } else {
+                            // Remember phase count
+                            Node[CMMeasureNode].Phases = CMMeasurePhases;
+                        }
+
+                        // Default to MinCurrent on unsuccessful phase count
+                        if (CMMeasureTimer == 0 && !Node[CMMeasureNode].MinCurrent) {
+                            Node[CMMeasureNode].MinCurrent = MinCurrent * 10;
+#ifdef LOG_WARN_EVSE
+                            printf("\nUnsuccessful phase count!");
+#endif
+                        }
+                        break;
+                }
             }
 
             if ((timeout == 0) && !(Error & CT_NOCOMM)) {                       // timeout if CT current measurement takes > 10 secs

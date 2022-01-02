@@ -25,6 +25,8 @@
 #ifndef __GLCD_H
 #define __GLCD_H
 
+#define GLCD_MERGE 0b00001000
+
 extern void GLCDHelp(void);
 extern void GLCD(void);
 extern void GLCDMenu(unsigned char Buttons);

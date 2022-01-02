@@ -304,9 +304,18 @@ void GLCD_write(unsigned int c) {
     } while (++i < m);
 }
 
-void GLCD_write_buf(unsigned int c) {
-    unsigned int x;
-    unsigned char i = 0, m = 5;
+/**
+ * Write character to buffer
+ *
+ * @param c
+ * @param 00000000 Options
+ *            |+++ Shift font down
+ *            +--- Merge with buffer content
+*/
+void GLCD_write_buf(unsigned int c, unsigned char Options) {
+    unsigned int f, x;
+    unsigned char i = 0, m = 5, shift = 0;
+    bool merge = false;
 
     x = 128 * GLCDy;
     x += GLCDx;
@@ -314,8 +323,17 @@ void GLCD_write_buf(unsigned int c) {
     font_condense(c, &i, &m, 1);                                                // remove whitespace from font
     GLCDx += (m - i) + 1;
 
+    if (Options) {
+        shift = Options & 0b00000111;
+        if (Options & GLCD_MERGE) merge = true;
+    }
+
     do {
-        GLCDbuf[x++] = font[c][i];
+        f = font[c][i];
+        if(shift) f <<= shift;
+        if(merge) f |= GLCDbuf[x];
+        GLCDbuf[x] = f;
+        x++;
     } while (++i < m);
 }
 
@@ -404,7 +422,7 @@ void GLCD_print_buf(unsigned char x, unsigned char y, const char* str) {
     GLCDx = x;
     GLCDy = y;
     while (str[i]) {
-        GLCD_write_buf(str[i++]);
+        GLCD_write_buf(str[i++], 0);
     }
 }
 
@@ -640,7 +658,7 @@ void GLCD(void) {
         GLCDx = energy_mains;
         GLCDy = 3;
 
-        if (abs(Isum) >3 ) GLCD_write_buf(0x0A);                                // Show energy flow 'blob' between Grid and House
+        if (abs(Isum) >3 ) GLCD_write_buf(0x0A, 0);                             // Show energy flow 'blob' between Grid and House
                                                                                 // If current flow is < 0.3A don't show the blob
 
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
@@ -656,7 +674,7 @@ void GLCD(void) {
 
             GLCDx = energy_ev;
             GLCDy = 3;
-            GLCD_write_buf(0x0A);                                               // Show energy flow 'blob' between House and Car
+            GLCD_write_buf(0x0A, 0);                                            // Show energy flow 'blob' between House and Car
 
             if (LCDToggle && EVMeter) {
                 if (PowerMeasured < 9950) {
@@ -675,7 +693,7 @@ void GLCD(void) {
         if (LCDToggle && Mode == MODE_SOLAR) {                                  // Show Sum of currents when solar charging.
             GLCDx = 41;
             GLCDy = 1;
-            GLCD_write_buf(0x0B);                                               // Sum symbol
+            GLCD_write_buf(0x0B, 0);                                            // Sum symbol
 
             sprintfl(Str, "%3dA", Isum, 1, 0);
             GLCD_print_buf(23, 2, Str);                                         // print to buffer

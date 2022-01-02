@@ -201,6 +201,166 @@ bool LCDToggle = false;                                                         
 unsigned char LCDText = 0;                                                      // Cycle through text messages
 unsigned int GLCDx, GLCDy;
 
+void st7565_command(unsigned char data) {
+    _A0_0;
+    PIR1bits.SSP1IF = 0;                                                        // clear flag
+    SSP1BUF = data;                                                             // and send SPI data
+    while (!PIR1bits.SSP1IF);                                                   // wait for bit to become set
+}
+
+void st7565_data(unsigned char data) {
+    _A0_1;
+    PIR1bits.SSP1IF = 0;                                                        // clear flag
+    SSP1BUF = data;                                                             // and send SPI data
+    while (!PIR1bits.SSP1IF);                                                   // wait for bit to become set
+}
+
+void goto_row(unsigned char y) {
+    unsigned char pattern;
+    pattern = 0xB0 | (y & 0xBF);                                                // put row address on data port set command
+    st7565_command(pattern);
+}
+//--------------------
+
+void goto_col(unsigned char x) {
+    unsigned char pattern;
+    pattern = ((0xF0 & x) >> 4) | 0x10;
+    st7565_command(pattern);                                                    // set high byte column command
+    pattern = ((0x0F & x)) | 0x00;
+    st7565_command(pattern);                                                    // set low byte column command;
+}
+//--------------------
+
+void goto_xy(unsigned char x, unsigned char y) {
+    goto_col(x);
+    goto_row(y);
+}
+
+void glcd_clrln(unsigned char ln, unsigned char data) {
+    unsigned char i;
+    goto_xy(0, ln);
+    for (i = 0; i < 128; i++) {
+        st7565_data(data);                                                      // put data on data port
+    }
+}
+
+void glcd_clear(void) {
+    unsigned char i;
+    for (i = 0; i < 8; i++) {
+        glcd_clrln(i, 0);
+    }
+}
+
+void GLCD_buffer_clr(void) {
+    unsigned char x = 0;
+    do {
+        GLCDbuf[x++] = 0;                                                       // clear first 256 bytes of GLCD buffer
+    } while (x != 0);
+}
+
+//
+// Write 2 rows of data in GLCD buffer to LCD
+//
+void GLCD_sendbuf2(unsigned char RowAdr) {
+    unsigned char i, x = 0, y = 0;
+
+    do {
+        goto_xy(0, RowAdr + y);
+        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
+    } while (++y < 2);
+}
+
+//
+// Write 4 rows of data in GLCD buffer to LCD
+//
+void GLCD_sendbuf4(unsigned char RowAdr) {
+    unsigned int i, x = 0, y = 0;
+
+    do {
+        goto_xy(0, RowAdr + y);
+        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
+    } while (++y < 4);
+}
+
+void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
+    if(c >= '0' && c <= '9') return;
+    if(c == ' ' && space) return;
+    if(font[c][0] == 0) {
+        if(font[c][1] == 0) *start = 2;
+        else *start = 1;
+    }
+    if(font[c][4] == 0) *end = 4;
+}
+
+void GLCD_write(unsigned int c) {
+    unsigned char i=0, m=5;
+    goto_xy(GLCDx, GLCDy);
+
+    font_condense(c, &i , &m, 1);
+    GLCDx += (m - i) + 1;
+
+    do {
+        st7565_data(font[c][i]);
+    } while (++i < m);
+}
+
+void GLCD_write_buf(unsigned int c) {
+    unsigned int x;
+    unsigned char i = 0, m = 5;
+
+    x = 128 * GLCDy;
+    x += GLCDx;
+
+    font_condense(c, &i, &m, 1);                                                // remove whitespace from font
+    GLCDx += (m - i) + 1;
+
+    do {
+        GLCDbuf[x++] = font[c][i];
+    } while (++i < m);
+}
+
+// Write one double height character to the GLCD buffer
+// special characters '.' and ' ' will use reduced width in the buffer
+void GLCD_write_buf2(unsigned int c) {
+    unsigned char i = 0, m = 5, ch, z1;
+    unsigned int x;
+    x = GLCDx;
+
+    font_condense(c, &i, &m, 0);
+    GLCDx += ((m - i) * 2) + 2;
+
+    do {
+        z1 = 0;
+        ch = font[c][i];
+        if (ch & 0x01u) z1 |= 0x3u;
+        if (ch & 0x02u) z1 |= 0xcu;
+        if (ch & 0x04u) z1 |= 0x30u;
+        if (ch & 0x08u) z1 |= 0xc0u;
+        GLCDbuf[x] = z1;
+        GLCDbuf[x + 1] = z1;
+        z1 = 0;
+        ch = ch >> 4;
+        if (ch & 0x01u) z1 |= 0x3u;
+        if (ch & 0x02u) z1 |= 0xcu;
+        if (ch & 0x04u) z1 |= 0x30u;
+        if (ch & 0x08u) z1 |= 0xc0u;
+        GLCDbuf[x + 128] = z1;
+        GLCDbuf[x + 129] = z1;
+        x += 2;
+    } while (++i < m);
+}
+
+// Write a string directly to LCD
+void GLCD_print(unsigned char x, unsigned char y, const char* str) {
+    unsigned char i = 0;
+
+    GLCDx = x;
+    GLCDy = y;
+    while (str[i]) {
+        GLCD_write(str[i++]);
+    }
+}
+
 // uses buffer
 void GLCD_print_row(const char *data)                                           // write 10+ characters to LCD
 {
@@ -231,6 +391,27 @@ void GLCD_print_buf2_noclr(unsigned char y, const char* str) {
     GLCD_sendbuf2(y);                                                           // copy buffer to LCD
 }
 
+/**
+ * Write a string to LCD buffer
+ *
+ * @param str
+ * @param x
+ * @param y
+ */
+void GLCD_print_buf(unsigned char x, unsigned char y, const char* str) {
+    unsigned char i = 0;
+
+    GLCDx = x;
+    GLCDy = y;
+    while (str[i]) {
+        GLCD_write_buf(str[i++]);
+    }
+}
+
+void GLCD_print_buf2(unsigned char y, const char* str) {
+    GLCD_buffer_clr();                                                          // Clear buffer
+    GLCD_print_buf2_noclr(y, str);
+}
 
 // Write Menu to buffer, then send to GLCD
 void GLCD_print_menu(unsigned char y, const char* str) {
@@ -244,12 +425,6 @@ void GLCD_print_menu(unsigned char y, const char* str) {
     }
     GLCD_print_buf2_noclr(y, str);
 }
-
-void GLCD_print_buf2(unsigned char y, const char* str) {
-    GLCD_buffer_clr();                                                          // Clear buffer
-    GLCD_print_buf2_noclr(y, str);
-}
-
 
 /**
  * Increase or decrease int value
@@ -469,7 +644,7 @@ void GLCD(void) {
                                                                                 // If current flow is < 0.3A don't show the blob
 
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
-            sprintfl(Str, "%2u.%1ukWh", EnergyCharged, 3, 1);                      // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
+            sprintfl(Str, "%2u.%1ukWh", EnergyCharged, 3, 1);                   // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
             GLCD_print_buf(89, 1, Str);                                         // print to buffer
         }
 
@@ -567,6 +742,7 @@ void GLCD(void) {
 }
 
 
+
 /**
  * Counts nr of menu options currently available
  * 
@@ -581,6 +757,7 @@ unsigned char GetPosInMenu (unsigned char count) {
     }
     return 0;
 }
+
 
 
 /**
@@ -731,177 +908,6 @@ void GLCDMenu(unsigned char Buttons) {
     LCDTimer = 0;
 }
 
-void st7565_command(unsigned char data) {
-    _A0_0;
-    PIR1bits.SSP1IF = 0;                                                        // clear flag
-    SSP1BUF = data;                                                             // and send SPI data
-    while (!PIR1bits.SSP1IF);                                                   // wait for bit to become set
-}
-
-void st7565_data(unsigned char data) {
-    _A0_1;
-    PIR1bits.SSP1IF = 0;                                                        // clear flag
-    SSP1BUF = data;                                                             // and send SPI data
-    while (!PIR1bits.SSP1IF);                                                   // wait for bit to become set
-}
-
-void goto_row(unsigned char y) {
-    unsigned char pattern;
-    pattern = 0xB0 | (y & 0xBF);                                                // put row address on data port set command
-    st7565_command(pattern);
-}
-//--------------------
-
-void goto_col(unsigned char x) {
-    unsigned char pattern;
-    pattern = ((0xF0 & x) >> 4) | 0x10;
-    st7565_command(pattern);                                                    // set high byte column command
-    pattern = ((0x0F & x)) | 0x00;
-    st7565_command(pattern);                                                    // set low byte column command;
-}
-//--------------------
-
-void goto_xy(unsigned char x, unsigned char y) {
-    goto_col(x);
-    goto_row(y);
-}
-
-void glcd_clrln(unsigned char ln, unsigned char data) {
-    unsigned char i;
-    goto_xy(0, ln);
-    for (i = 0; i < 128; i++) {
-        st7565_data(data);                                                      // put data on data port
-    }
-}
-
-//
-// Write 2 rows of data in GLCD buffer to LCD
-//
-void GLCD_sendbuf2(unsigned char RowAdr) {
-    unsigned char i, x = 0, y = 0;
-
-    do {
-        goto_xy(0, RowAdr + y);
-        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
-    } while (++y < 2);
-}
-
-//
-// Write 4 rows of data in GLCD buffer to LCD
-//
-void GLCD_sendbuf4(unsigned char RowAdr) {
-    unsigned int i, x = 0, y = 0;
-
-    do {
-        goto_xy(0, RowAdr + y);
-        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
-    } while (++y < 4);
-}
-
-void glcd_clear(void) {
-    unsigned char i;
-    for (i = 0; i < 8; i++) {
-        glcd_clrln(i, 0);
-    }
-}
-
-void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
-    if(c >= '0' && c <= '9') return;
-    if(c == ' ' && space) return;
-    if(font[c][0] == 0) {
-        if(font[c][1] == 0) *start = 2;
-        else *start = 1;
-    }
-    if(font[c][4] == 0) *end = 4;
-}
-
-void GLCD_write(unsigned int c) {
-    unsigned char i=0, m=5;
-    goto_xy(GLCDx, GLCDy);
-
-    font_condense(c, &i , &m, 1);
-    GLCDx += (m - i) + 1;
-
-    do {
-        st7565_data(font[c][i]);
-    } while (++i < m);
-}
-
-void GLCD_buffer_clr(void) {
-    unsigned char x = 0;
-    do {
-        GLCDbuf[x++] = 0;                                                       // clear first 256 bytes of GLCD buffer
-    } while (x != 0);
-}
-
-void GLCD_write_buf(unsigned int c) {
-    unsigned int x;
-    unsigned char i = 0, m = 5;
-
-    x = 128 * GLCDy;
-    x += GLCDx;
-
-    font_condense(c, &i, &m, 1);                                                // remove whitespace from font
-    GLCDx += (m - i) + 1;
-
-    do {
-        GLCDbuf[x++] = font[c][i];
-    } while (++i < m);
-}
-
-// Write one double height character to the GLCD buffer
-// special characters '.' and ' ' will use reduced width in the buffer
-void GLCD_write_buf2(unsigned int c) {
-    unsigned char i = 0, m = 5, ch, z1;
-    unsigned int x;
-    x = GLCDx;
-
-    font_condense(c, &i, &m, 0);
-    GLCDx += ((m - i) * 2) + 2;
-
-    do {
-        z1 = 0;
-        ch = font[c][i];
-        if (ch & 0x01u) z1 |= 0x3u;
-        if (ch & 0x02u) z1 |= 0xcu;
-        if (ch & 0x04u) z1 |= 0x30u;
-        if (ch & 0x08u) z1 |= 0xc0u;
-        GLCDbuf[x] = z1;
-        GLCDbuf[x + 1] = z1;
-        z1 = 0;
-        ch = ch >> 4;
-        if (ch & 0x01u) z1 |= 0x3u;
-        if (ch & 0x02u) z1 |= 0xcu;
-        if (ch & 0x04u) z1 |= 0x30u;
-        if (ch & 0x08u) z1 |= 0xc0u;
-        GLCDbuf[x + 128] = z1;
-        GLCDbuf[x + 129] = z1;
-        x += 2;
-    } while (++i < m);
-}
-
-// Write a string directly to LCD
-//
-void GLCD_print(unsigned char x, unsigned char y, const char* str) {
-    unsigned char i = 0;
-
-    GLCDx = x;
-    GLCDy = y;
-    while (str[i]) {
-        GLCD_write(str[i++]);
-    }
-}
-
-// Write a string to LCD buffer
-void GLCD_print_buf(unsigned char x, unsigned char y, const char* str) {
-    unsigned char i = 0;
-
-    GLCDx = x;
-    GLCDy = y;
-    while (str[i]) {
-        GLCD_write_buf(str[i++]);
-    }
-}
 
 
 void GLCD_init(void) {
@@ -933,6 +939,8 @@ void GLCD_init(void) {
     st7565_command(0xAF);                                                       // ON command
 
 }
+
+
 
 void GLCD_version(void) {
     glcd_clear();                                                               // Clear whole display

@@ -25,21 +25,6 @@
 #ifndef __GLCD_H
 #define __GLCD_H
 
-void GLCD_write(unsigned int c);
-void GLCD_write2(unsigned int c);
-void GLCD_write_buf(unsigned int c);
-void GLCD_write_buf2(unsigned int c);
-void GLCD_print(unsigned char x,unsigned char y,const char* str);
-void GLCD_print_buf(unsigned char x,unsigned char y,const char* str);
-void GLCD_print_buf2(unsigned char y,const char* str);
-void GLCD_print_menu(unsigned char y,const char* str);
-void glcd_clrln(unsigned char ln,unsigned char data);
-void GLCD_sendbuf2(unsigned char RowAdr);
-void GLCD_sendbuf4(unsigned char RowAdr);
-void GLCD_buffer_clr(void);
-void glcd_clear(void);
-void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space);
-
 extern void GLCDHelp(void);
 extern void GLCD(void);
 extern void GLCDMenu(unsigned char Buttons);

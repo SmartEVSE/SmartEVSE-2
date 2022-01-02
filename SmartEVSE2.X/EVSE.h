@@ -432,7 +432,7 @@ struct NodeStatus {
     unsigned char MinCurrent; // 0.1A
     unsigned char Phases;
     unsigned int Timer; // 1s
-};
+} Node[NR_EVSES];
 
 void RS485SendBuf(char *buffer, unsigned char len);
 void eeprom_read_object(void *obj_p, size_t obj_size);

@@ -666,6 +666,13 @@ void GLCD(void) {
             GLCD_print_buf(89, 1, Str);                                         // print to buffer
         }
 
+        // Write number of used phases into the car
+        if (Node[0].Phases) {
+            GLCDx = 110;
+            GLCDy = 2;
+            GLCD_write_buf(Node[0].Phases, 2 | GLCD_MERGE);
+        }
+
         if (State == STATE_C) {
             BacklightTimer = BACKLIGHT;
 

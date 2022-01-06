@@ -393,31 +393,17 @@ void GLCD_buffer_clr(void) {
     } while (x != 0);
 }
 
-//
-// Write 2 rows of data in GLCD buffer to LCD
-//
-void GLCD_sendbuf2(unsigned char RowAdr) {
-    unsigned char i, x = 0, y = 0;
+void GLCD_sendbuf(unsigned char RowAdr, unsigned char Rows) {
+    unsigned char i, y = 0;
+    unsigned int x = 0;
 
     do {
         goto_xy(0, RowAdr + y);
         for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
-    } while (++y < 2);
+    } while (++y < Rows);
 }
 
-//
-// Write 4 rows of data in GLCD buffer to LCD
-//
-void GLCD_sendbuf4(unsigned char RowAdr) {
-    unsigned int i, x = 0, y = 0;
-
-    do {
-        goto_xy(0, RowAdr + y);
-        for (i = 0; i < 128; i++) st7565_data(GLCDbuf[x++]);                    // put data on data port
-    } while (++y < 4);
-}
-
-void font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
+void GLCD_font_condense(unsigned char c, unsigned char *start, unsigned char *end, unsigned char space) {
     if(c >= '0' && c <= '9') return;
     if(c == ' ' && space) return;
     if(font[c][0] == 0) {
@@ -427,16 +413,19 @@ void font_condense(unsigned char c, unsigned char *start, unsigned char *end, un
     if(font[c][4] == 0) *end = 4;
 }
 
-void GLCD_write(unsigned int c) {
-    unsigned char i=0, m=5;
-    goto_xy(GLCDx, GLCDy);
+unsigned char GLCD_text_length(const char *str) {
+    unsigned char i = 0, length = 0;
+    unsigned char s, e;
 
-    font_condense(c, &i , &m, 1);
-    GLCDx += (m - i) + 1;
+    while (str[i]) {
+        s = 0;
+        e = 5;
+        GLCD_font_condense(str[i], &s, &e, 0);
+        length += (e - s) + 1;
+        i++;
+    }
 
-    do {
-        st7565_data(font[c][i]);
-    } while (++i < m);
+    return length - 1;
 }
 
 /**
@@ -455,7 +444,7 @@ void GLCD_write_buf(unsigned int c, unsigned char Options) {
     x = 128 * GLCDy;
     x += GLCDx;
 
-    font_condense(c, &i, &m, 1);                                                // remove whitespace from font
+    GLCD_font_condense(c, &i, &m, 1);                                           // remove whitespace from font
     GLCDx += (m - i) + 1;
 
     if (Options) {
@@ -476,72 +465,30 @@ void GLCD_write_buf(unsigned int c, unsigned char Options) {
 // special characters '.' and ' ' will use reduced width in the buffer
 void GLCD_write_buf2(unsigned int c) {
     unsigned char i = 0, m = 5, ch, z1;
-    unsigned int x;
-    x = GLCDx;
 
-    font_condense(c, &i, &m, 0);
-    GLCDx += ((m - i) * 2) + 2;
+    GLCD_font_condense(c, &i, &m, 0);
 
-    do {
+    while ((i < m) && (GLCDx < 127)) {
         z1 = 0;
         ch = font[c][i];
         if (ch & 0x01u) z1 |= 0x3u;
         if (ch & 0x02u) z1 |= 0xcu;
         if (ch & 0x04u) z1 |= 0x30u;
         if (ch & 0x08u) z1 |= 0xc0u;
-        GLCDbuf[x] = z1;
-        GLCDbuf[x + 1] = z1;
+        GLCDbuf[GLCDx] = z1;
+        GLCDbuf[GLCDx + 1] = z1;
         z1 = 0;
         ch = ch >> 4;
         if (ch & 0x01u) z1 |= 0x3u;
         if (ch & 0x02u) z1 |= 0xcu;
         if (ch & 0x04u) z1 |= 0x30u;
         if (ch & 0x08u) z1 |= 0xc0u;
-        GLCDbuf[x + 128] = z1;
-        GLCDbuf[x + 129] = z1;
-        x += 2;
-    } while (++i < m);
-}
-
-// Write a string directly to LCD
-void GLCD_print(unsigned char x, unsigned char y, const char* str) {
-    unsigned char i = 0;
-
-    GLCDx = x;
-    GLCDy = y;
-    while (str[i]) {
-        GLCD_write(str[i++]);
-    }
-}
-
-// uses buffer
-void GLCD_print_row(const char *data)                                           // write 10+ characters to LCD
-{
-    GLCD_buffer_clr();                                                          // Clear buffer
-    GLCDx = 2;
-
-    do {
-        GLCD_write_buf2(*data++);
-    } while (GLCDx < 118);
-    GLCD_sendbuf2(2);                                                           // copy buffer to LCD
-}
-
-void GLCD_print_buf2_noclr(unsigned char y, const char* str) {
-    unsigned char i = 0, s, e;
-
-    GLCDx = 65;
-    while (str[i]) {                                                            // calculate offset for centering text
-        s = 0;
-        e = 5;
-        font_condense(str[i], &s, &e, 0);
-        GLCDx -= (e - s) + 1;
+        GLCDbuf[GLCDx + 128] = z1;
+        GLCDbuf[GLCDx + 129] = z1;
         i++;
-    }
-    i=0;
-    while (str[i]) {
-        GLCD_write_buf2(str[i++]);
-    }
-    GLCD_sendbuf2(y);                                                           // copy buffer to LCD
+        GLCDx += 2;
+    };
+    GLCDx += 2;
 }
 
 /**
@@ -550,25 +497,63 @@ void GLCD_print_buf2_noclr(unsigned char y, const char* str) {
  * @param str
  * @param x
  * @param y
+ * @param Options
  */
-void GLCD_print_buf(unsigned char x, unsigned char y, const char* str) {
+void GLCD_write_buf_str(unsigned char x, unsigned char y, const char* str, unsigned char Options) {
     unsigned char i = 0;
 
-    GLCDx = x;
+    switch(Options) {
+        case GLCD_ALIGN_LEFT:
+            GLCDx = x;
+            break;
+        case GLCD_ALIGN_CENTER:
+            GLCDx = x - (GLCD_text_length(str) / 2);
+            break;
+        case GLCD_ALIGN_RIGHT:
+            GLCDx = x - GLCD_text_length(str);
+            break;
+    }
+
     GLCDy = y;
     while (str[i]) {
         GLCD_write_buf(str[i++], 0);
     }
 }
 
+void GLCD_write_buf_str2(const char *str, unsigned char Options) {
+    unsigned char i = 0;
+
+    if (Options == GLCD_ALIGN_CENTER) GLCDx = 64 - GLCD_text_length(str);
+    else GLCDx = 2;
+
+    while (str[i]) {
+        GLCD_write_buf2(str[i++]);
+    }
+}
+
+void GLCD_print_buf(unsigned char y, const char *str) {
+    GLCD_buffer_clr();                                                          // Clear buffer
+    GLCD_write_buf_str(0, y, str, GLCD_ALIGN_LEFT);
+    GLCD_sendbuf(y, 1);                                                         // copy buffer to LCD
+}
+
+// uses buffer
+void GLCD_print_buf2_left(const char *data) {
+    GLCD_buffer_clr();                                                          // Clear buffer
+    GLCD_write_buf_str2(data, GLCD_ALIGN_LEFT);
+    GLCD_sendbuf(2, 2);                                                         // copy buffer to LCD
+}
+
 void GLCD_print_buf2(unsigned char y, const char* str) {
     GLCD_buffer_clr();                                                          // Clear buffer
-    GLCD_print_buf2_noclr(y, str);
+    GLCD_write_buf_str2(str, GLCD_ALIGN_CENTER);
+    GLCD_sendbuf(y, 2);                                                        // copy buffer to LCD
 }
 
 // Write Menu to buffer, then send to GLCD
 void GLCD_print_menu(unsigned char y, const char* str) {
     GLCD_buffer_clr();                                                          // Clear buffer
+    GLCD_write_buf_str2(str, GLCD_ALIGN_CENTER);
 
     if ((SubMenu && y == 4) || (!SubMenu && y == 2)) {                          // navigation arrows
         GLCDx = 0;
@@ -576,7 +561,8 @@ void GLCD_print_menu(unsigned char y, const char* str) {
         GLCDx = 10 * 12;                                                        // last character of line
         GLCD_write_buf2('>');
     }
-    GLCD_print_buf2_noclr(y, str);
+
+    GLCD_sendbuf(y, 2);
 }
 
 /**
@@ -626,7 +612,7 @@ void GLCDHelp(void)                                                             
     unsigned int x;
 
     x = strlen(MenuStr[LCDNav].Desc);
-    GLCD_print_row(MenuStr[LCDNav].Desc + LCDpos);
+    GLCD_print_buf2_left(MenuStr[LCDNav].Desc + LCDpos);
 
     if (LCDpos++ == 0) ScrollTimer = Timer - 4000;
     else if (LCDpos > (x - 10)) {
@@ -649,11 +635,11 @@ void GLCD(void) {
 
     if (LCDNav) {
         if (LCDNav == MENU_RFIDREADER && SubMenu) {
-            if (RFIDstatus == 2) GLCD_print(0,0, (const char*) "Card Stored");
-            else if (RFIDstatus == 3) GLCD_print(0,0, (const char*) "Card Deleted");
-            else if (RFIDstatus == 4) GLCD_print(0,0, (const char*) "Card already stored!");
-            else if (RFIDstatus == 5) GLCD_print(0,0, (const char*) "Card not in storage!");
-            else if (RFIDstatus == 6) GLCD_print(0,0, (const char*) "Card storage full!");
+            if (RFIDstatus == 2) GLCD_print_buf(0, (const char*) "Card Stored");
+            else if (RFIDstatus == 3) GLCD_print_buf(0, (const char*) "Card Deleted");
+            else if (RFIDstatus == 4) GLCD_print_buf(0, (const char*) "Card already stored!");
+            else if (RFIDstatus == 5) GLCD_print_buf(0, (const char*) "Card not in storage!");
+            else if (RFIDstatus == 6) GLCD_print_buf(0, (const char*) "Card storage full!");
             else glcd_clrln(0, 0x00);                                           // Clear line
             LCDTimer = 0;                                                       // reset timer, so it will not exit the menu when learning/deleting cards
         }
@@ -776,7 +762,7 @@ void GLCD(void) {
             minutes = seconds / 60;
             seconds %= 60;
             sprintf(Str, "%02u:%02u", minutes, seconds);
-            GLCD_print_buf(100, 0, Str);                                        // print to buffer
+            GLCD_write_buf_str(100, 0, Str, GLCD_ALIGN_LEFT);                   // print to buffer
         } else {
             for (x = 0; x < 8; x++) GLCDbuf[x + 92u] = 0;                       // remove the clock from the LCD buffer
         }
@@ -798,7 +784,7 @@ void GLCD(void) {
 
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
             sprintfl(Str, "%2u.%1ukWh", EnergyCharged, 3, 1);                   // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
-            GLCD_print_buf(89, 1, Str);                                         // print to buffer
+            GLCD_write_buf_str(89, 1, Str, GLCD_ALIGN_LEFT);                    // print to buffer
         }
 
         // Write number of used phases into the car
@@ -821,14 +807,14 @@ void GLCD(void) {
             if (LCDToggle && EVMeter) {
                 if (PowerMeasured < 9950) {
                     sprintfl(Str, "%1u.%1ukW", PowerMeasured, 3, 1);
-                    GLCD_print_buf(73, 2, Str);
+                    GLCD_write_buf_str(73, 2, Str, GLCD_ALIGN_LEFT);
                 } else {
                     sprintfl(Str, "%2ukW", PowerMeasured, 3, 0);
-                    GLCD_print_buf(75, 2, Str);
+                    GLCD_write_buf_str(75, 2, Str, GLCD_ALIGN_LEFT);
                 }
             } else {
                 sprintfl(Str, "%2uA", Balanced[0], 1, 0);
-                GLCD_print_buf(77, 2, Str);
+                GLCD_write_buf_str(77, 2, Str, GLCD_ALIGN_LEFT);
             }
         }
 
@@ -838,14 +824,14 @@ void GLCD(void) {
             GLCD_write_buf(0x0B, 0);                                            // Sum symbol
 
             sprintfl(Str, "%3dA", Isum, 1, 0);
-            GLCD_print_buf(23, 2, Str);                                         // print to buffer
+            GLCD_write_buf_str(23, 2, Str, GLCD_ALIGN_LEFT);                    // print to buffer
         } else {                                                                // Displayed only in Smart and Solar modes
             for (x = 0; x < 3; x++) {                                           // Display L1, L2 and L3 currents on LCD
                 sprintfl(Str, "%3dA", Irms[x], 1, 0);
-                GLCD_print_buf(23, x, Str);                                     // print to buffer
+                GLCD_write_buf_str(23, x, Str, GLCD_ALIGN_LEFT);                // print to buffer
             }
         }
-        GLCD_sendbuf4(0);                                                       // Copy LCD buffer to GLCD
+        GLCD_sendbuf(0, 4);                                                     // Copy LCD buffer to GLCD
 
         glcd_clrln(4, 0);                                                       // Clear line 4
         if (Error & LESS_6A) {
@@ -1052,12 +1038,13 @@ void GLCDMenu(unsigned char Buttons) {
             }
 
             // Bottom row of the GLCD
-            glcd_clrln(7, 0x00);                                                // Clear line
-            sprintf(Str, "%3i%cC", TempEVSE, 0x0C);                             // ° Degree symbol
-            GLCD_print(0,7, Str);                                               // show the internal temperature
-            sprintf(Str, "%2u/%u", GetPosInMenu(MenuItemsCount), MenuItemsCount);
-            GLCD_print(64-15,7, Str);                                           // show navigation position in the menu
-            GLCD_print(122-(strlen(VERSION)*6),7, (const char *) "v"VERSION);// show software version in bottom right corner.
+            GLCD_buffer_clr();
+            sprintf(Str, "%i%cC", TempEVSE, 0x0C);                              // ° Degree symbol
+            GLCD_write_buf_str(6, 0, Str, GLCD_ALIGN_LEFT);                     // show the internal temperature
+            sprintf(Str, "%u/%u", GetPosInMenu(MenuItemsCount), MenuItemsCount);
+            GLCD_write_buf_str(64, 0, Str, GLCD_ALIGN_CENTER);                  // show navigation position in the menu
+            GLCD_write_buf_str(122, 0, (const char *) "v"VERSION, GLCD_ALIGN_RIGHT);// show software version in bottom right corner.
+            GLCD_sendbuf(7, 1);
         }
         ButtonRelease = 2;                                                      // Set value to 2, so that LCD will be updated only once
     }

@@ -27,6 +27,9 @@
 
 #define GLCD_MERGE 0b00001000
 //#define GLCD_FULL_CHARSET
+#define GLCD_ALIGN_LEFT   0
+#define GLCD_ALIGN_CENTER 1
+#define GLCD_ALIGN_RIGHT  2
 
 extern void GLCDHelp(void);
 extern void GLCD(void);

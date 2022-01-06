@@ -98,7 +98,7 @@
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
 #define NR_EVSES 8
 #define BROADCAST_ADR 0x09
-#define STARTCURRENT_AUTO_TIMER 30                                              // Automatic measure StartCurrent after 10 seconds
+#define STARTCURRENT_AUTO_TIMER 40                                              // Automatic measure StartCurrent after 40 seconds
 #define IMPORTCURRENT_ALWAYS                                                    // Import always configured current (not only on start or stop)
 
 #define STATE_A 0                                                               // A Vehicle not connected

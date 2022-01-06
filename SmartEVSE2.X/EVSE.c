@@ -2775,7 +2775,7 @@ void main(void) {
                             // packet from PV electric meter
                             receiveCurrentMeasurement(Modbus.Data, PVMeter, PV);
 
-                        } else if (Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
+                        } else if (MainsMeter && Modbus.Address == MainsMeterAddress && Modbus.Register == EMConfig[MainsMeter].IRegister) {
                             // packet from Mains electric meter
                             x = receiveCurrentMeasurement(Modbus.Data, MainsMeter, CM);
                             if (x && LoadBl <2) timeout = 10;                   // only reset timeout when data is ok, and Master/Disabled
@@ -2789,6 +2789,11 @@ void main(void) {
                                 Isum += Irms[x];                                // Isum has a resolution of 100mA
                             }
 
+                        } else if (EVMeasureNode <= NR_EVSES) {
+                            // Automatic StartCurrent detection for Node on Master
+                            if (Modbus.Address == Node[EVMeasureNode].EVAddress && Modbus.Register == EMConfig[Node[EVMeasureNode].EVMeter].IRegister) {
+                                receiveEVCurrentMeasurement(Modbus.Data, EVMeasureNode);
+                            }
                         } else if (EVMeter && Modbus.Address == EVMeterAddress) {
                             // Packet from EV electric meter
                             if (Modbus.Register == EMConfig[EVMeter].ERegister) {
@@ -2811,11 +2816,6 @@ void main(void) {
                             }  else if (Modbus.Register == 0x0108) {
                                 // Node configuration
                                 receiveNodeConfig(Modbus.Data, Modbus.Address - 1u);
-                            }
-                        } else if (EVMeasureNode <= NR_EVSES) {
-                            // Automatic StartCurrent detection for Node on Master
-                            if (Modbus.Address == Node[EVMeasureNode].EVAddress && Modbus.Register == EMConfig[Node[EVMeasureNode].EVMeter].IRegister) {
-                                receiveEVCurrentMeasurement(Modbus.Data, EVMeasureNode);
                             }
                         }
                         break;

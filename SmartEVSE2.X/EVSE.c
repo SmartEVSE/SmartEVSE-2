@@ -269,6 +269,7 @@ unsigned int serialnr = 0;
 unsigned char GridActive = 0;                                                   // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 unsigned char CalActive = 0;                                                    // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 unsigned int Iuncal = 0;                                                        // Uncalibrated CT1 measurement (resolution 10mA)
+unsigned char DiodeCheck = 0, ActivationMode = 0;
 
 unsigned int SolarStopTimer = 0;
 unsigned char DelayedRS485SendBuf = 0;
@@ -759,13 +760,22 @@ void setState(unsigned char NewState) {
 #endif
 #endif
     switch (NewState) {
+        case STATE_A:
+            CCP1CON = 0;                                                        // PWM off
+            PORTCbits.RC2 = 1;                                                  // Control pilot static +12V
+            CONTACTOR_OFF;                                                      // Contactor OFF
+            break;
+
         case STATE_C:
+            ActivationMode = 255;                                               // Disable ActivationMode
+            DiodeCheck = 0;
             CONTACTOR_ON;                                                       // Contactor ON
             LCDTimer = 0;
             Timer = 0;                                                          // reset msTimer and ChargeTimer
             break;
     }
 
+    BalancedState[0] = NewState;
     State = NewState;
 }
 
@@ -2099,7 +2109,7 @@ void receiveEVCurrentMeasurement(unsigned char *buf, unsigned char NodeNr) {
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
     unsigned char pilot, count = 0, timeout = 5;
-    unsigned char DiodeCheck = 0, ActivationMode = 0, ActivationTimer = 0, AccessTimer = 0;
+    unsigned char ActivationTimer = 0, AccessTimer = 0;
     unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
     signed long CM[3]={0, 0, 0};
     signed long PV[3]={0, 0, 0};
@@ -2125,6 +2135,7 @@ void main(void) {
     x = checkbootloader();                                                      // update the bootloader to v1.06?
     if (x == 2) Error = BL_FLASH;                                               // bootloader update flash write error!
 
+    setState(STATE_A);
 
     while (1)                                                                   // MAIN loop
     {
@@ -2292,11 +2303,6 @@ void main(void) {
 
         if (State == STATE_A || State == STATE_COMM_B)
         {
-            CCP1CON = 0;                                                        // PWM off
-            PORTCbits.RC2 = 1;                                                  // Control pilot static +12V
-            CONTACTOR_OFF;                                                      // Contactor OFF
-            BalancedState[0] = STATE_A;                                         // Mark as inactive
-
             pilot = ReadPilot();
 
             if (pilot == PILOT_12V) {                                           // Check if we are disconnected, or forced to State A, but still connected to the EV
@@ -2337,7 +2343,6 @@ void main(void) {
                         } else {                                                // Load Balancing: Master or Disabled
                             BalancedMax[0] = MaxCapacity * 10;
                             Balanced[0] = ChargeCurrent;                        // Set pilot duty cycle to ChargeCurrent (v2.15)
-                            BalancedState[0] = STATE_B;                         // Mark as active
                             setState(STATE_B);                                  // switch to State B
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
                             BacklightTimer = BACKLIGHT;                         // Backlight ON
@@ -2392,12 +2397,9 @@ void main(void) {
                                 } else {                                        // Load Balancing: Master or Disabled
                                     BalancedMax[0] = ChargeCurrent;
                                     if (IsCurrentAvailable(0)) {
-                                        BalancedState[0] = STATE_C;             // Mark as Charging
                                         Balanced[0] = 0;                        // For correct baseload calculation set current to zero
                                         CalcBalancedCurrent(1);                 // Calculate charge current for all connected EVSE's
 
-                                        ActivationMode = 255;                   // Disable ActivationMode
-                                        DiodeCheck = 0;
                                         setState(STATE_C);                      // switch to STATE_C
                                         if (!LCDNav) GLCD();                    // Don't update the LCD if we are navigating the menu
                                                                                 // immediately update LCD (20ms)
@@ -2440,8 +2442,6 @@ void main(void) {
         }
 
         if (State == STATE_COMM_C_OK) {
-            ActivationMode = 255;                                               // Disable ActivationMode
-            DiodeCheck = 0;
             setState(STATE_C);                                                  // switch to STATE_C
             NextState = NOSTATE;                                                // no State to switch to
             if (!LCDNav) GLCD();                                                // immediately update LCD
@@ -2462,8 +2462,6 @@ void main(void) {
                             CONTACTOR_OFF;                                      // Contactor OFF
                             setState(STATE_A);                                  // switch back to STATE_A
                             GLCD_init();                                        // Re-init LCD
-                            if (LoadBl < 2) BalancedState[0] = STATE_A;         // Load Balancing : Master or Disabled
-                                                                                // Mark EVSE as disconnected
                         }
                     } else {
                         NextState = STATE_A;
@@ -2477,8 +2475,6 @@ void main(void) {
                             setState(STATE_B);                                  // switch back to STATE_B
                             GLCD_init();                                        // Re-init LCD (200ms delay)
                             DiodeCheck = 0;
-                            if (LoadBl < 2) BalancedState[0] = STATE_B;         // Load Balancing : Master or Disabled
-                                                                                // Mark EVSE as inactive (still State B)
                         }
                     } else {
                         NextState = STATE_B;

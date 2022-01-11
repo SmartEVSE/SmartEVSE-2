@@ -26,6 +26,7 @@
 #define __GLCD_H
 
 #define GLCD_MERGE 0b00001000
+#define GLCD_HIRES_FONT
 //#define GLCD_FULL_CHARSET
 #define GLCD_ALIGN_LEFT   0
 #define GLCD_ALIGN_CENTER 1

@@ -24,7 +24,8 @@
       <itemPath>utils.c</itemPath>
       <itemPath>modbus.c</itemPath>
       <itemPath>OneWire.c</itemPath>
-      <itemPath>font5x8.c</itemPath>
+      <itemPath>font2.c</itemPath>
+      <itemPath>font.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

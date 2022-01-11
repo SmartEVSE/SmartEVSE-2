@@ -31,7 +31,8 @@
 #include "GLCD.h"
 #include "utils.h"
 
-#include "font5x8.c"
+#include "font.c"
+#include "font2.c"
 
 const unsigned char LCD_Flow [] = {
 0x00, 0x00, 0x98, 0xCC, 0x66, 0x22, 0x22, 0x22, 0xF2, 0xAA, 0x26, 0x2A, 0xF2, 0x22, 0x22, 0x22,
@@ -164,6 +165,19 @@ unsigned char GLCD_text_length(const char *str) {
     return length - 1;
 }
 
+#ifdef GLCD_HIRES_FONT
+unsigned char GLCD_text_length2(const char *str) {
+    unsigned char i = 0, length = 0;
+
+    while (str[i]) {
+        length += font2[str[i]][0] + 2;
+        i++;
+    }
+
+    return length - 2;
+}
+#endif
+
 /**
  * Write character to buffer
  *
@@ -200,6 +214,16 @@ void GLCD_write_buf(unsigned int c, unsigned char Options) {
 // Write one double height character to the GLCD buffer
 // special characters '.' and ' ' will use reduced width in the buffer
 void GLCD_write_buf2(unsigned int c) {
+#ifdef GLCD_HIRES_FONT
+    unsigned char i = 1;
+
+    while ((i < (font2[c][0] * 2)) && (GLCDx < 128)) {
+        GLCDbuf[GLCDx] = font2[c][i];
+        GLCDbuf[GLCDx + 128] = font2[c][i + 1];
+        i += 2;
+        GLCDx ++;
+    }
+#else
     unsigned char i = 0, m = 5, ch, z1;
 
     GLCD_font_condense(c, &i, &m, 0);
@@ -224,6 +248,7 @@ void GLCD_write_buf2(unsigned int c) {
         i++;
         GLCDx += 2;
     };
+#endif
     GLCDx += 2;
 }
 
@@ -259,7 +284,11 @@ void GLCD_write_buf_str(unsigned char x, unsigned char y, const char* str, unsig
 void GLCD_write_buf_str2(const char *str, unsigned char Options) {
     unsigned char i = 0;
 
+#ifdef GLCD_HIRES_FONT
+    if (Options == GLCD_ALIGN_CENTER) GLCDx = 64 - GLCD_text_length2(str) / 2;
+#else
     if (Options == GLCD_ALIGN_CENTER) GLCDx = 64 - GLCD_text_length(str);
+#endif
     else GLCDx = 2;
 
     while (str[i]) {

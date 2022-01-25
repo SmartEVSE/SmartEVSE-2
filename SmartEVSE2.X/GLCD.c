@@ -568,19 +568,19 @@ void GLCD(void) {
             GLCDx = energy_ev;
             GLCDy = 3;
             GLCD_write_buf(0x0A, 0);                                            // Show energy flow 'blob' between House and Car
-
             if (LCDToggle && EVMeter) {
                 if (PowerMeasured < 9950) {
                     sprintfl(Str, "%1u.%1ukW", PowerMeasured, 3, 1);
-                    GLCD_write_buf_str(73, 2, Str, GLCD_ALIGN_LEFT);
                 } else {
-                    sprintfl(Str, "%2ukW", PowerMeasured, 3, 0);
-                    GLCD_write_buf_str(75, 2, Str, GLCD_ALIGN_LEFT);
+                    sprintfl(Str, "%ukW", PowerMeasured, 3, 0);
                 }
             } else {
-                sprintfl(Str, "%2uA", Balanced[0], 1, 0);
-                GLCD_write_buf_str(77, 2, Str, GLCD_ALIGN_LEFT);
+                sprintfl(Str, "%uA", Balanced[0], 1, 0);
             }
+            GLCD_write_buf_str(85, 2, Str, GLCD_ALIGN_CENTER);
+        } else if (State == STATE_A) {
+            // Remove line between House and Car
+            for (x = 73; x < 96; x++) GLCDbuf[3u * 128u + x] = 0;
         }
 
         if (LCDToggle && Mode == MODE_SOLAR) {                                  // Show Sum of currents when solar charging.

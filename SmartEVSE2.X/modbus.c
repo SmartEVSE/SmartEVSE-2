@@ -583,7 +583,9 @@ signed long receivePowerMeasurement(unsigned char *buf, unsigned char Meter) {
 void requestCurrentMeasurement(unsigned char Meter, unsigned char Address) {
     switch(Meter) {
         case EM_SENSORBOX:
-            ModbusReadInputRequest(Address, 4, 0, 20);
+            if (SB2SoftwareVer == 1) {
+                ModbusReadInputRequest(Address, 4, 0, 32);
+            } else ModbusReadInputRequest(Address, 4, 0, 20);
             break;
         case EM_EASTRON:
             // Phase 1-3 current: Register 0x06 - 0x0B (unsigned)
@@ -642,6 +644,36 @@ unsigned char receiveCurrentMeasurement(unsigned char *buf, unsigned char Meter,
                     CalActive = 1;                                              // Enable CAL option in Menu
                 }
             }
+            if (buf[1] >= 0x14) SB2SoftwareVer = buf[0];                        // Store Sensorbox 2 software version.
+
+            if (SB2SoftwareVer >= 1) {
+                // Read Status, Time, IP, MAC, AP Password from Sensorbox
+                LocalTimeSet = buf[40] & 1;
+                WiFiConnected = buf[40]>>1 & 1;
+                WiFiAPSTA = buf[40]>>2 & 1;
+                WIFImodeSB = buf[41];
+                tm_hour = buf[42];
+                tm_min = buf[43];
+                tm_mday = buf[44];
+                tm_mon = buf[45];
+                tm_year = buf[46];
+                tm_wday = buf[47];
+                SensorboxIP[0] = buf[48];
+                SensorboxIP[1] = buf[49];
+                SensorboxIP[2] = buf[50];
+                SensorboxIP[3] = buf[51];
+                SensorboxMAC = (unsigned int)buf[54]<<8 | buf[55];
+                for (x = 0; x <8 ;x++) {
+                    APpassword[7-x] = buf[56 + x];
+                }
+
+            } else {
+
+                LocalTimeSet = 0;
+                WiFiConnected = 0;
+                WiFiAPSTA = 0;
+            }
+
             // Set Sensorbox 2 to 3/4 Wire configuration (and phase Rotation) (v2.16)
             if (buf[1] >= 0x10 && offset == 7) {
                 GridActive = 1;                                                 // Enable the GRID menu option
@@ -748,7 +780,7 @@ unsigned char mapModbusRegister2ItemID() {
 void ReadItemValueResponse(void) {
     unsigned char ItemID;
     unsigned char i;
-    unsigned int values[MODBUS_MAX_REGISTER_READ];
+    unsigned int values[MODBUS_MAX_REGISTER_RESPONSE];
 
     ItemID = mapModbusRegister2ItemID();
     if (ItemID) {

@@ -88,6 +88,8 @@
 #define EMCUSTOM_EREGISTER 0
 #define EMCUSTOM_EDIVISOR 8
 #define RFID_READER 0
+#define WIFI_MODE 0
+#define AP_PASSWORD "00000000"
 
 
 // Mode settings
@@ -170,10 +172,15 @@
 #define MODBUS_EVSE_CONFIG_START 0x0100
 #define MODBUS_EVSE_CONFIG_COUNT 10
 #define MODBUS_SYS_CONFIG_START  0x0200
-#define MODBUS_SYS_CONFIG_COUNT  25
+#define MODBUS_SYS_CONFIG_COUNT  26
 
-#define MODBUS_MAX_REGISTER_READ MODBUS_SYS_CONFIG_COUNT
-#define MODBUS_BUFFER_SIZE MODBUS_MAX_REGISTER_READ * 2 + 10
+#define MODBUS_MAX_REGISTER_REQUEST 32
+#define MODBUS_MAX_REGISTER_RESPONSE MODBUS_SYS_CONFIG_COUNT
+#if MODBUS_MAX_REGISTER_REQUEST > MODBUS_MAX_REGISTER_RESPONSE
+#define MODBUS_BUFFER_SIZE MODBUS_MAX_REGISTER_REQUEST * 2 + 10
+#else
+#define MODBUS_BUFFER_SIZE MODBUS_MAX_REGISTER_RESPONSE * 2 + 10
+#endif
 
 // EVSE status
 #define STATUS_STATE 64                                                         // 0x0000: State
@@ -228,7 +235,8 @@
 #define MENU_EMCUSTOM_EREGISTER 34                                              // 0x0216: Register for Energy (kWh) of custom electric meter
 #define MENU_EMCUSTOM_EDIVISOR 35                                               // 0x0217: Divisor for Energy (kWh) of custom electric meter (10^x)
 #define MENU_EMCUSTOM_READMAX 36                                                // 0x0218: Maximum register read (ToDo)
-#define MENU_EXIT 37
+#define MENU_WIFI 37                                                            // 0x0219: WiFi mode
+#define MENU_EXIT 38
 
 #define MENU_STATE 50
 
@@ -301,6 +309,7 @@ extern unsigned char PVMeterAddress;
 extern unsigned char EVMeter;                                                   // Type of EV electric meter (0: Disabled / Constants EM_*)
 extern unsigned char EVMeterAddress;
 extern unsigned char RFIDReader;
+extern unsigned char WIFImode;
 
 extern signed int Irms[3];                                                      // Momentary current per Phase (Amps *10) (23 = 2.3A)
 
@@ -335,11 +344,23 @@ extern unsigned char unlockAA;                                                  
 extern unsigned char Access_bit;
 extern unsigned char GridActive;                                                // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
+extern unsigned char SB2SoftwareVer;
 extern unsigned int Iuncal;
 extern unsigned int SolarStopTimer;
 extern signed long EnergyCharged;
 extern signed long PowerMeasured;
 extern unsigned char RFIDstatus;
+
+extern unsigned char LocalTimeSet;
+extern unsigned char WiFiAPSTA;
+extern unsigned char WiFiConnected;
+extern unsigned char WIFImodeSB;
+extern unsigned char tm_hour, tm_min;
+extern unsigned char tm_mday, tm_mon;
+extern unsigned char tm_year, tm_wday;
+extern unsigned char SensorboxIP[4];
+extern unsigned int SensorboxMAC;
+extern char APpassword[];
 
 extern unsigned char MenuItems[MENU_EXIT];
 
@@ -394,6 +415,7 @@ const struct {
     {"EMEREG", "ENE REGI","Register for Energy (kWh) of custom electric meter", 0, 65534, EMCUSTOM_EREGISTER},
     {"EMEDIV", "ENE DIVI","Divisor for Energy (kWh) of custom electric meter",  0, 7, EMCUSTOM_EDIVISOR},
     {"EMREAD", "READ MAX","Max register read at once of custom electric meter", 3, 255, 3},
+    {"WIFI",   "WIFI",    "Connect Sensorbox-2 to WiFi access point",           0, 2, WIFI_MODE},
 
     {"EXIT", "EXIT", "EXIT", 0, 0, 0}
 };

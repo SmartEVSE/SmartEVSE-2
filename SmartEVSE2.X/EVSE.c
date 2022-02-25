@@ -99,7 +99,7 @@
 ;   and reserve space for the bootloader by setting ROM range to 0-FCFB
 ;
 ;
-;   (C) 2013-2020  Michael Stegen / Stegen Electronics
+;   (C) 2013-2022  Michael Stegen / Stegen Electronics
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -168,6 +168,7 @@ const char StrMainsAll[] = "All"; // Everything
 const char StrMainsHomeEVSE[] = "Home+EVSE";
 const char StrRFIDReader[6][10] = {"Disabled", "EnableAll", "EnableOne", "Learn", "Delete", "DeleteAll"};
 const char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
+const char StrWiFi[3][10] = {"Disabled", "Enabled", "SetupWifi"};
 
 // Global data
 char U1buffer[MODBUS_BUFFER_SIZE], U1packet[MODBUS_BUFFER_SIZE];                // Uart1 Receive buffer /RS485
@@ -200,6 +201,7 @@ char Grid = GRID;                                                               
 unsigned char EVMeter = EV_METER;                                               // Type of EV electric meter (0: Disabled / Constants EM_*)
 unsigned char EVMeterAddress = EV_METER_ADDRESS;
 unsigned char RFIDReader = RFID_READER;                                         // RFID Reader Disabled/Enabled (Learn / Delete, Delete All)
+unsigned char WIFImode = WIFI_MODE;                                             // WiFi Mode (0:Disabled / 1:Enabled / 2:Start Portal)
 
 signed int Irms[3]={0, 0, 0};                                                   // Momentary current per Phase (23 = 2.3A) (resolution 100mA)
 signed int Imem[3];                                                             // Max 3 phases supported
@@ -268,6 +270,7 @@ unsigned char ConfigChanged = 0;
 unsigned int serialnr = 0;
 unsigned char GridActive = 0;                                                   // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 unsigned char CalActive = 0;                                                    // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
+unsigned char SB2SoftwareVer = 0;                                               // Sensorbox 2 software version
 unsigned int Iuncal = 0;                                                        // Uncalibrated CT1 measurement (resolution 10mA)
 unsigned char DiodeCheck = 0, ActivationMode = 0;
 
@@ -282,6 +285,18 @@ unsigned char EVMeasureNode = 255;
 unsigned char CMMeasureNode = 0;
 unsigned char CMMeasureTimer = 0;
 bool CMMeasured = false;
+
+unsigned char LocalTimeSet = 0;
+unsigned char WiFiAPSTA = 0;
+unsigned char WiFiConnected = 0;
+unsigned char WIFImodeSB = 0;
+unsigned char tm_hour = 0, tm_min = 0;                                          // hours since midnight 0-23, minutes after the hour 0-59
+unsigned char tm_mday = 0, tm_mon = 0;                                          // day of the month 1-31, months since January 0-11
+unsigned char tm_year = 0, tm_wday = 0;                                         // years since 1900, days since Sunday 0-6
+unsigned char SensorboxIP[4] = {0, 0, 0, 0};
+unsigned int SensorboxMAC = 0;
+char APpassword[] = "00000000";
+
 
 void interrupt high_isr(void)
 {
@@ -541,6 +556,7 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
     eeprom_read_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
     eeprom_read_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
+    eeprom_read_object(&WIFImode, sizeof WIFImode);
 
     validate_settings();
 }
@@ -593,6 +609,7 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].EDivisor, sizeof EMConfig[EM_CUSTOM].EDivisor);
     eeprom_write_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
     eeprom_write_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
+    eeprom_write_object(&WIFImode, sizeof WIFImode);
 
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
@@ -1251,6 +1268,9 @@ unsigned char getMenuItems (void) {
             }
         }
     }
+    if (MainsMeter == EM_SENSORBOX && SB2SoftwareVer >= 0x01) {
+        MenuItems[m++] = MENU_WIFI;                                             // Wifi Disabled / Enabled / Portal
+    }
     MenuItems[m++] = MENU_EXIT;
 
     return m;
@@ -1374,6 +1394,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case MENU_RFIDREADER:
             RFIDReader = val;
             break;
+        case MENU_WIFI:
+            WIFImode = val;
+            break;
 
         // Status writeable
         case STATUS_STATE:
@@ -1491,6 +1514,8 @@ unsigned int getItemValue(unsigned char nav) {
             return EMConfig[EM_CUSTOM].EDivisor;
         case MENU_RFIDREADER:
             return RFIDReader;
+        case MENU_WIFI:
+            return WIFImode;
 
         // Status writeable
         case STATUS_STATE:
@@ -1614,6 +1639,8 @@ const char * getMenuItemOption(unsigned char nav) {
             return Str;
         case MENU_RFIDREADER:
             return StrRFIDReader[RFIDReader];
+        case MENU_WIFI:
+            return StrWiFi[WIFImode];
         case MENU_EXIT:
             return StrExitMenu;
         default:
@@ -2119,6 +2146,7 @@ void main(void) {
     unsigned char ResetKwh = 2;                                                 // if set, reset EV kwh meter at state transition B->C
                                                                                 // cleared when charging, reset to 1 when disconnected (state A)
     unsigned char CMMeasurePhases;
+    unsigned char PortalStarted = 0, WIFItimer = 0;
 
     init();                                                                     // initialize ports, ADC, UARTs etc
 
@@ -2537,6 +2565,29 @@ void main(void) {
                 }
             } else AccessTimer = 0;                                             // Not in state A, then disable timer
 
+            //Local Wifimode and Sensorbox mode are not the same.
+            if (WIFImode !=  WIFImodeSB && WIFItimer == 0 && SB2SoftwareVer) {
+                if (WIFImode == 2 && LCDTimer >= 10 && WiFiAPSTA != 1 && !PortalStarted) {
+                    printf("\nStart Portal...");
+                    PortalStarted = 1;
+                    ModbusWriteSingleRequest(0x0A, 0x801, WIFImode);
+                } else if (WIFImode == 1) {
+                    printf("\nStart Wifi");
+                    ModbusWriteSingleRequest(0x0A, 0x801, WIFImode);
+                } else if (WIFImode == 0) {
+                    printf("\nStop Wifi");
+                    ModbusWriteSingleRequest(0x0A, 0x801, WIFImode);
+                } else if (WIFImodeSB == 1 && PortalStarted) {
+                    printf("\nExit Portal. Start WiFi");
+                    WIFImode = 1;
+                    LCDNav = 0;
+                    PortalStarted = 0;
+                    write_settings();
+                }
+                WIFItimer = 5;
+            }
+            if (WIFItimer) WIFItimer--;
+
             if ((TempEVSE < 55) && (Error & TEMP_HIGH)) // Temperature below limit?
             {
                 Error &= ~TEMP_HIGH; // clear Error
@@ -2610,6 +2661,7 @@ void main(void) {
 
             if ((timeout == 0) && !(Error & CT_NOCOMM)) {                       // timeout if CT current measurement takes > 10 secs
                 Error |= CT_NOCOMM;
+                SB2SoftwareVer = 0;                                             // Reset Sensorbox software version
                 setState(STATE_A);                                              // switch back to state A
 #ifdef LOG_WARN_EVSE
                 printf("\nError, communication error!");

@@ -625,12 +625,12 @@ void GLCD(void) {
             GLCDy = 1;
             GLCD_write_buf(0x0B, 0);                                            // Sum symbol
 
-            sprintfl(Str, "%3dA", Isum, 1, 0);
-            GLCD_write_buf_str(23, 2, Str, GLCD_ALIGN_LEFT);                    // print to buffer
+            sprintfl(Str, "%dA", Isum, 1, 0);
+            GLCD_write_buf_str(46, 2, Str, GLCD_ALIGN_RIGHT);                   // print to buffer
         } else {                                                                // Displayed only in Smart and Solar modes
             for (x = 0; x < 3; x++) {                                           // Display L1, L2 and L3 currents on LCD
-                sprintfl(Str, "%3dA", Irms[x], 1, 0);
-                GLCD_write_buf_str(23, x, Str, GLCD_ALIGN_LEFT);                // print to buffer
+                sprintfl(Str, "%dA", Irms[x], 1, 0);
+                GLCD_write_buf_str(46, x, Str, GLCD_ALIGN_RIGHT);               // print to buffer
             }
         }
         GLCD_sendbuf(0, 4);                                                     // Copy LCD buffer to GLCD

@@ -112,6 +112,8 @@
 #define STATE_COMM_C 6                                                          // G State change request B->C (set by node)
 #define STATE_COMM_C_OK 7                                                       // H State change B->C OK (set by master)
 #define STATE_ACTSTART 8                                                        // I Activation mode in progress
+#define STATE_B1 9                                                              // J Vehicle connected / no PWM signal
+#define STATE_C1 10                                                             // K Vehicle charging / no PWM signal (temp state when stopping charge from EVSE)
 #define NOSTATE 255
 
 #define STATE_CB 10                                                             // Test code state

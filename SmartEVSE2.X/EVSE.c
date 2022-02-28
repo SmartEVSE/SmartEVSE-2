@@ -167,7 +167,7 @@ const char StrExitMenu[] = "MENU";
 const char StrMainsAll[] = "All"; // Everything
 const char StrMainsHomeEVSE[] = "Home+EVSE";
 const char StrRFIDReader[6][10] = {"Disabled", "EnableAll", "EnableOne", "Learn", "Delete", "DeleteAll"};
-const char StrStateName[9][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate"};
+const char StrStateName[11][10] = {"A", "B", "C", "D", "COMM_B", "COMM_B_OK", "COMM_C", "COMM_C_OK", "Activate", "B1", "C1"};
 const char StrWiFi[3][10] = {"Disabled", "Enabled", "SetupWifi"};
 
 // Global data
@@ -254,6 +254,7 @@ unsigned char SubMenu = 0;
 unsigned long ScrollTimer = 0;
 unsigned char LCDpos = 0;
 unsigned char ChargeDelay = 0;                                                  // Delays charging at least 60 seconds in case of not enough current available.
+unsigned char C1Timer = 0;
 unsigned char NoCurrent = 0;                                                    // counts overcurrent situations.
 unsigned char TestState = 0;
 unsigned char LedTimer = 0;                                                     // LED on I01 uses TMR2 and a PWM signal to fade in/out
@@ -735,7 +736,7 @@ void SetCurrent(unsigned int current)                                           
  * @return unsigned char[] Name
  */
 const unsigned char * getStateName(unsigned char StateCode) {
-    if(StateCode < 9) return StrStateName[StateCode];
+    if(StateCode < 11) return StrStateName[StateCode];
     else return "NOSTATE";
 }
 
@@ -777,18 +778,24 @@ void setState(unsigned char NewState) {
 #endif
 #endif
     switch (NewState) {
-        case STATE_A:
+        case STATE_A:                                                           // State A1
             CCP1CON = 0;                                                        // PWM off
-            PORTCbits.RC2 = 1;                                                  // Control pilot static +12V
+            PORTCbits.RC2 = 1;                                                  // Control pilot static +12V (or +9V if connected to EV)
             CONTACTOR_OFF;                                                      // Contactor OFF
             break;
-
-        case STATE_C:
+        case STATE_C:                                                           // State C2
             ActivationMode = 255;                                               // Disable ActivationMode
             DiodeCheck = 0;
             CONTACTOR_ON;                                                       // Contactor ON
             LCDTimer = 0;
             Timer = 0;                                                          // reset msTimer and ChargeTimer
+            break;
+        case STATE_C1:
+            CCP1CON = 0;                                                        // PWM switched off, EV should detect and stop charging within 3 seconds
+            C1Timer = 6;                                                        // Wait maximum 6 seconds, before forcing the contactor off.
+            ChargeDelay = 15;
+            break;
+        default:
             break;
     }
 
@@ -1905,7 +1912,7 @@ void RS232cli(void) {
             break;
         case MENU_STATE:
             for (n = 0; n < NR_EVSES; n++) {
-                printf("EVSE%u:%c(%u.%1uA)", n, BalancedState[n]+'A', Balanced[n]/10, Balanced[n]%10);
+                printf("EVSE%u:%s(%u.%1uA)", n, getStateName(BalancedState[n]), Balanced[n]/10, Balanced[n]%10);
                 if (n < NR_EVSES-1) printf(",");
                 else printf("\n");
             }
@@ -2240,8 +2247,8 @@ void main(void) {
                             }
                             if (RB2low && Timer > RB2Timer + 1500) {
                                 if (State == STATE_C) {
-                                    setState(STATE_A);
-                                    if (!TestState) ChargeDelay = 15;           // Keep in State A for 15 seconds, so the Charge cable can be removed.
+                                    setState(STATE_C1);
+                                    if (!TestState) ChargeDelay = 15;           // Keep in State B for 15 seconds, so the Charge cable can be removed.
                                 RB2low = 2;
                                 }
                             }
@@ -2254,8 +2261,8 @@ void main(void) {
                             break;
                         default:
                             if (State == STATE_C) {                             // Menu option Access is set to Disabled
-                                setState(STATE_A);
-                                if (!TestState) ChargeDelay = 15;               // Keep in State A for 15 seconds, so the Charge cable can be removed.
+                                setState(STATE_C1);
+                                if (!TestState) ChargeDelay = 15;               // Keep in State B for 15 seconds, so the Charge cable can be removed.
                             }
                             break;
                     }
@@ -2432,7 +2439,9 @@ void main(void) {
                                         if (!LCDNav) GLCD();                    // Don't update the LCD if we are navigating the menu
                                                                                 // immediately update LCD (20ms)
                                     }
-                                    else Error |= LESS_6A;//NOCURRENT;
+                                    else if (Mode == MODE_SOLAR) {              // Not enough power:
+                                        Error |= NO_SUN;                        // Not enough solar power
+                                    } else Error |= LESS_6A;                    // Not enough power available
                                 }
                             }
                         }
@@ -2463,6 +2472,27 @@ void main(void) {
             }
         }
 
+        // ############### EVSE State C1 #################
+
+        if (State == STATE_C1)
+        {
+            pilot = ReadPilot();
+            if (pilot == PILOT_12V || pilot == PILOT_9V)
+            {                                                                   // Disconnected or connected to EV without PWM
+                if (NextState == STATE_A)
+                {
+                    if (count++ > 25)
+                    {                                                           // repeat 25 times
+                        setState(STATE_A);                                      // switch to STATE_A/B1
+                        if (pilot == PILOT_12V) BacklightTimer = BACKLIGHT;     // Switch on backlight when removing charging cable
+                    }
+                } else {
+                    NextState = STATE_A;
+                    count = 0;
+                }
+            }
+        }
+
         if (State == STATE_ACTSTART && ActivationTimer == 0) {
             setState(STATE_B);                                                  // Switch back to State B
             PORTCbits.RC2 = 1;                                                  // Control pilot static +12V
@@ -2487,7 +2517,6 @@ void main(void) {
                     if (NextState == STATE_A) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
-                            CONTACTOR_OFF;                                      // Contactor OFF
                             setState(STATE_A);                                  // switch back to STATE_A
                             GLCD_init();                                        // Re-init LCD
                         }
@@ -2541,6 +2570,17 @@ void main(void) {
 
             if (State == STATE_B && ActivationMode < 255) ActivationMode--;     // decrease 30 sec counter when in State B
             if (State == STATE_ACTSTART && ActivationTimer) ActivationTimer--;
+            if (State == STATE_C1) {
+                if (C1Timer) C1Timer--;                                         // if the EV does not stop charging in 6 seconds, we will open the contactor.
+                else {
+                    printf("\nState C1 timeout!");
+                    CONTACTOR_OFF;                                              // Contactor OFF
+                    setState(STATE_B);                                          // switch back to STATE_B
+                    GLCD_init();                                                // Re-init LCD (200ms delay)
+                    DiodeCheck = 0;
+                    ChargeTimer = 15;
+                }
+            }
 
             // When Solar Charging, once the current drops to MINcurrent a timer is started.
             // Charging is stopped when the timer reaches the time set in 'StopTime' (in minutes)
@@ -2549,10 +2589,11 @@ void main(void) {
             if (SolarStopTimer) {
                 SolarStopTimer--;
                 if (SolarStopTimer == 0) {
-                     setState(STATE_A);                                         // switch back to state A
-                     Error |= NO_SUN;                                           // Set error: NO_SUN
 
-                     ResetBalancedStates();                                     // reset all states
+                    if (State == STATE_C) setState(STATE_C1);                   // tell EV to stop charging
+                    Error |= NO_SUN;                                            // Set error: NO_SUN
+
+                    ResetBalancedStates();                                      // reset all states
                 }
             }
 
@@ -2662,7 +2703,8 @@ void main(void) {
             if ((timeout == 0) && !(Error & CT_NOCOMM)) {                       // timeout if CT current measurement takes > 10 secs
                 Error |= CT_NOCOMM;
                 SB2SoftwareVer = 0;                                             // Reset Sensorbox software version
-                setState(STATE_A);                                              // switch back to state A
+                if (State == STATE_C) setState(STATE_C1);                       // tell EV to stop charging
+                else setState(STATE_A);
 #ifdef LOG_WARN_EVSE
                 printf("\nError, communication error!");
 #endif
@@ -2671,7 +2713,8 @@ void main(void) {
 
             if (TempEVSE >= 65 && !(Error & TEMP_HIGH)) {                       // Temperature too High?
                 Error |= TEMP_HIGH;
-                setState(STATE_A);                                              // ERROR, switch back to STATE_A
+                if (State == STATE_C) setState(STATE_C1);                       // tell EV to stop charging
+                else setState(STATE_A);
 #ifdef LOG_WARN_EVSE
                 printf("\nError, temperature %i C !", TempEVSE);
 #endif
@@ -2680,13 +2723,14 @@ void main(void) {
 
             if (Error & (NO_SUN | LESS_6A)) {
 #ifdef LOG_INFO_EVSE
-                if (Mode == MODE_SOLAR) {
+                if (Error & NO_SUN) {
                     if (ChargeDelay == 0) printf("\nWaiting for Solar power...");
                 } else {
                     if (ChargeDelay == 0) printf("\nNot enough current available!");
                 }
 #endif
-                setState(STATE_A);
+                if (State == STATE_C) setState(STATE_C1);                       // If we are charging, tell EV to stop charging
+                else if (State != STATE_C1) setState(STATE_A);                  // If we are in StateC1, switch to State B1/State A
                 ChargeDelay = CHARGEDELAY;                                      // Set Chargedelay
             }
 
@@ -2905,7 +2949,7 @@ void main(void) {
                             // 0x0020: Balance currents
                             if (Modbus.Register == 0x0020 && LoadBl > 1) {      // Message for Node(s)
                                 Balanced[0] = (Modbus.Data[(LoadBl - 1) * 2] <<8) | Modbus.Data[(LoadBl - 1) * 2 + 1];
-                                if (Balanced[0] == 0 && State == STATE_C) setState(STATE_A);                // Stop charging if charge current is zero
+                                if (Balanced[0] == 0 && State == STATE_C) setState(STATE_C1);               // tell EV to stop charging if charge current is zero
                                 else if ((State == STATE_B) || (State == STATE_C)) SetCurrent(Balanced[0]); // Set charge current, and PWM output
 #ifdef LOG_DEBUG_MODBUS
                                 printf("\nBroadcast received, Node %u.%1u A", Balanced[0]/10, Balanced[0]%10);

@@ -331,7 +331,7 @@ void interrupt high_isr(void)
     while (PIR3bits.RC2IF)
     {
         // Check for BREAK character, then Reset
-        if (RCSTA2bits.FERR && RCONbits.POR && State == STATE_A ) {
+        if (RCSTA2bits.FERR && RCONbits.POR && State != STATE_C ) {
                                                                                 // Make sure any data during a POR is ignored.
             RX1byte = RCREG2;                                                   // copy received byte
             if (!RX1byte) Reset();                                              // Only reset if not charging...
@@ -704,8 +704,8 @@ void BlinkLed(void) {
           }
     } else if (Access_bit == 0) LedPwm = 0;                                     // No Access, LED off
     else if (State == STATE_A) LedPwm = STATE_A_LED_BRIGHTNESS;                 // STATE A, LED on (dimmed)
-    else if (State == STATE_B) {
-        LedPwm = STATE_B_LED_BRIGHTNESS;                                        // STATE B, LED on (full brightness)
+    else if (State == STATE_B || State == STATE_B1) {
+        LedPwm = STATE_B_LED_BRIGHTNESS;                                        // STATE B/B1, LED on (full brightness)
         LedCount = 128;                                                         // When switching to STATE C, start at full brightness
     } else if (State == STATE_C && LedUpdate)                                   // STATE C, LED fades in/out
     {
@@ -778,6 +778,9 @@ void setState(unsigned char NewState) {
 #endif
 #endif
     switch (NewState) {
+        case STATE_B1:
+            if (!ChargeDelay) ChargeDelay = 3;                                  // When entering State B1, wait at least 3 seconds before switching to another state.
+            // fall through
         case STATE_A:                                                           // State A1
             CCP1CON = 0;                                                        // PWM off
             PORTCbits.RC2 = 1;                                                  // Control pilot static +12V (or +9V if connected to EV)
@@ -1412,7 +1415,8 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case STATUS_ERROR:
             Error = val;
             if (Error) {                                                        // Is there an actual Error? Maybe the error got cleared?
-                setState(STATE_A);                                              // We received an error; switch to State A, and wait 60 seconds
+                if (State == STATE_C) setState(STATE_C1);                       // tell EV to stop charging
+                else setState(STATE_B1);                                        // when we are not charging switch to State B1
                 ChargeDelay = CHARGEDELAY;
 #ifdef LOG_DEBUG_MODBUS
                 printf("\nBroadcast Error message received!");
@@ -1430,7 +1434,10 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case STATUS_ACCESS:
             if (val == 0 || val == 1) {
                 Access_bit = val;
-                if (val == 0) setState(STATE_A);
+                if (val == 0) {
+                    if (State == STATE_C) setState(STATE_C1);                   // Determine where to switch to.
+                    else if (State == STATE_B) setState(STATE_B1);
+                }
             }
             break;
         case STATUS_CONFIG_CHANGED:
@@ -2231,7 +2238,9 @@ void main(void) {
                         case 1: // Access Button
                             if (Access_bit) {
                                 Access_bit = 0;                                 // Toggle Access bit on/off
-                                setState(STATE_A);                              // Switch back to state A
+                                if (State == STATE_C) setState(STATE_C1);       // Determine where to switch to.
+                                else if (State == STATE_B) setState(STATE_B1);
+                                else setState(STATE_A);
                             } else Access_bit = 1;
 #ifdef LOG_DEBUG_EVSE
                             printf("\nAccess: %d ", Access_bit);
@@ -2282,7 +2291,9 @@ void main(void) {
                     switch (Switch) {
                         case 2: // Access Switch
                             Access_bit = 0;
-                            setState(STATE_A);
+                            if (State == STATE_C) setState(STATE_C1);                   // Determine where to switch to.
+                            else if (State == STATE_B) setState(STATE_B1);
+                            else setState(STATE_A);
                             break;
                         case 3: // Smart-Solar Button
                             if (RB2low != 2) {
@@ -2314,7 +2325,7 @@ void main(void) {
         if (RCmon == 1 && PORTBbits.RB1 == 1)                                   // RCD monitor active, and RCD DC current > 6mA ?
         {
            if (PORTBbits.RB1 == 1) {                                            // check again, to prevent voltage spikes from tripping the RCD detection (2.07)
-                setState(STATE_A);
+                if (State) setState(STATE_B1);
                 Error = RCD_TRIPPED;
                 LCDTimer = 0;                                                   // display the correct error message on the LCD
             }
@@ -2336,7 +2347,7 @@ void main(void) {
 
         // ############### EVSE State A #################
 
-        if (State == STATE_A || State == STATE_COMM_B)
+        if (State == STATE_A || State == STATE_COMM_B || State == STATE_B1)
         {
             pilot = ReadPilot();
 
@@ -2375,14 +2386,16 @@ void main(void) {
                         if (LoadBl > 1)                                         // Load Balancing : Node
                         {                                                       // Send command to Master, followed by Max Charge Current
                             setState(STATE_COMM_B);                             // Node wants to switch to State B
-                        } else {                                                // Load Balancing: Master or Disabled
+                        } else if (IsCurrentAvailable(0)) {                     // Load Balancing: Master or Disabled
                             BalancedMax[0] = MaxCapacity * 10;
                             Balanced[0] = ChargeCurrent;                        // Set pilot duty cycle to ChargeCurrent (v2.15)
                             setState(STATE_B);                                  // switch to State B
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
                             BacklightTimer = BACKLIGHT;                         // Backlight ON
                             AccessTimer = 0;
-                        }
+                        } else if (Mode == MODE_SOLAR) {                        // Not enough power:
+                            Error |= NO_SUN;                                    // Not enough solar power
+                        } else Error |= LESS_6A;                                // Not enough power available
                    }
                 } else {
                     NextState = STATE_B;
@@ -2477,17 +2490,30 @@ void main(void) {
         if (State == STATE_C1)
         {
             pilot = ReadPilot();
-            if (pilot == PILOT_12V || pilot == PILOT_9V)
+            if (pilot == PILOT_12V)
             {                                                                   // Disconnected or connected to EV without PWM
                 if (NextState == STATE_A)
                 {
                     if (count++ > 25)
                     {                                                           // repeat 25 times
-                        setState(STATE_A);                                      // switch to STATE_A/B1
-                        if (pilot == PILOT_12V) BacklightTimer = BACKLIGHT;     // Switch on backlight when removing charging cable
+                        setState(STATE_A);                                      // switch to STATE_A
+                        BacklightTimer = BACKLIGHT;                             // Switch on backlight when removing charging cable
                     }
                 } else {
                     NextState = STATE_A;
+                    count = 0;
+                }
+            }
+            else if (pilot == PILOT_9V)
+            {
+                if (NextState == STATE_B1)
+                {
+                    if (count++ > 25)
+                    {                                                           // repeat 25 times
+                        setState(STATE_B1);                                     // switch to State B1
+                    }
+                } else {
+                    NextState = STATE_B1;
                     count = 0;
                 }
             }
@@ -2575,7 +2601,7 @@ void main(void) {
                 else {
                     printf("\nState C1 timeout!");
                     CONTACTOR_OFF;                                              // Contactor OFF
-                    setState(STATE_B);                                          // switch back to STATE_B
+                    setState(STATE_B1);                                         // switch back to STATE_B1
                     GLCD_init();                                                // Re-init LCD (200ms delay)
                     DiodeCheck = 0;
                     ChargeTimer = 15;
@@ -2704,7 +2730,7 @@ void main(void) {
                 Error |= CT_NOCOMM;
                 SB2SoftwareVer = 0;                                             // Reset Sensorbox software version
                 if (State == STATE_C) setState(STATE_C1);                       // tell EV to stop charging
-                else setState(STATE_A);
+                else setState(STATE_B1);                                        // when we are not charging switch to State B1
 #ifdef LOG_WARN_EVSE
                 printf("\nError, communication error!");
 #endif
@@ -2714,7 +2740,7 @@ void main(void) {
             if (TempEVSE >= 65 && !(Error & TEMP_HIGH)) {                       // Temperature too High?
                 Error |= TEMP_HIGH;
                 if (State == STATE_C) setState(STATE_C1);                       // tell EV to stop charging
-                else setState(STATE_A);
+                else setState(STATE_B1);                                        // when we are not charging switch to State B1
 #ifdef LOG_WARN_EVSE
                 printf("\nError, temperature %i C !", TempEVSE);
 #endif
@@ -2730,7 +2756,7 @@ void main(void) {
                 }
 #endif
                 if (State == STATE_C) setState(STATE_C1);                       // If we are charging, tell EV to stop charging
-                else if (State != STATE_C1) setState(STATE_A);                  // If we are in StateC1, switch to State B1/State A
+                else if (State != STATE_C1) setState(STATE_B1);                 // If we are in StateC1, switch to State B1
                 ChargeDelay = CHARGEDELAY;                                      // Set Chargedelay
             }
 

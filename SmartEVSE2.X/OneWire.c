@@ -260,10 +260,7 @@ void CheckRFID(void) {
                     x = MatchRFID();
                     if (x && !RFIDstatus) {
                         //printf("RFID card found!\n");
-                        if (Access_bit) {
-                            Access_bit = 0;                                     // Toggle Access bit on/off
-                            setState(STATE_A);                                  // Switch back to state A
-                        } else Access_bit = 1;
+                        setAccess(!Access_bit);                                 // Toggle Access
 
                         RFIDstatus = 1;
                     }  else if (!x) RFIDstatus = 7;                             // invalid card
@@ -275,10 +272,9 @@ void CheckRFID(void) {
                         //printf("RFID card found!\n");
                         if (!Access_bit) {
                             cardoffset = x;                                     // store cardoffset from current card
-                            Access_bit = 1;                                     // Access On
+                            setAccess(true);                                    // Access On
                         } else if (cardoffset == x) {
-                            Access_bit = 0;                                     // Access Off
-                            setState(STATE_A);                                  // Switch back to state A
+                            setAccess(false);                                   // Access Off, Switch back to state B1/C1
                         }
                         RFIDstatus = 1;
                     }  else if (!x) RFIDstatus = 7;                             // invalid card

@@ -465,6 +465,7 @@ void read_settings(void);
 void write_settings(void);
 void setSolarStopTimer(unsigned int Timer);
 void setState(unsigned char NewState);
+void setAccess(bool Access);
 unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);

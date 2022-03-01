@@ -806,6 +806,14 @@ void setState(unsigned char NewState) {
     State = NewState;
 }
 
+void setAccess(bool Access) {
+    Access_bit = Access;
+    if (!Access) {
+        if (State == STATE_C) setState(STATE_C1);                               // tell EV to stop charging
+        else if (State == STATE_B) setState(STATE_B1);                          // when not charging switch to State B1
+    }
+}
+
 /**
  * Is there at least 6A (configurable MinCurrent) available for a EVSE?
  *
@@ -1433,11 +1441,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             break;
         case STATUS_ACCESS:
             if (val == 0 || val == 1) {
-                Access_bit = val;
-                if (val == 0) {
-                    if (State == STATE_C) setState(STATE_C1);                   // Determine where to switch to.
-                    else if (State == STATE_B) setState(STATE_B1);
-                }
+                setAccess(val);
             }
             break;
         case STATUS_CONFIG_CHANGED:
@@ -2236,18 +2240,13 @@ void main(void) {
                     // Switch input pulled low
                     switch (Switch) {
                         case 1: // Access Button
-                            if (Access_bit) {
-                                Access_bit = 0;                                 // Toggle Access bit on/off
-                                if (State == STATE_C) setState(STATE_C1);       // Determine where to switch to.
-                                else if (State == STATE_B) setState(STATE_B1);
-                                else setState(STATE_A);
-                            } else Access_bit = 1;
+                            setAccess(!Access_bit);                             // Toggle Access bit on/off
 #ifdef LOG_DEBUG_EVSE
                             printf("\nAccess: %d ", Access_bit);
 #endif
                             break;
                         case 2: // Access Switch
-                            Access_bit = 1;
+                            setAccess(true);
                             break;
                         case 3: // Smart-Solar Button or hold button for 1,5 second to STOP charging
                             if (RB2low == 0) {
@@ -2290,10 +2289,7 @@ void main(void) {
                     // Switch input released
                     switch (Switch) {
                         case 2: // Access Switch
-                            Access_bit = 0;
-                            if (State == STATE_C) setState(STATE_C1);                   // Determine where to switch to.
-                            else if (State == STATE_B) setState(STATE_B1);
-                            else setState(STATE_A);
+                            setAccess(false);
                             break;
                         case 3: // Smart-Solar Button
                             if (RB2low != 2) {
@@ -2627,7 +2623,7 @@ void main(void) {
 
             if (AccessTimer && State == STATE_A) {
                 if (--AccessTimer == 0) {
-                    Access_bit = 0;                                             // re-lock EVSE
+                    setAccess(false);                                           // re-lock EVSE
                     BacklightTimer = BACKLIGHT;                                 // Backlight ON
                 }
             } else AccessTimer = 0;                                             // Not in state A, then disable timer

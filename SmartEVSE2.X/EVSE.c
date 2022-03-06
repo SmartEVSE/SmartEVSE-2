@@ -826,6 +826,25 @@ void setAccess(bool Access) {
 }
 
 /**
+ * Get serial number from flash
+ *
+ * @return unsigned int serialnr
+ */
+unsigned int getSerialNr(void) {
+    unsigned int serialnr;
+
+    EECON1 = 0x80;                                                              // Access Flash program memory
+
+    TBLPTR = 0xFFF0;                                                            // set to serial nr.
+    asm("TBLRD*+");
+    serialnr = TABLAT;                                                          // first read LSB
+    asm("TBLRD*+");
+    serialnr |= TABLAT<<8;                                                      // then MSB
+
+    return serialnr;
+}
+
+/**
  * Is there at least 6A (configurable MinCurrent) available for a EVSE?
  *
  * @param NodeNr
@@ -2190,8 +2209,12 @@ void main(void) {
 
     RCONbits.POR = 1;                                                           // flag that future resets are not POR resets
 
+    serialnr = getSerialNr();
+
+#ifdef MOD_BOOTLOADER
     x = checkbootloader();                                                      // update the bootloader to v1.06?
     if (x == 2) Error = BL_FLASH;                                               // bootloader update flash write error!
+#endif
 
     setState(STATE_A);
 

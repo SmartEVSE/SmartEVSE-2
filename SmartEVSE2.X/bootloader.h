@@ -27,12 +27,6 @@
 #ifndef BOOTLOADER_H
 #define	BOOTLOADER_H
 
-extern char GLCDbuf[512];                                                       // GLCD buffer (half of the display)
-extern unsigned char unlockMagic;
-extern unsigned char unlock55;                                                  // unlock bytes set to 0 to prevent flash write at por   
-extern unsigned char unlockAA;                                                  // unlock bytes set to 0 to prevent flash write at por
-extern unsigned int serialnr; 
-
 extern unsigned char checkbootloader(void);
 
 #endif	/* BOOTLOADER_H */

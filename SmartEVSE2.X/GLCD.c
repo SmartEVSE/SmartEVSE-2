@@ -493,10 +493,12 @@ void GLCD(void) {
             sprintf(Str, "FAILED! %u", TestState);
             GLCD_print_buf2(4, Str);
             return;
+#ifdef MOD_BOOTLOADER
         } else if (Error & BL_FLASH) {                                          // Bootloader update error
             GLCD_print_buf2(2, (const char *) "BOOTLOADER");
             GLCD_print_buf2(4, (const char *) "UPDATE ERR");
             return;
+#endif
         }
     }   // end of ERROR()                                                       // more specific error handling in the code below
 

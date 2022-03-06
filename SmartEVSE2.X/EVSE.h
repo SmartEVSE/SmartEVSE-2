@@ -41,7 +41,7 @@
 #define TRANSFORMER_COMP 100                                                    // Current calculation compensation option for use with 230V-400V transformers,
                                                                                 // where the primary (MAINS) current is 1.73 times the secondary (EVSE) current.
                                                                                 // set to 100 for normal use, and to 173 for use with a transformer.
-
+#define MOD_BOOTLOADER
 //#define SPECIAL                                                               // if defined, it will modify program so that some menu options are not shown
                                                                                 // should be undefined by default
 
@@ -344,6 +344,7 @@ extern unsigned char unlockMagic;
 extern unsigned char unlock55;                                                  // unlock bytes set to 0 to prevent flash write at por
 extern unsigned char unlockAA;                                                  // unlock bytes set to 0 to prevent flash write at por
 extern unsigned char Access_bit;
+extern unsigned int serialnr;
 extern unsigned char GridActive;                                                // When the CT's are used on Sensorbox2, it enables the GRID menu option.
 extern unsigned char CalActive;                                                 // When the CT's are used on Sensorbox(1.5 or 2), it enables the CAL menu option.
 extern unsigned char SB2SoftwareVer;
@@ -466,6 +467,7 @@ void write_settings(void);
 void setSolarStopTimer(unsigned int Timer);
 void setState(unsigned char NewState);
 void setAccess(bool Access);
+unsigned int getSerialNr(void);
 unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);

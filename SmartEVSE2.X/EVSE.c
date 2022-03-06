@@ -2116,7 +2116,7 @@ void UpdateCurrentData(void) {
             SetCurrent(Balanced[0]);
         }
 #ifdef LOG_DEBUG_EVSE
-        printf("\nSTATE: %c Error: %u StartCurrent: -%i ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A", State +'A', Error, StartCurrent,
+        printf("\nSTATE: %s Error: %u StartCurrent: -%i ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A", getStateName(State), Error, StartCurrent,
                                                                         ChargeDelay, SolarStopTimer,  NoCurrent,
                                                                         (double)Imeasured/10,
                                                                         (double)IsetBalanced/10);

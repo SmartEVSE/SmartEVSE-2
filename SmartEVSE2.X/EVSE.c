@@ -785,6 +785,15 @@ void setState(unsigned char NewState) {
             CCP1CON = 0;                                                        // PWM off
             PORTCbits.RC2 = 1;                                                  // Control pilot static +12V (or +9V if connected to EV)
             CONTACTOR_OFF;                                                      // Contactor OFF
+            if (NewState == STATE_A) {
+                Error &= ~NO_SUN;
+                Error &= ~LESS_6A;
+                ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
+                // Reset Node
+                Node[0].Timer = 0;
+                Node[0].Phases = 0;
+                Node[0].MinCurrent = 0;
+            }
             break;
         case STATE_C:                                                           // State C2
             ActivationMode = 255;                                               // Disable ActivationMode
@@ -804,6 +813,8 @@ void setState(unsigned char NewState) {
 
     BalancedState[0] = NewState;
     State = NewState;
+
+    BacklightTimer = BACKLIGHT;                                                 // Backlight ON
 }
 
 void setAccess(bool Access) {
@@ -1140,16 +1151,17 @@ void processAllNodeStates(unsigned char NodeNr) {
 
     // Check EVSE for request to charge states
     switch (BalancedState[NodeNr]) {
+        case STATE_A:
+            // Reset Node
+            Node[NodeNr].Timer = 0;
+            Node[NodeNr].Phases = 0;
+            Node[NodeNr].MinCurrent = 0;
+            break;
 
         case STATE_COMM_B:                                                      // Request to charge A->B
 #ifdef LOG_INFO_EVSE
             printf("\nNode %u State A->B request ", NodeNr);
 #endif
-            // Reset Node
-            Node[NodeNr].Timer = 0;
-            Node[NodeNr].Phases = 0;
-            Node[NodeNr].MinCurrent = 0;
-
             if (current) {                                                      // check if we have enough current
                                                                                 // Yes enough current..
                 BalancedState[NodeNr] = STATE_B;                                // Mark Node EVSE as active (State B)
@@ -2353,16 +2365,9 @@ void main(void) {
                 // We start a timer to re-lock the EVSE (and unlock the cable) after 60 seconds.
                 if (RFIDReader == 2 && AccessTimer == 0 && Access_bit == 1) AccessTimer = RFIDLOCKTIME;
 
-                if (State == STATE_COMM_B) setState(STATE_A);                   // reset state, incase we were stuck in STATE_COMM_B
-                Error &= ~NO_SUN;
-                Error &= ~LESS_6A;
-                ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
+                if (State != STATE_A) setState(STATE_A);                        // reset state, incase we were stuck in STATE_COMM_B
                 NextState = NOSTATE;
                 if (!ResetKwh) ResetKwh = 1;                                    // when set, reset EV kWh meter on state B->C change.
-                // Reset Node
-                Node[0].Timer = 0;
-                Node[0].Phases = 0;
-                Node[0].MinCurrent = 0;
             } else if ( (pilot == PILOT_9V || pilot == STATE_A_TO_C)
                 && Error == NO_ERROR && ChargeDelay == 0 && Access_bit
                 && State != STATE_COMM_B) {                                     // switch to State B ?
@@ -2387,7 +2392,6 @@ void main(void) {
                             Balanced[0] = ChargeCurrent;                        // Set pilot duty cycle to ChargeCurrent (v2.15)
                             setState(STATE_B);                                  // switch to State B
                             ActivationMode = 30;                                // Activation mode is triggered if state C is not entered in 30 seconds.
-                            BacklightTimer = BACKLIGHT;                         // Backlight ON
                             AccessTimer = 0;
                         } else if (Mode == MODE_SOLAR) {                        // Not enough power:
                             Error |= NO_SUN;                                    // Not enough solar power
@@ -2403,7 +2407,6 @@ void main(void) {
         if (State == STATE_COMM_B_OK) {
             setState(STATE_B);
             ActivationMode = 30;                                                // Activation mode is triggered if state C is not entered in 30 seconds.
-            BacklightTimer = BACKLIGHT;                                         // Backlight ON
             AccessTimer = 0;
         }
 
@@ -2420,7 +2423,6 @@ void main(void) {
                         if (count++ > 25)                                       // repeat 25 times (changed in v2.05)
                         {
                             setState(STATE_A);                                  // switch to STATE_A
-                            BacklightTimer = BACKLIGHT;                         // Switch on backlight when removing charging cable
                         }
                     } else {
                         NextState = STATE_A;
@@ -2493,7 +2495,6 @@ void main(void) {
                     if (count++ > 25)
                     {                                                           // repeat 25 times
                         setState(STATE_A);                                      // switch to STATE_A
-                        BacklightTimer = BACKLIGHT;                             // Switch on backlight when removing charging cable
                     }
                 } else {
                     NextState = STATE_A;

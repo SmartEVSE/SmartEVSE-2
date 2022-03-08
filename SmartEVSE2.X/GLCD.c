@@ -767,6 +767,7 @@ void GLCDMenu(unsigned char Buttons) {
                         setItemValue(LCDNav, value);
                         break;
                 }
+                MenuItemsCount = getMenuItems();
             } else {
                 LCDNav = MenuNavCharArray(Buttons, LCDNav, MenuItems, MenuItemsCount);
             }

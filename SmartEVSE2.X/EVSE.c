@@ -2946,8 +2946,8 @@ void main(void) {
                                 // Current measurement
                                 receiveEVCurrentMeasurement(Modbus.Data, 0);
                             }
-                        } else if (Modbus.Address > 1 && Modbus.Address <= NR_EVSES) {
-                            // Packet from Node EVSE
+                        } else if (LoadBl == 1 && Modbus.Address > 1 && Modbus.Address <= NR_EVSES) {
+                            // Packet from a Node EVSE, only for Master!
                             if (Modbus.Register == 0x0000) {
                                 // Node status
                                 receiveNodeStatus(Modbus.Data, Modbus.Address - 1u);

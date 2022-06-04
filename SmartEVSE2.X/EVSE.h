@@ -145,6 +145,11 @@
 #define ERROR_LED_BRIGHTNESS 255
 #define WAITING_LED_BRIGHTNESS 255
 
+#define ACCESS_BUTTON 1
+#define ACCESS_SWITCH 2
+#define SMART_SOLAR_BUTTON 3
+#define SMART_SOLAR_SWITCH 4
+
 #define SOLENOID_LOCK   {LATAbits.LATA4 = 1;LATAbits.LATA5 = 0;}
 #define SOLENOID_UNLOCK {LATAbits.LATA4 = 0;LATAbits.LATA5 = 1;}
 #define SOLENOID_OFF    {LATAbits.LATA4 = 1;LATAbits.LATA5 = 1;}                // both outputs 12V

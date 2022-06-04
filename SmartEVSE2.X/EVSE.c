@@ -480,7 +480,7 @@ void validate_settings(void) {
     // RFID reader set to Enable One card, the EVSE is disabled by default
     if (RFIDReader == 2) Access_bit = 0;
     // Enable access if no access switch used
-    else if (Switch != 1 && Switch != 2) Access_bit = 1;
+    else if (Switch != ACCESS_BUTTON && Switch != ACCESS_SWITCH) Access_bit = 1;
     // Sensorbox v2 has always address 0x0A
     if (MainsMeter == EM_SENSORBOX) MainsMeterAddress = 0x0A;
     // Disable modbus reception on normal mode
@@ -2255,7 +2255,7 @@ void main(void) {
         if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
 
         // Left button pressed, Loadbalancing is Master or Disabled, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
-        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == 3) {
+        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == SMART_SOLAR_BUTTON) {
                 setMode(~Mode & 0x3);                                           // Change from Solar to Smart mode and vice versa.
                 Error &= ~(NO_SUN | LESS_6A);                                   // Clear All errors
                 ChargeDelay = 0;                                                // Clear any Chargedelay
@@ -2274,16 +2274,16 @@ void main(void) {
                 if (RB2last == 0) {
                     // Switch input pulled low
                     switch (Switch) {
-                        case 1: // Access Button
+                        case ACCESS_BUTTON: // Access Button
                             setAccess(!Access_bit);                             // Toggle Access bit on/off
 #ifdef LOG_DEBUG_EVSE
                             printf("\nAccess: %d ", Access_bit);
 #endif
                             break;
-                        case 2: // Access Switch
+                        case ACCESS_SWITCH: // Access Switch
                             setAccess(true);
                             break;
-                        case 3: // Smart-Solar Button or hold button for 1,5 second to STOP charging
+                        case SMART_SOLAR_BUTTON: // Smart-Solar Button or hold button for 1,5 second to STOP charging
                             if (RB2low == 0) {
                                 RB2low = 1;
                                 RB2Timer = Timer;
@@ -2296,7 +2296,7 @@ void main(void) {
                                 }
                             }
                             break;
-                        case 4: // Smart-Solar Switch
+                        case SMART_SOLAR_SWITCH: // Smart-Solar Switch
                             if (Mode == MODE_SOLAR) {
                                 setMode(MODE_SMART);
                                 setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
@@ -2323,10 +2323,10 @@ void main(void) {
                 } else {
                     // Switch input released
                     switch (Switch) {
-                        case 2: // Access Switch
+                        case ACCESS_SWITCH: // Access Switch
                             setAccess(false);
                             break;
-                        case 3: // Smart-Solar Button
+                        case SMART_SOLAR_BUTTON: // Smart-Solar Button
                             if (RB2low != 2) {
                                 if (Mode == MODE_SMART) {
                                     setMode(MODE_SOLAR);

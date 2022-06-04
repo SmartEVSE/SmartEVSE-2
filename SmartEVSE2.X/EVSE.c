@@ -747,6 +747,12 @@ const unsigned char * getStateName(unsigned char StateCode) {
  */
 void setMode(unsigned char NewMode) {
     if (LoadBl == 1) ModbusWriteSingleRequest(BROADCAST_ADR, 0x0003, NewMode);
+    if (NewMode == MODE_SMART) {
+        Error &= ~(NO_SUN | LESS_6A);                                           // Clear All errors
+        setSolarStopTimer(0);                                                   // Also make sure the SolarTimer is disabled.
+    }
+    ChargeDelay = 0;                                                            // Clear any Chargedelay
+    BacklightTimer = BACKLIGHT;                                                 // Backlight ON
     Mode = NewMode;
 }
 
@@ -1143,6 +1149,8 @@ void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
 //    memcpy(buf, (unsigned char*)&Node[NodeNr], sizeof(struct NodeState));
     BalancedState[NodeNr] = buf[1];                                             // Node State
     BalancedError[NodeNr] = buf[3];                                             // Node Error status
+    // Update Mode when changed on Node and not Smart/Solar Switch on the Master
+    if (buf[7] != Mode && (buf[7] == MODE_SMART || buf[7] == MODE_SOLAR) && Switch != SMART_SOLAR_SWITCH) setMode(buf[7]);
     Node[NodeNr].ConfigChanged = buf[13] | Node[NodeNr].ConfigChanged;
     BalancedMax[NodeNr] = buf[15] * 10;                                         // Node Max ChargeCurrent (0.1A)
     //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \n", NodeNr, BalancedState[NodeNr], BalancedError[NodeNr], BalancedMax[NodeNr] );
@@ -2257,10 +2265,6 @@ void main(void) {
         // Left button pressed, Loadbalancing is Master or Disabled, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
         if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == SMART_SOLAR_BUTTON) {
                 setMode(~Mode & 0x3);                                           // Change from Solar to Smart mode and vice versa.
-                Error &= ~(NO_SUN | LESS_6A);                                   // Clear All errors
-                ChargeDelay = 0;                                                // Clear any Chargedelay
-                setSolarStopTimer(0);                                           // Also make sure the SolarTimer is disabled.
-                LCDTimer = 0;
                 leftbutton = 5;
         } else if (leftbutton && ButtonState == 0x7) leftbutton--;
 
@@ -2299,7 +2303,6 @@ void main(void) {
                         case SMART_SOLAR_SWITCH: // Smart-Solar Switch
                             if (Mode == MODE_SOLAR) {
                                 setMode(MODE_SMART);
-                                setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
                             }
                             break;
                         default:
@@ -2333,10 +2336,6 @@ void main(void) {
                                 } else if (Mode == MODE_SOLAR) {
                                     setMode(MODE_SMART);
                                 }
-                                Error &= ~(NO_SUN | LESS_6A);                   // Clear All errors
-                                ChargeDelay = 0;                                // Clear any Chargedelay
-                                setSolarStopTimer(0);                           // Also make sure the SolarTimer is disabled.
-                                LCDTimer = 0;
                             }
                             RB2low = 0;
                             break;

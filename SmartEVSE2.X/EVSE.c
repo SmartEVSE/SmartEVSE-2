@@ -2272,7 +2272,7 @@ void main(void) {
         // External switch changed state?
         if (PORTBbits.RB2 != RB2last || RB2low) {
             // make sure that noise on the input does not switch
-            if (RB2count++ > 5 || RB2low) {
+            if (RB2count++ > 50 || RB2low) {
                 RB2last = PORTBbits.RB2;
 
                 if (RB2last == 0) {

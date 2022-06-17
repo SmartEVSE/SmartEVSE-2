@@ -2752,6 +2752,8 @@ void main(void) {
 #ifdef LOG_WARN_EVSE
                 printf("\nError, communication error!");
 #endif
+                // Try to broadcast communication error to Nodes if we are Master
+                if (LoadBl < 2) ModbusWriteSingleRequest(BROADCAST_ADR, 0x0001, Error);         
                 ResetBalancedStates();
             } else if (timeout) timeout--;
 

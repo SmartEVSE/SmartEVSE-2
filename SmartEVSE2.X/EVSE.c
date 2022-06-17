@@ -1089,7 +1089,7 @@ void CalcBalancedCurrent(char mod) {
     if (LoadBl == 1) {
         printf("\nBalance:");
         for (n = 0; n < NR_EVSES; n++) {
-            printf("EVSE%u:%c(%u.%1uA)", n, BalancedState[n]+'A', Balanced[n]/10, Balanced[n]%10);
+            printf("EVSE%u:%s(%u.%1uA)", n, getStateName(BalancedState[n]), Balanced[n]/10, Balanced[n]%10);
             if (n < NR_EVSES-1) printf(",");
         }
     }
@@ -1153,7 +1153,7 @@ void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
     if (buf[7] != Mode && (buf[7] == MODE_SMART || buf[7] == MODE_SOLAR) && Switch != SMART_SOLAR_SWITCH) setMode(buf[7]);
     Node[NodeNr].ConfigChanged = buf[13] | Node[NodeNr].ConfigChanged;
     BalancedMax[NodeNr] = buf[15] * 10;                                         // Node Max ChargeCurrent (0.1A)
-    //printf("ReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u \n", NodeNr, BalancedState[NodeNr], BalancedError[NodeNr], BalancedMax[NodeNr] );
+    //printf("\nReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u ", NodeNr, BalancedState[NodeNr], BalancedError[NodeNr], BalancedMax[NodeNr] );
 }
 
 /**
@@ -2194,7 +2194,7 @@ void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
     unsigned char pilot, count = 0, timeout = 5;
     unsigned char ActivationTimer = 0, AccessTimer = 0;
-    unsigned char Broadcast = 1, RB2count = 0, RB2last = 1;
+    unsigned char Broadcast = 0, RB2count = 0, RB2last = 1;
     signed long CM[3]={0, 0, 0};
     signed long PV[3]={0, 0, 0};
     unsigned char PollEVNode = NR_EVSES;
@@ -2262,10 +2262,10 @@ void main(void) {
 
         if (LCDNav > MENU_ENTER && LCDNav < MENU_EXIT && (ScrollTimer + 5000 < Timer) && (!SubMenu)) GLCDHelp(); // Update/Show Helpmenu
 
-        // Left button pressed, Loadbalancing is Master or Disabled, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
-        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && (LoadBl < 2) && Switch == SMART_SOLAR_BUTTON) {
-                setMode(~Mode & 0x3);                                           // Change from Solar to Smart mode and vice versa.
-                leftbutton = 5;
+        // Left button pressed, switch is set to "Sma-Sol B" and Mode is Smart or Solar?
+        if (!LCDNav && ButtonState == 0x6 && Mode && !leftbutton && Switch == SMART_SOLAR_BUTTON) {
+            setMode(~Mode & 0x3);                                               // Change from Solar to Smart mode and vice versa.
+            leftbutton = 5;
         } else if (leftbutton && ButtonState == 0x7) leftbutton--;
 
 
@@ -2278,13 +2278,13 @@ void main(void) {
                 if (RB2last == 0) {
                     // Switch input pulled low
                     switch (Switch) {
-                        case ACCESS_BUTTON: // Access Button
+                        case ACCESS_BUTTON:
                             setAccess(!Access_bit);                             // Toggle Access bit on/off
 #ifdef LOG_DEBUG_EVSE
                             printf("\nAccess: %d ", Access_bit);
 #endif
                             break;
-                        case ACCESS_SWITCH: // Access Switch
+                        case ACCESS_SWITCH:
                             setAccess(true);
                             break;
                         case SMART_SOLAR_BUTTON: // Smart-Solar Button or hold button for 1,5 second to STOP charging
@@ -2300,7 +2300,7 @@ void main(void) {
                                 }
                             }
                             break;
-                        case SMART_SOLAR_SWITCH: // Smart-Solar Switch
+                        case SMART_SOLAR_SWITCH:
                             if (Mode == MODE_SOLAR) {
                                 setMode(MODE_SMART);
                             }
@@ -2326,10 +2326,10 @@ void main(void) {
                 } else {
                     // Switch input released
                     switch (Switch) {
-                        case ACCESS_SWITCH: // Access Switch
+                        case ACCESS_SWITCH:
                             setAccess(false);
                             break;
-                        case SMART_SOLAR_BUTTON: // Smart-Solar Button
+                        case SMART_SOLAR_BUTTON:
                             if (RB2low != 2) {
                                 if (Mode == MODE_SMART) {
                                     setMode(MODE_SOLAR);
@@ -2339,7 +2339,7 @@ void main(void) {
                             }
                             RB2low = 0;
                             break;
-                        case 4: // Smart-Solar Switch
+                        case SMART_SOLAR_SWITCH:
                             if (Mode == MODE_SMART) setMode(MODE_SOLAR);
                             break;
                         default:
@@ -2647,7 +2647,6 @@ void main(void) {
             if (AccessTimer && State == STATE_A) {
                 if (--AccessTimer == 0) {
                     setAccess(false);                                           // re-lock EVSE
-                    BacklightTimer = BACKLIGHT;                                 // Backlight ON
                 }
             } else AccessTimer = 0;                                             // Not in state A, then disable timer
 
@@ -2775,7 +2774,7 @@ void main(void) {
                 }
 #endif
                 if (State == STATE_C) setState(STATE_C1);                       // If we are charging, tell EV to stop charging
-                else if (State != STATE_C1) setState(STATE_B1);                 // If we are in StateC1, switch to State B1
+                else if (State != STATE_C1) setState(STATE_B1);                 // If we are not in State C1, switch to State B1
                 ChargeDelay = CHARGEDELAY;                                      // Set Chargedelay
             }
 

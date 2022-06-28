@@ -971,12 +971,18 @@ void CalcBalancedCurrent(char mod) {
         IsumImport = Isum;
 #endif
 
-        if (IsumImport < 0)                                                     // If it's negative, we have surplus (solar) power available
-        {
-            if (IsumImport < -10) IsetBalanced = IsetBalanced + 5;              // still more then 1A available, increase Balanced charge current with 0.5A
-            else IsetBalanced = IsetBalanced - (IsumImport / 4);                // less then 1A difference, increase with 1/4th of difference.
-        } else IsetBalanced = IsetBalanced - (IsumImport / 2);                  // Positive, decrease Balanced charge current.
-                                                                                // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
+        if (IsumImport < 0) {
+            // negative, we have surplus (solar) power available
+            if (IsumImport < -10) IsetBalanced = IsetBalanced + 5;              // more then 1A available, increase Balanced charge current with 0.5A
+            else IsetBalanced = IsetBalanced + 1;                               // less then 1A available, increase with 0.1A
+        } else {
+            // positive, we use more power then is generated
+            if (IsumImport > 20) IsetBalanced = IsetBalanced - (IsumImport / 2);// we use atleast 2A more then available, decrease Balanced charge current.
+            else if (IsumImport > 10) IsetBalanced = IsetBalanced - 5;          // we use 1A more then available, decrease with 0.5A
+            else if (IsumImport > 3) IsetBalanced = IsetBalanced - 1;           // we use < 1A more then available, decrease with 0.1A
+        }
+
+        // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
         if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {
             IsetBalanced = BalancedLeft * MinCurrent * 10;
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------

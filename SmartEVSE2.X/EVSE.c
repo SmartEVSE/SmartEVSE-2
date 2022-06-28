@@ -1156,7 +1156,8 @@ void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
     BalancedState[NodeNr] = buf[1];                                             // Node State
     BalancedError[NodeNr] = buf[3];                                             // Node Error status
     // Update Mode when changed on Node and not Smart/Solar Switch on the Master
-    if (buf[7] != Mode && (buf[7] == MODE_SMART || buf[7] == MODE_SOLAR) && Switch != SMART_SOLAR_SWITCH) setMode(buf[7]);
+    // Also make sure we are not in the menu.
+    if (buf[7] != Mode && (buf[7] == MODE_SMART || buf[7] == MODE_SOLAR) && Switch != SMART_SOLAR_SWITCH && !LCDNav) setMode(buf[7]);
     Node[NodeNr].ConfigChanged = buf[13] | Node[NodeNr].ConfigChanged;
     BalancedMax[NodeNr] = buf[15] * 10;                                         // Node Max ChargeCurrent (0.1A)
     //printf("\nReceivedNode[%u]Status State:%u Error:%u, BalancedMax:%u ", NodeNr, BalancedState[NodeNr], BalancedError[NodeNr], BalancedMax[NodeNr] );

@@ -1035,6 +1035,7 @@ void CalcBalancedCurrent(char mod) {
         if (StartCurrent == 0) {
             for (n = 0; n < NR_EVSES; n++) {
                 if(BalancedState[n] == STATE_C && !Node[n].MinCurrent) {
+                    if(SolarStopTimer && SolarStopTimer < 10) setSolarStopTimer(SolarStopTimer + 60);
                     if(Node[n].Timer >= STARTCURRENT_AUTO_TIMER) {
                         if (Node[n].EVMeter) {
                             // Request EV current measurement

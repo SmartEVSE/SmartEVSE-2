@@ -91,7 +91,8 @@ Information on how to compile and setup the controller can be found on the [smar
 - ABB B23 212-100 (5)
 - SolarEdge SunSpec (6)
 - WAGO 879-30x0 (7)
-- Custom (8)
+- Finder 7M.38.8.400.0212 (8)
+- Custom (9)
 
 # Modbus
 
@@ -166,7 +167,7 @@ Register | Access | Description | Unit | Values
 0x020C | R/W | Address of PV electric meter | | 10 - 247
 0x020D | R/W | Byte order of custom electric meter | | 0:LBF & LWF / 1:LBF &  HWF / 2:HBF & LWF / 3:HBF & HWF
 0x020E | R/W | Data type of custom electric meter | | 0:Integer / 1:Double
-0x020F | R/W | Maximum register read (Not implemented) | |
+0x020F | R/W | Modbus Function (3/4) of custom electric meter | |
 0x0210 | R/W | Register for Voltage (V) of custom electric meter | | 0 - 65530
 0x0211 | R/W | Divisor for Voltage (V) of custom electric meter | 10<sup>x</sup> | 0 - 7
 0x0212 | R/W | Register for Current (A) of custom electric meter | | 0 - 65530
@@ -175,5 +176,7 @@ Register | Access | Description | Unit | Values
 0x0215 | R/W | Divisor for Power (W) of custom electric meter | 10<sup>x</sup> | 0 - 7 /
 0x0216 | R/W | Register for Energy (kWh) of custom electric meter | | 0 - 65534
 0x0217 | R/W | Divisor for Energy (kWh) of custom electric meter | 10<sup>x</sup> | 0 - 7
+0x0218 | R/W | Maximum register read (Not implemented) | |
+0x0219 | R/W | WiFi mode | |
 
  * Number in brackets in section "Predefined electric meters"

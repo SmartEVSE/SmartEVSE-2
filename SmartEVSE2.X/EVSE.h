@@ -273,12 +273,13 @@
 
 #define EM_SENSORBOX 1                                                          // Mains meter types
 #define EM_PHOENIX_CONTACT 2
-#define EM_FINDER 3
+#define EM_FINDER_7E 3
 #define EM_EASTRON 4
 #define EM_ABB 5
 #define EM_SOLAREDGE 6
 #define EM_WAGO 7
-#define EM_CUSTOM 8
+#define EM_FINDER_7M 8
+#define EM_CUSTOM 9
 
 #define ENDIANESS_LBF_LWF 0
 #define ENDIANESS_LBF_HWF 1
@@ -446,11 +447,12 @@ struct {
     {"Disabled",  ENDIANESS_LBF_LWF, 0, MB_DATATYPE_INT32,        0, 0,      0, 0,      0, 0,      0, 0}, // First entry!
     {"Sensorbox", ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32, 0xFFFF, 0,      0, 0, 0xFFFF, 0, 0xFFFF, 0}, // Sensorbox (Own routine for request/receive)
     {"Phoenix C", ENDIANESS_HBF_LWF, 4, MB_DATATYPE_INT32,      0x0, 1,    0xC, 3,   0x28, 1,   0x3E, 1}, // PHOENIX CONTACT EEM-350-D-MCB (0,1V / mA / 0,1W / 0,1kWh) max read count 11
-    {"Finder",    ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32, 0x1000, 0, 0x100E, 0, 0x1026, 0, 0x1106, 3}, // Finder 7E.78.8.400.0212 (V / A / W / Wh) max read count 127
+    {"Finder 7E", ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32, 0x1000, 0, 0x100E, 0, 0x1026, 0, 0x1106, 3}, // Finder 7E.78.8.400.0212 (V / A / W / Wh) max read count 127
     {"Eastron",   ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32,    0x0, 0,    0x6, 0,   0x34, 0,  0x156, 0}, // Eastron SDM630 (V / A / W / kWh) max read count 80
     {"ABB",       ENDIANESS_HBF_HWF, 3, MB_DATATYPE_INT32,   0x5B00, 1, 0x5B0C, 2, 0x5B14, 2, 0x5002, 2}, // ABB B23 212-100 (0.1V / 0.01A / 0.01W / 0.01kWh) RS485 wiring reversed / max read count 125
     {"SolarEdge", ENDIANESS_HBF_HWF, 3, MB_DATATYPE_INT16,    40196, 0,  40191, 0,  40083, 0,  40226, 3}, // SolarEdge SunSpec (0.01V (16bit) / 0.1A (16bit) / 1W (16bit) / 1 Wh (32bit))
     {"WAGO",      ENDIANESS_HBF_HWF, 3, MB_DATATYPE_FLOAT32, 0x5002, 0, 0x500C, 0, 0x5012,-3, 0x6000, 0}, // WAGO 879-30x0 (V / A / kW / kWh)
+    {"Finder 7M", ENDIANESS_HBF_HWF, 4, MB_DATATYPE_FLOAT32,   2500, 0,   2516, 0,   2536, 0,   2638, 3}, // Finder 7M.38.8.400.0212 (V / A / W / Wh) / Backlight 10173
     {"Custom",    ENDIANESS_LBF_LWF, 4, MB_DATATYPE_INT32,        0, 0,      0, 0,      0, 0,      0, 0}  // Last entry!
 };
 

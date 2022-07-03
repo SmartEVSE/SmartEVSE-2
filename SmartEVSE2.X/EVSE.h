@@ -435,13 +435,13 @@ struct {
     unsigned char Function; // 3: holding registers, 4: input registers
     MBDataType DataType; // How data is represented on this Modbus meter
     unsigned int URegister; // Single phase voltage (V)
-    unsigned char UDivisor; // 10^x
+    signed char UDivisor; // 10^x
     unsigned int IRegister; // Single phase current (A)
-    unsigned char IDivisor; // 10^x
+    signed char IDivisor; // 10^x
     unsigned int PRegister; // Total power (W)
-    unsigned char PDivisor; // 10^x
+    signed char PDivisor; // 10^x
     unsigned int ERegister; // Total energy (kWh)
-    unsigned char EDivisor; // 10^x
+    signed char EDivisor; // 10^x
 } EMConfig[EM_CUSTOM + 1] = {
     /* Desc,      Endianness, Function, DataType,            U_Reg,Div, I_Reg,Div, P_Reg,Div, E_Reg,Div */
     {"Disabled",  ENDIANESS_LBF_LWF, 0, MB_DATATYPE_INT32,        0, 0,      0, 0,      0, 0,      0, 0}, // First entry!

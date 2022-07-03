@@ -225,14 +225,14 @@ unsigned int BalancedError[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};                
 struct NodeStatus Node[NR_EVSES] = {                                            // 0: Master / 1: Node 1 ...
    /*         Config   EV     EV       Min                    *
     * Online, Changed, Meter, Address, Current, Phases, Timer */
-    {   true,       0,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 },
-    {  false,       1,     0,       0,       0,      0,     0 }
+    {      1,       0,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 },
+    {      0,       1,     0,       0,       0,      0,     0 }
 };
 
 unsigned char RX1byte;
@@ -911,15 +911,6 @@ char IsCurrentAvailable(unsigned char NodeNr) {
     return 1;
 }
 
-void ResetBalancedStates(void) {
-    unsigned char n;
-
-    for (n = 1; n < NR_EVSES; n++) {
-        BalancedState[n] = STATE_A;                                             // Yes, disable old active Node states
-        Balanced[n] = 0;                                                        // reset ChargeCurrent to 0
-    }
-}
-
 // Calculates Balanced PWM current for each EVSE
 // mod =0 normal
 // mod =1 we have a new EVSE requesting to start charging.
@@ -932,9 +923,7 @@ void CalcBalancedCurrent(char mod) {
     char CurrentSet[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};
     char n;
 
-    if (!LoadBl) ResetBalancedStates();                                         // Load balancing disabled?, Reset States
-                                                                                // Do not modify MaxCurrent as it is a config setting. (fix 2.05)
-    if (BalancedState[0] == STATE_C && MaxCurrent > MaxCapacity && !Config) ChargeCurrent = MaxCapacity * 10;
+    if (BalancedState[0] == STATE_C && MaxCurrent > MaxCapacity && !Config) ChargeCurrent = MaxCapacity * 10; // Do not modify MaxCurrent as it is a config setting. (fix 2.05)
     else ChargeCurrent = MaxCurrent * 10;                                       // Instead use new variable ChargeCurrent.
 
     // Override current temporary if set (from Modbus)
@@ -1141,7 +1130,13 @@ void receiveNodeConfig(unsigned char *buf, unsigned char NodeNr) {
  * @param unsigned char NodeNr (1-7)
  */
 void requestNodeStatus(unsigned char NodeNr) {
-    Node[NodeNr].Online = false;
+    if(Node[NodeNr].Online) {
+        if(Node[NodeNr].Online-- == 1) {
+            // Reset Node state
+            BalancedState[NodeNr] = STATE_A;
+            Balanced[NodeNr] = 0;
+        }
+    }
     ModbusReadInputRequest(NodeNr + 1u, 4, 0x0000, 8);
 }
 
@@ -1152,7 +1147,7 @@ void requestNodeStatus(unsigned char NodeNr) {
  * @param unsigned char NodeAdr (1-7)
  */
 void receiveNodeStatus(unsigned char *buf, unsigned char NodeNr) {
-    Node[NodeNr].Online = true;
+    Node[NodeNr].Online = 5;
 //    memcpy(buf, (unsigned char*)&Node[NodeNr], sizeof(struct NodeState));
     BalancedState[NodeNr] = buf[1];                                             // Node State
     BalancedError[NodeNr] = buf[3];                                             // Node Error status
@@ -2150,8 +2145,6 @@ void UpdateCurrentData(void) {
             // STOP charging for all EVSE's
             // Display error message
             Error |= LESS_6A; //NOCURRENT;
-            // Set all EVSE's to State A
-            ResetBalancedStates();
 
             // Broadcast Error code over RS485
             ModbusWriteSingleRequest(BROADCAST_ADR, 0x0001, LESS_6A);
@@ -2645,8 +2638,6 @@ void main(void) {
 
                     if (State == STATE_C) setState(STATE_C1);                   // tell EV to stop charging
                     Error |= NO_SUN;                                            // Set error: NO_SUN
-
-                    ResetBalancedStates();                                      // reset all states
                 }
             }
 
@@ -2762,7 +2753,6 @@ void main(void) {
 #endif
                 // Try to broadcast communication error to Nodes if we are Master
                 if (LoadBl < 2) ModbusWriteSingleRequest(BROADCAST_ADR, 0x0001, Error);         
-                ResetBalancedStates();
             } else if (timeout) timeout--;
 
             if (TempEVSE >= 65 && !(Error & TEMP_HIGH)) {                       // Temperature too High?
@@ -2772,7 +2762,6 @@ void main(void) {
 #ifdef LOG_WARN_EVSE
                 printf("\nError, temperature %i C !", TempEVSE);
 #endif
-                ResetBalancedStates();
             }
 
             if (Error & (NO_SUN | LESS_6A)) {
@@ -2827,7 +2816,7 @@ void main(void) {
                     do {
                         PollEVNode++;
                         if (PollEVNode >= NR_EVSES) PollEVNode = 0;
-                    } while(Node[PollEVNode].Online == false);
+                    } while(!Node[PollEVNode].Online);
 
                     // Request Configuration if changed
                     if (Node[PollEVNode].ConfigChanged) {

@@ -457,7 +457,7 @@ struct {
 };
 
 struct NodeStatus {
-    bool Online;
+    unsigned char Online;
     unsigned char ConfigChanged;
     unsigned char EVMeter;
     unsigned char EVAddress;

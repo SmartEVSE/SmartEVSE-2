@@ -2918,6 +2918,9 @@ void main(void) {
                             // Calculate Isum (for nodes and master)
                             Isum = 0;
                             for (x = 0; x < 3; x++) {
+#ifdef LOG_INFO_MODBUS
+                                printf("\nreceiveCurrentMeasurement[%u]: %ld", x, CM[x]);
+#endif
                                 // Calculate difference of Mains and PV electric meter
                                 if (PVMeter) CM[x] -= PV[x];                    // CurrentMeter and PV resolution are 1mA
                                 Irms[x] = (signed int)(CM[x] / 100);            // reduce resolution of Irms to 100mA
@@ -2934,11 +2937,17 @@ void main(void) {
                             if (Modbus.Register == EMConfig[EVMeter].ERegister) {
                                 // Energy measurement
                                 EnergyEV = receiveEnergyMeasurement(Modbus.Data, EVMeter);
+#ifdef LOG_INFO_MODBUS
+                                printf("\nreceiveEnergyMeasurement: %ld", EnergyEV);
+#endif
                                 if (ResetKwh == 2) EnergyMeterStart = EnergyEV; // At powerup, set EnergyEV to kwh meter value
                                 EnergyCharged = EnergyEV - EnergyMeterStart;    // Calculate Energy
                             } else if (Modbus.Register == EMConfig[EVMeter].PRegister) {
                                 // Power measurement
                                 PowerMeasured = receivePowerMeasurement(Modbus.Data, EVMeter);
+#ifdef LOG_INFO_MODBUS
+                                printf("\nreceivePowerMeasurement: %ld",PowerMeasured);
+#endif
                             } else if (Modbus.Register == EMConfig[EVMeter].IRegister) {
                                 // Current measurement
                                 receiveEVCurrentMeasurement(Modbus.Data, 0);

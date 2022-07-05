@@ -1593,7 +1593,8 @@ unsigned int getItemValue(unsigned char nav) {
 
         // Status readonly
         case STATUS_MAX:
-            return MaxCapacity;
+            if (MaxCurrent < MaxCapacity) return MaxCurrent;
+            else return MaxCapacity;
         case STATUS_PHASE_COUNT:
             return Node[0].Phases;
         case STATUS_TEMP:

@@ -361,6 +361,7 @@ extern unsigned int SolarStopTimer;
 extern signed long EnergyCharged;
 extern signed long PowerMeasured;
 extern unsigned char RFIDstatus;
+extern bool MeasurementActive;
 
 extern unsigned char LocalTimeSet;
 extern unsigned char WiFiAPSTA;

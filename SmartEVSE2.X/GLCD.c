@@ -570,6 +570,9 @@ void GLCD(void) {
             for (x = 0; x < 8; x++) GLCDbuf[x + 92u] = 0;                       // remove the clock from the LCD buffer
         }
 
+        if (MeasurementActive) {
+            GLCD_write_buf_str(128, 0, (const char*) "DETECT", GLCD_ALIGN_RIGHT);
+        }
 
         if (Isum < 0) {
             energy_mains -= 3;                                                  // animate the flow of Mains energy on LCD.

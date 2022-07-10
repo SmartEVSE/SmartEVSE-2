@@ -287,6 +287,7 @@ unsigned char EVMeasureNode = 255;
 unsigned char CMMeasureNode = 0;
 unsigned char CMMeasureTimer = 0;
 bool CMMeasured = false;
+bool MeasurementActive = false;
 
 unsigned char LocalTimeSet = 0;
 unsigned char WiFiAPSTA = 0;
@@ -752,6 +753,7 @@ void setMode(unsigned char NewMode) {
         Error &= ~(NO_SUN | LESS_6A);                                           // Clear All errors
         setSolarStopTimer(0);                                                   // Also make sure the SolarTimer is disabled.
     }
+    MeasurementActive = false;
     SolarChargeTimer = 0;
     ChargeDelay = 0;                                                            // Clear any Chargedelay
     BacklightTimer = BACKLIGHT;                                                 // Backlight ON
@@ -978,9 +980,9 @@ void CalcBalancedCurrent(char mod) {
             IsetBalanced = BalancedLeft * MinCurrent * 10;
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
 #ifdef IMPORTCURRENT_ALWAYS
-            if (BalancedLeft && StopTime && (IsumImport > 10)) {
+            if (!MeasurementActive && BalancedLeft && StopTime && (IsumImport > 10)) {
 #else
-            if (BalancedLeft && StopTime && ((Isum - (signed int)(ImportCurrent * 10)) > 10)) {
+            if (!MeasurementActive && BalancedLeft && StopTime && ((Isum - (signed int)(ImportCurrent * 10)) > 10)) {
 #endif
                 if (SolarStopTimer == 0) setSolarStopTimer(StopTime * 60);      // Convert minutes into seconds
             } else {
@@ -1023,10 +1025,11 @@ void CalcBalancedCurrent(char mod) {
         MaxBalanced = IsetBalanced;                                             // convert to Amps
 
         // Automatic StartCurrent detection
+        MeasurementActive = false;
         if (StartCurrent == 0 && Mode == MODE_SOLAR) {
             for (n = 0; n < NR_EVSES; n++) {
                 if(BalancedState[n] == STATE_C && !Node[n].MinCurrent) {
-                    if(SolarStopTimer && SolarStopTimer < 10) setSolarStopTimer(SolarStopTimer + 60);
+                    MeasurementActive = true;
                     if(Node[n].Timer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
                         if (Node[n].EVMeter) {
                             // Request EV current measurement

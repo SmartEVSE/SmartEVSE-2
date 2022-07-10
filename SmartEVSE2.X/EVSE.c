@@ -1031,7 +1031,7 @@ void CalcBalancedCurrent(char mod) {
                             EVMeasureNode = n;
                         } else if(!CMMeasureTimer) {
                             CMMeasureNode = n;
-                            CMMeasureTimer = 12 * 3 + 4 + 1;
+                            CMMeasureTimer = (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME) * 3 + STARTCURRENT_DECREASE_TIME + 1;
                         }
                     }
                     if (Node[n].EVMeter || CMMeasured) {
@@ -2697,8 +2697,8 @@ void main(void) {
             }
             if (CMMeasureTimer) {
                 CMMeasureTimer--;
-                switch (CMMeasureTimer % 12) {
-                    case 4:
+                switch (CMMeasureTimer % (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME)) {
+                    case STARTCURRENT_DECREASE_TIME:
                         // Store 8 A measurements (and continue charging with 6 A)
                         memcpy (Imem, Irms, 3 * sizeof(int));
 #ifdef LOG_DEBUG_EVSE

@@ -466,7 +466,7 @@ struct NodeStatus {
     unsigned char EVAddress;
     unsigned char MinCurrent; // 0.1A
     unsigned char Phases;
-    unsigned int Timer; // 1s
+    unsigned int IntTimer; // 1s
 } Node[NR_EVSES];
 
 void RS485SendBuf(char *buffer, unsigned char len);

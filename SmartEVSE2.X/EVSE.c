@@ -800,7 +800,7 @@ void setState(unsigned char NewState) {
                 Error &= ~LESS_6A;
                 ChargeDelay = 0;                                                // Clear ChargeDelay when disconnected.
                 // Reset Node
-                Node[0].Timer = 0;
+                Node[0].IntTimer = 0;
                 Node[0].Phases = 0;
                 Node[0].MinCurrent = 0;
             }
@@ -1030,7 +1030,7 @@ void CalcBalancedCurrent(char mod) {
             for (n = 0; n < NR_EVSES; n++) {
                 if(BalancedState[n] == STATE_C && !Node[n].MinCurrent) {
                     MeasurementActive = true;
-                    if(Node[n].Timer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
+                    if(Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
                         if (Node[n].EVMeter) {
                             // Request EV current measurement
                             EVMeasureNode = n;
@@ -1188,7 +1188,7 @@ void processAllNodeStates(unsigned char NodeNr) {
     switch (BalancedState[NodeNr]) {
         case STATE_A:
             // Reset Node
-            Node[NodeNr].Timer = 0;
+            Node[NodeNr].IntTimer = 0;
             Node[NodeNr].Phases = 0;
             Node[NodeNr].MinCurrent = 0;
             break;
@@ -2700,7 +2700,8 @@ void main(void) {
 
             // Charge timer
             for (x = 0; x < NR_EVSES; x++) {
-                if (BalancedState[x] == STATE_C) Node[x].Timer++;
+                if (BalancedState[x] == STATE_C) Node[x].IntTimer++;            // When charging increase charge Timer
+                else Node[x].IntTimer = 0;                                      // Reset IntervalTime when not charging
             }
             if (CMMeasureTimer) {
                 CMMeasureTimer--;

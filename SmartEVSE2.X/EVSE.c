@@ -185,6 +185,7 @@ unsigned long ICal = ICAL;                                                      
 unsigned char Mode = MODE;                                                      // EVSE mode (0:Normal / 1:Smart / 2:Solar)
 char Lock = LOCK;                                                               // Cable lock (0:Disable / 1:Solenoid / 2:Motor)
 unsigned int MaxCircuit = MAX_CIRCUIT;                                          // Max current of the EVSE circuit (A)
+unsigned int MainsCapacity = MAINS_CAPACITY;                                    // Max sum of currents on MAINS (A)
 char Config = CONFIG;                                                           // Configuration (0:Socket / 1:Fixed Cable)
 char LoadBl = LOADBL;                                                           // Load Balance Setting (0:Disable / 1:Master / 2-4:Node)
 char Switch = SWITCH;                                                           // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
@@ -560,6 +561,7 @@ void read_settings(void) {
     eeprom_read_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
     eeprom_read_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
     eeprom_read_object(&WIFImode, sizeof WIFImode);
+    eeprom_read_object(&MainsCapacity, sizeof MainsCapacity);
 
     validate_settings();
 }
@@ -613,6 +615,7 @@ void write_settings(void) {
     eeprom_write_object(&EMConfig[EM_CUSTOM].DataType, sizeof EMConfig[EM_CUSTOM].DataType);
     eeprom_write_object(&EMConfig[EM_CUSTOM].Function, sizeof EMConfig[EM_CUSTOM].Function);
     eeprom_write_object(&WIFImode, sizeof WIFImode);
+    eeprom_write_object(&MainsCapacity, sizeof MainsCapacity);
 
     unlock55 = 0;                                                               // clear unlock values
     unlockAA = 0;
@@ -896,6 +899,10 @@ char IsCurrentAvailable(unsigned char NodeNr) {
 
     }
 
+    if (LoadBl < 2 && MainsCapacity > 9) {                                      // MainsCapacity limits the sum of mains currents.
+        if (Isum > (signed int)( (MainsCapacity - MinCurrent) * 10) ) return 0;
+    }
+
     // Allow solar Charging if surplus current is above 'StartCurrent' (sum of all phases)
     // Charging will start after the timeout (chargedelay) period has ended
     // Only when StartCurrent configured or Node MinCurrent detected or Node inactive
@@ -943,6 +950,11 @@ void CalcBalancedCurrent(char mod) {
         }
 
     if (!mod && Mode != MODE_SOLAR) {                                           // Normal and Smart mode
+        // Load Balanced set to Disabled or Master. Limit to MainsCapacity
+        if (LoadBl < 2 && MainsCapacity > 9) {
+            Idifference = ((MainsCapacity * 10) - Isum ) / 3;
+        } else Idifference = (MaxMains * 10) - Imeasured;                       // Difference between MaxMains and Measured current (can be negative)
+
         Idifference = (MaxMains * 10) - Imeasured;                              // Difference between MaxMains and Measured current (can be negative)
 
         if (Idifference > 0) IsetBalanced += (Idifference / 4);                 // increase with 1/4th of difference (slowly increase current)
@@ -1286,6 +1298,7 @@ unsigned char getMenuItems (void) {
     MenuItems[m++] = MENU_LOADBL;                                               // Load Balance Setting (0:Disable / 1:Master / 2-8:Node)
     if (Mode && LoadBl < 2) {                                                   // ? Mode Smart/Solar and Load Balancing Disabled/Master?
         MenuItems[m++] = MENU_MAINS;                                            // - Max Mains Amps (hard limit, limited by the MAINS connection) (A) (Mode:Smart/Solar)
+        MenuItems[m++] = MENU_CAPACITY;                                         // - Limit to sum of phases (A)
     }
     if (Mode && LoadBl < 2 || LoadBl == 1) {                                    // ? Mode Smart/Solar or LoadBl Master?
         MenuItems[m++] = MENU_MIN;                                              // - Minimal current the EV is happy with (A) (Mode:Smart/Solar or LoadBl:Master)
@@ -1378,6 +1391,9 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             break;
         case MENU_MAINS:
             MaxMains = val;
+            break;
+        case MENU_CAPACITY:
+            MainsCapacity = val;
             break;
         case MENU_MIN:
             MinCurrent = val;
@@ -1526,6 +1542,8 @@ unsigned int getItemValue(unsigned char nav) {
             return LoadBl;
         case MENU_MAINS:
             return MaxMains;
+        case MENU_CAPACITY:
+            return MainsCapacity;
         case MENU_MIN:
             return MinCurrent;
         case MENU_MAX:
@@ -1645,6 +1663,8 @@ const char * getMenuItemOption(unsigned char nav) {
         case MENU_LOADBL:
             if (ExternalMaster && value == 1) return "Node 0";
             else return StrLoadBl[LoadBl];
+        case MENU_CAPACITY:
+            if (value == 9) return "Disabled";
         case MENU_MAINS:
         case MENU_MIN:
         case MENU_MAX:

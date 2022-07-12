@@ -52,6 +52,7 @@
 #define MODE 0                                                                  // Normal EVSE mode
 #define LOCK 0                                                                  // No Cable lock
 #define MAX_CIRCUIT 16                                                          // Max current of the EVSE circuit breaker
+#define MAINS_CAPACITY 9                                                        // Max sum of currents on Mains (Sum of Amps). 9 = disable
 #define CONFIG 0                                                                // Configuration: 0= TYPE 2 socket, 1= Fixed Cable
 #define LOADBL 0                                                                // Load Balancing disabled
 #define SWITCH 0                                                                // 0= Charge on plugin, 1= (Push)Button on IO2 is used to Start/Stop charging.
@@ -181,7 +182,7 @@
 #define MODBUS_EVSE_CONFIG_START 0x0100
 #define MODBUS_EVSE_CONFIG_COUNT 10
 #define MODBUS_SYS_CONFIG_START  0x0200
-#define MODBUS_SYS_CONFIG_COUNT  26
+#define MODBUS_SYS_CONFIG_COUNT  27
 
 #define MODBUS_MAX_REGISTER_REQUEST 32
 #define MODBUS_MAX_REGISTER_RESPONSE MODBUS_SYS_CONFIG_COUNT
@@ -245,7 +246,8 @@
 #define MENU_EMCUSTOM_EDIVISOR 35                                               // 0x0217: Divisor for Energy (kWh) of custom electric meter (10^x)
 #define MENU_EMCUSTOM_READMAX 36                                                // 0x0218: Maximum register read (ToDo)
 #define MENU_WIFI 37                                                            // 0x0219: WiFi mode
-#define MENU_EXIT 38
+#define MENU_CAPACITY 38                                                        // 0x021A: Mains Capacity
+#define MENU_EXIT 39
 
 #define MENU_STATE 50
 
@@ -311,6 +313,7 @@ extern char RCmon;                                                              
 extern char Grid;
 extern unsigned int StartCurrent;
 extern unsigned int StopTime;
+extern unsigned int MainsCapacity;
 extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / Constants EM_*)
 extern unsigned char MainsMeterAddress;
 extern unsigned char MainsMeterMeasure;                                         // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
@@ -428,6 +431,7 @@ const struct {
     {"EMEDIV", "ENE DIVI","Divisor for Energy (kWh) of custom electric meter",  0, 7, EMCUSTOM_EDIVISOR},
     {"EMREAD", "READ MAX","Max register read at once of custom electric meter", 3, 255, 3},
     {"WIFI",   "WIFI",    "Connect Sensorbox-2 to WiFi access point",           0, 2, WIFI_MODE},
+    {"CAPAC",  "CAPACITY","Limit max current draw on MAINS (sum of phases)",    9, 200, MAINS_CAPACITY},
 
     {"EXIT", "EXIT", "EXIT", 0, 0, 0}
 };

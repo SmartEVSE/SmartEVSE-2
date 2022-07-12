@@ -178,5 +178,6 @@ Register | Access | Description | Unit | Values
 0x0217 | R/W | Divisor for Energy (kWh) of custom electric meter | 10<sup>x</sup> | 0 - 7
 0x0218 | R/W | Maximum register read (Not implemented) | |
 0x0219 | R/W | WiFi mode | |
+0x021A | R/W | Limit max current draw on MAINS (sum of phases) | A | 9:Disable / 10 - 200
 
  * Number in brackets in section "Predefined electric meters"

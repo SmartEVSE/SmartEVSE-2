@@ -1138,7 +1138,7 @@ void receiveNodeConfig(unsigned char *buf, unsigned char NodeNr) {
 void requestNodeStatus(unsigned char NodeNr) {
     if(Node[NodeNr].Online) {
         if(Node[NodeNr].Online-- == 1) {
-            // Reset Node state
+            // Reset Node state when node is offline
             BalancedState[NodeNr] = STATE_A;
             Balanced[NodeNr] = 0;
         }
@@ -2631,7 +2631,7 @@ void main(void) {
                     setState(STATE_B1);                                         // switch back to STATE_B1
                     GLCD_init();                                                // Re-init LCD (200ms delay)
                     DiodeCheck = 0;
-                    ChargeTimer = 15;
+                    ChargeDelay = 15;
                 }
             }
 

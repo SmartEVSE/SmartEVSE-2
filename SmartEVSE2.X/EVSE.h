@@ -201,7 +201,7 @@
 #define STATUS_ACCESS 69                                                        // 0x0005: Access bit
 #define STATUS_CONFIG_CHANGED 70                                                // 0x0006: Configuration changed
 #define STATUS_MAX 71                                                           // 0x0007: Maximum charging current (RO)
-#define STATUS_PHASE_COUNT 72                                                   // 0x0008: Number of used phases (RO)
+#define STATUS_PHASE_COUNT 72                                                   // 0x0008: Number of used phases
 #define STATUS_REAL_CURRENT 73                                                  // 0x0009: Real charging current (RO) (ToDo)
 #define STATUS_TEMP 74                                                          // 0x000A: Temperature (RO)
 #define STATUS_SERIAL 75                                                        // 0x000B: Serial number (RO)

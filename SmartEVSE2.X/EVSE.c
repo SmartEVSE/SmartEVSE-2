@@ -1511,6 +1511,11 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
         case STATUS_CONFIG_CHANGED:
             ConfigChanged = val;
             break;
+        case STATUS_PHASE_COUNT:
+            if (val <= 3) {
+                Node[0].Phases = val;
+            }
+            break;
 
         default:
             return 0;
@@ -1601,7 +1606,7 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_WIFI:
             return WIFImode;
 
-        // Status writeable
+        // Status
         case STATUS_STATE:
             return State;
         case STATUS_ERROR:
@@ -1614,8 +1619,6 @@ unsigned int getItemValue(unsigned char nav) {
             return Access_bit;
         case STATUS_CONFIG_CHANGED:
             return ConfigChanged;
-
-        // Status readonly
         case STATUS_MAX:
             if (MaxCurrent < MaxCapacity) return MaxCurrent;
             else return MaxCapacity;
@@ -2755,6 +2758,9 @@ void main(void) {
 #ifdef LOG_INFO_EVSE
                                 printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (guessed)", CMMeasureNode, Node[CMMeasureNode].MinCurrent, Node[CMMeasureNode].Phases);
 #endif
+                                if (CMMeasureNode > 0) {
+                                    ModbusWriteSingleRequest(CMMeasureNode + 1, 0x0008, Node[CMMeasureNode].Phases);
+                                }
                                 CMMeasureTimer = 0;
                             }
                         } else {

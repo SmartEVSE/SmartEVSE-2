@@ -127,7 +127,7 @@ Register | Access | Description | Unit | Values
 0x0005 | R/W | Access bit | | 0:No Access / 1:Access
 0x0006 | R/W | Configuration changed (Not implemented) | |
 0x0007 | R | Maximum charging current | A |
-0x0008 | R | Number of used phases (Not implemented) | | 0:Undetected / 1 - 3
+0x0008 | R/W | Number of used phases (Not implemented) | | 0:Undetected / 1 - 3
 0x0009 | R | Real charging current (Not implemented) | 0.1 A |
 0x000A | R | Temperature | K |
 0x000B | R | Serial number | |

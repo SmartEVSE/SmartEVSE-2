@@ -119,7 +119,7 @@ Modbus register have changed after version 2.20. Use [this readme](https://githu
 
 Register | Access | Description | Unit | Values
 --- | --- | --- | --- | ---
-0x0000 | R/W | State | | A-D (EVSE State), E-H (A-D Waiting for Balance Master)
+0x0000 | R/W | State | | 0:A / 1:B / 2:C / 3:D / 4:Node request B / 5:Master confirm B / 6:Node request C / 7:Master confirm C / 8:Activation mode / 9:B1 / 10:C1
 0x0001 | R/W | Error | Bit | 1:LESS_6A / 2:NO_COMM / 4:TEMP_HIGH / 8:Unused / 16:RCD / 32:NO_SUN
 0x0002 | R/W | Charging current | 0.1 A | 0:no current available / 6-80
 0x0003 | R/W | EVSE mode (without saving) | | 0:Normal / 1:Smart / 2:Solar

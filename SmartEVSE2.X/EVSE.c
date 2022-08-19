@@ -2229,6 +2229,44 @@ void receiveEVCurrentMeasurement(unsigned char *buf, unsigned char NodeNr) {
     EVMeasureNode = NO_NODE;
 }
 
+void CMStoreMeasurement(void) {
+    memcpy (Imem, Irms, 3 * sizeof(int));
+#ifdef LOG_DEBUG_EVSE
+    printf("\nRemember Irms");
+#endif
+}
+
+unsigned char CMCountPhases(signed char Current) {
+    unsigned char Phases = 0, x;
+    for (x = 0; x < 3; x++) {
+        // Phase change between -3 A and -1 A
+        if (Imem[x] + (Current * 10 - 10) < Irms[x] && Irms[x] < Imem[x] + (Current * 10 + 10)) Phases++;
+    }
+#ifdef LOG_DEBUG_EVSE
+    printf("\nCount %u phases changed about %i A (+/-1 A)", Phases, Current);
+#endif
+    return Phases;
+}
+
+void CMCheck(unsigned char Phases) {
+    // Is previous phase count available
+    if (Node[CMMeasureNode].Phases) {
+        // Compare phase count
+        if (Node[CMMeasureNode].Phases == Phases) {
+            Node[CMMeasureNode].MinCurrent = Node[CMMeasureNode].Phases * MinCurrent * 10;
+#ifdef LOG_INFO_EVSE
+            printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (guessed)", CMMeasureNode, Node[CMMeasureNode].MinCurrent, Node[CMMeasureNode].Phases);
+#endif
+            if (CMMeasureNode > 0) {
+                ModbusWriteSingleRequest(CMMeasureNode + 1, 0x0008, Node[CMMeasureNode].Phases);
+            }
+            CMMeasureTimer = 0;
+        }
+    } else {
+        // Remember phase count
+        Node[CMMeasureNode].Phases = Phases;
+    }
+}
 
 void main(void) {
     unsigned char x, leftbutton, RB2low = 0;
@@ -2741,41 +2779,14 @@ void main(void) {
                 switch (CMMeasureTimer % (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME)) {
                     case STARTCURRENT_DECREASE_TIME:
                         // Store 8 A measurements (and continue charging with 6 A)
-                        memcpy (Imem, Irms, 3 * sizeof(int));
-#ifdef LOG_DEBUG_EVSE
-                        printf("\nRemember Irms");
-#endif
+                        CMStoreMeasurement();
                         CMMeasured = true;
                         break;
                     case 0:
                         // Count used phases
-                        CMMeasurePhases = 0;
-                        for (x = 0; x < 3; x++) {
-                            // Phase change between -3 A and -1 A
-                            if (Imem[x] - 30 < Irms[x] && Irms[x] < Imem[x] - 10) CMMeasurePhases++;
-                        }
-#ifdef LOG_DEBUG_EVSE
-                        printf("\nCount %u phases on change from 8 A to 6 A", CMMeasurePhases);
-#endif
+                        CMMeasurePhases = CMCountPhases(-2);
+                        CMCheck(CMMeasurePhases);
                         CMMeasured = false;
-
-                        // Is previous phase count available
-                        if (Node[CMMeasureNode].Phases) {
-                            // Compare phase count
-                            if (Node[CMMeasureNode].Phases == CMMeasurePhases) {
-                                Node[CMMeasureNode].MinCurrent = Node[CMMeasureNode].Phases * MinCurrent * 10;
-#ifdef LOG_INFO_EVSE
-                                printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (guessed)", CMMeasureNode, Node[CMMeasureNode].MinCurrent, Node[CMMeasureNode].Phases);
-#endif
-                                if (CMMeasureNode > 0) {
-                                    ModbusWriteSingleRequest(CMMeasureNode + 1, 0x0008, Node[CMMeasureNode].Phases);
-                                }
-                                CMMeasureTimer = 0;
-                            }
-                        } else {
-                            // Remember phase count
-                            Node[CMMeasureNode].Phases = CMMeasurePhases;
-                        }
 
                         // Default to MinCurrent on unsuccessful phase count
                         if (CMMeasureTimer == 0 && !Node[CMMeasureNode].MinCurrent) {

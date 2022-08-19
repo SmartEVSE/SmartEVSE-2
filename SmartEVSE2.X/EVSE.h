@@ -487,5 +487,6 @@ unsigned char getMenuItems(void);
 unsigned char setItemValue(unsigned char nav, unsigned int val);
 unsigned int getItemValue(unsigned char nav);
 const char * getMenuItemOption(unsigned char nav);
+void CMStoreMeasurement(void);
 
 #endif

@@ -100,6 +100,7 @@
 
 #define ACK_TIMEOUT 1000                                                        // 1000ms timeout
 #define NR_EVSES 8
+#define NO_NODE 255
 #define BROADCAST_ADR 0x09
 #define STARTCURRENT_AUTO_TIMER 40                                              // Seconds to wait before start measuring StartCurrent
 #define STARTCURRENT_INCREASE_TIME 10                                           // When measure with Mains EM, increase current and wait this time

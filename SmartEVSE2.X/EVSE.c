@@ -284,7 +284,7 @@ signed long EnergyMeterStart = 0;                                               
 signed long PowerMeasured = 0;                                                  // Measured Charge power in Watt by kWh meter
 unsigned char RFIDstatus = 0;
 unsigned char ExternalMaster = 0;
-unsigned char EVMeasureNode = 255;
+unsigned char EVMeasureNode = NO_NODE;
 unsigned char CMMeasureNode = 0;
 unsigned char CMMeasureTimer = 0;
 bool CMMeasured = false;
@@ -2226,7 +2226,7 @@ void receiveEVCurrentMeasurement(unsigned char *buf, unsigned char NodeNr) {
         printf("\nMinimum current to low!");
 #endif
     }
-    EVMeasureNode = 255;
+    EVMeasureNode = NO_NODE;
 }
 
 

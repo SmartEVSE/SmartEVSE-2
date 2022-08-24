@@ -2812,16 +2812,18 @@ void main(void) {
                             CMStoreMeasurement();
 #endif
                             CMHigh = true;
-
-                            // Default to MinCurrent on unsuccessful phase count
-                            if (CMMeasureTimer == 0 && !Node[CMMeasureNode].MinCurrent) {
-                                Node[CMMeasureNode].MinCurrent = MinCurrent * 10;
-#ifdef LOG_WARN_EVSE
-                                printf("\nUnsuccessful phase count!");
-#endif
-                            }
                             break;
                     }
+                }
+                if (CMMeasureTimer == 0) {
+                    // Default to MinCurrent on unsuccessful phase count
+                    if (!Node[CMMeasureNode].MinCurrent) {
+                        Node[CMMeasureNode].MinCurrent = MinCurrent * 10;
+#ifdef LOG_WARN_EVSE
+                        printf("\nUnsuccessful phase count!");
+#endif
+                    }
+                    CMMeasureNode = NO_NODE;
                 }
             }
 

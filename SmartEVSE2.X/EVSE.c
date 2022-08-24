@@ -287,6 +287,7 @@ unsigned char ExternalMaster = 0;
 unsigned char EVMeasureNode = NO_NODE;
 unsigned char CMMeasureNode = 0;
 unsigned char CMMeasureTimer = 0;
+unsigned char CMStats[4];
 bool CMHigh = false;
 bool MeasurementActive = false;
 
@@ -1053,6 +1054,7 @@ void CalcBalancedCurrent(char mod) {
                     } else if (!CMMeasureTimer) {
                         CMMeasureNode = n;
                         CMHigh = false;
+                        CMStats[0] = 0; CMStats[1] = 0; CMStats[2] = 0; CMStats[3] = 0;
                         CMStoreMeasurement();
                         // Startup Time + Cycles Mains current measurement
                         CMMeasureTimer = STARTCURRENT_AUTO_TIMER + STARTCURRENT_MEASURE_TIME;
@@ -2254,22 +2256,24 @@ unsigned char CMCountPhases(signed char Current) {
 }
 
 void CMCheck(unsigned char Phases) {
-    // Is previous phase count available
+    unsigned char i;
+
+    CMStats[Phases]++;
+
+    for (i = 1; i < 4; i++) {
+        if (CMStats[i] >= STARTCURRENT_IDENTICAL_MEASUREMENTS) Node[CMMeasureNode].Phases = i;
+    }
+
+    // Number of measurements done
     if (Node[CMMeasureNode].Phases) {
-        // Compare phase count
-        if (Node[CMMeasureNode].Phases == Phases) {
-            Node[CMMeasureNode].MinCurrent = Node[CMMeasureNode].Phases * MinCurrent * 10;
+        Node[CMMeasureNode].MinCurrent = Node[CMMeasureNode].Phases * MinCurrent * 10;
 #ifdef LOG_INFO_EVSE
-            printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (guessed)", CMMeasureNode, Node[CMMeasureNode].MinCurrent, Node[CMMeasureNode].Phases);
+        printf("\nNode %u minimum current sum is %u * 0.1 A with %u phases (guessed)", CMMeasureNode, Node[CMMeasureNode].MinCurrent, Node[CMMeasureNode].Phases);
 #endif
-            if (CMMeasureNode > 0) {
-                ModbusWriteSingleRequest(CMMeasureNode + 1, 0x0008, Node[CMMeasureNode].Phases);
-            }
-            CMMeasureTimer = 0;
+        if (CMMeasureNode > 0) {
+            ModbusWriteSingleRequest(CMMeasureNode + 1, 0x0008, Node[CMMeasureNode].Phases);
         }
-    } else {
-        // Remember phase count
-        Node[CMMeasureNode].Phases = Phases;
+        CMMeasureTimer = 0;
     }
 }
 

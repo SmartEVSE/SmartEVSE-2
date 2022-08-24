@@ -105,6 +105,9 @@
 #define STARTCURRENT_AUTO_TIMER 40                                              // Seconds to wait before start measuring StartCurrent
 #define STARTCURRENT_INCREASE_TIME 10                                           // When measure with Mains EM, increase current and wait this time
 #define STARTCURRENT_DECREASE_TIME 6                                            // When measure with Mains EM, decrease current and wait this time
+#define STARTCURRENT_MEASUREMENT_CYCLES 3
+#define STARTCURRENT_MEASURE_TIME ((STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME) * STARTCURRENT_MEASUREMENT_CYCLES)
+#define STARTCURRENT_MEASURE_INCREASE                                           // Count phases on decreasing and increasing current
 #define IMPORTCURRENT_ALWAYS                                                    // Import always configured current (not only on start or stop)
 
 #define STATE_A 0                                                               // A Vehicle not connected

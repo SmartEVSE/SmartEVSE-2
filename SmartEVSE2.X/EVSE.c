@@ -287,7 +287,7 @@ unsigned char ExternalMaster = 0;
 unsigned char EVMeasureNode = NO_NODE;
 unsigned char CMMeasureNode = 0;
 unsigned char CMMeasureTimer = 0;
-bool CMMeasured = false;
+bool CMHigh = false;
 bool MeasurementActive = false;
 
 unsigned char LocalTimeSet = 0;
@@ -1043,27 +1043,28 @@ void CalcBalancedCurrent(char mod) {
                 // when not detected and automatic StartCurrent is enabled or EV electric meter is present
                 if (!Node[n].MinCurrent && Mode == MODE_SOLAR && (StartCurrent == 0 || Node[n].EVMeter)) {
                     MeasurementActive = true;
-                    if (Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
-                        if (Node[n].EVMeter) {
+                    if (Node[n].EVMeter) {
+                        if (Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
                             // Request EV current measurement
                             EVMeasureNode = n;
-                        } else if (!CMMeasureTimer) {
-                            // Up to 3 cycles Mains current measurement
-                            CMMeasureNode = n;
-                            CMMeasureTimer = (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME) * 3 + STARTCURRENT_DECREASE_TIME + 1;
                         }
+                    } else if (!CMMeasureTimer) {
+                        CMMeasureNode = n;
+                        CMHigh = false;
+                        CMStoreMeasurement();
+                        // Startup Time + Cycles Mains current measurement
+                        CMMeasureTimer = STARTCURRENT_AUTO_TIMER + STARTCURRENT_MEASURE_TIME;
                     }
                 }
                 // Use MIN current
                 // when measurement is active or when start solar charging
                 if (MeasurementActive || (Mode == MODE_SOLAR && Node[n].IntTimer < STARTCURRENT_AUTO_TIMER)) {
-                    // When EV EM is available, 8 A measured or no measurement active
-                    if (Node[n].EVMeter || CMMeasured || !MeasurementActive) {
+                    if (CMHigh && CMMeasureNode == n) {
+                        // charge with 8 A
+                        Balanced[n] = (MinCurrent + 2) * 10;
+                    } else {
                         // charge with 6 A
                         Balanced[n] = MinCurrent * 10;
-                    } else {
-                        // else charge with 8 A
-                        Balanced[n] = (MinCurrent + 2) * 10;
                     }
                     CurrentSet[n] = true;                                   // mark this EVSE as set.
                     BalancedLeft--;                                         // decrease counter of active EVSE's
@@ -2776,26 +2777,47 @@ void main(void) {
             }
             if (CMMeasureTimer) {
                 CMMeasureTimer--;
-                switch (CMMeasureTimer % (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME)) {
-                    case STARTCURRENT_DECREASE_TIME:
-                        // Store 8 A measurements (and continue charging with 6 A)
-                        CMStoreMeasurement();
-                        CMMeasured = true;
-                        break;
-                    case 0:
-                        // Count used phases
-                        CMMeasurePhases = CMCountPhases(-2);
+                if (CMMeasureTimer >= STARTCURRENT_MEASURE_TIME) {
+                    CMMeasurePhases = CMCountPhases(6);
+                    if (CMMeasurePhases || CMMeasureTimer == STARTCURRENT_MEASURE_TIME) {
+#ifdef STARTCURRENT_MEASURE_INCREASE
                         CMCheck(CMMeasurePhases);
-                        CMMeasured = false;
-
-                        // Default to MinCurrent on unsuccessful phase count
-                        if (CMMeasureTimer == 0 && !Node[CMMeasureNode].MinCurrent) {
-                            Node[CMMeasureNode].MinCurrent = MinCurrent * 10;
-#ifdef LOG_WARN_EVSE
-                            printf("\nUnsuccessful phase count!");
 #endif
-                        }
-                        break;
+                        CMStoreMeasurement();
+                        CMHigh = true;
+                        CMMeasureTimer = STARTCURRENT_MEASURE_TIME;
+                    }
+                } else {
+                    switch (CMMeasureTimer % (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME)) {
+                        case STARTCURRENT_DECREASE_TIME:
+#ifdef STARTCURRENT_MEASURE_INCREASE
+                            // Count used phases
+                            CMMeasurePhases = CMCountPhases(2);
+                            CMCheck(CMMeasurePhases);
+#endif
+                            // Store 8 A measurements (and continue charging with 6 A)
+                            CMStoreMeasurement();
+                            CMHigh = false;
+                            break;
+                        case 0:
+                            // Count used phases
+                            CMMeasurePhases = CMCountPhases(-2);
+                            CMCheck(CMMeasurePhases);
+                            // Store 6 A measurements (and continue charging with 8 A)
+#ifdef STARTCURRENT_MEASURE_INCREASE
+                            CMStoreMeasurement();
+#endif
+                            CMHigh = true;
+
+                            // Default to MinCurrent on unsuccessful phase count
+                            if (CMMeasureTimer == 0 && !Node[CMMeasureNode].MinCurrent) {
+                                Node[CMMeasureNode].MinCurrent = MinCurrent * 10;
+#ifdef LOG_WARN_EVSE
+                                printf("\nUnsuccessful phase count!");
+#endif
+                            }
+                            break;
+                    }
                 }
             }
 

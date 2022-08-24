@@ -1036,39 +1036,39 @@ void CalcBalancedCurrent(char mod) {
 
         MaxBalanced = IsetBalanced;                                             // convert to Amps
 
-        if (Mode == MODE_SOLAR) {
-            MeasurementActive = false;
-            for (n = 0; n < NR_EVSES; n++) {
-                if (BalancedState[n] == STATE_C) {
-                    // Automatic StartCurrent detection
-                    if (!Node[n].MinCurrent) {
-                        MeasurementActive = true;
-                        if (Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
-                            if (Node[n].EVMeter) {
-                                // Request EV current measurement
-                                EVMeasureNode = n;
-                            } else if (!CMMeasureTimer) {
-                                // Up to 3 cycles Mains current measurement
-                                CMMeasureNode = n;
-                                CMMeasureTimer = (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME) * 3 + STARTCURRENT_DECREASE_TIME + 1;
-                            }
+        MeasurementActive = false;
+        for (n = 0; n < NR_EVSES; n++) {
+            if (BalancedState[n] == STATE_C) {
+                // Automatic StartCurrent detection
+                // when not detected and automatic StartCurrent is enabled or EV electric meter is present
+                if (!Node[n].MinCurrent && Mode == MODE_SOLAR && (StartCurrent == 0 || Node[n].EVMeter)) {
+                    MeasurementActive = true;
+                    if (Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
+                        if (Node[n].EVMeter) {
+                            // Request EV current measurement
+                            EVMeasureNode = n;
+                        } else if (!CMMeasureTimer) {
+                            // Up to 3 cycles Mains current measurement
+                            CMMeasureNode = n;
+                            CMMeasureTimer = (STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME) * 3 + STARTCURRENT_DECREASE_TIME + 1;
                         }
                     }
-                    // Start with MIN current when measurement active or when start Solar charging
-                    if (MeasurementActive || Node[n].IntTimer < STARTCURRENT_AUTO_TIMER) {
-                        // When EV EM is available, 8 A measured or no measurement active
-                        if (Node[n].EVMeter || CMMeasured || !MeasurementActive) {
-                            // charge with 6 A
-                            Balanced[n] = MinCurrent * 10;
-                        } else {
-                            // else charge with 8 A
-                            Balanced[n] = (MinCurrent + 2) * 10;
-                        }
-                        CurrentSet[n] = true;                                   // mark this EVSE as set.
-                        BalancedLeft--;                                         // decrease counter of active EVSE's
-                        MaxBalanced -= Balanced[n];                             // Update total current to new (lower) value
-                        IsetBalanced = TotalCurrent;
+                }
+                // Use MIN current
+                // when measurement is active or when start solar charging
+                if (MeasurementActive || (Mode == MODE_SOLAR && Node[n].IntTimer < STARTCURRENT_AUTO_TIMER)) {
+                    // When EV EM is available, 8 A measured or no measurement active
+                    if (Node[n].EVMeter || CMMeasured || !MeasurementActive) {
+                        // charge with 6 A
+                        Balanced[n] = MinCurrent * 10;
+                    } else {
+                        // else charge with 8 A
+                        Balanced[n] = (MinCurrent + 2) * 10;
                     }
+                    CurrentSet[n] = true;                                   // mark this EVSE as set.
+                    BalancedLeft--;                                         // decrease counter of active EVSE's
+                    MaxBalanced -= Balanced[n];                             // Update total current to new (lower) value
+                    IsetBalanced = TotalCurrent;
                 }
             }
         }

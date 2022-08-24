@@ -806,6 +806,8 @@ void setState(unsigned char NewState) {
                 Node[0].IntTimer = 0;
                 Node[0].Phases = 0;
                 Node[0].MinCurrent = 0;
+                // Reset current measurement
+                MeasurementActive = false;
             }
             break;
         case STATE_C:                                                           // State C2
@@ -1214,6 +1216,8 @@ void processAllNodeStates(unsigned char NodeNr) {
             Node[NodeNr].IntTimer = 0;
             Node[NodeNr].Phases = 0;
             Node[NodeNr].MinCurrent = 0;
+            // Reset current measurement
+            MeasurementActive = false;
             break;
 
         case STATE_COMM_B:                                                      // Request to charge A->B

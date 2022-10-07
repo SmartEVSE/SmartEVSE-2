@@ -277,7 +277,6 @@ unsigned int Iuncal = 0;                                                        
 unsigned char DiodeCheck = 0, ActivationMode = 0;
 
 unsigned int SolarStopTimer = 0;
-unsigned int SolarChargeTimer = 0;
 unsigned char DelayedRS485SendBuf = 0;
 signed long EnergyCharged = 0;                                                  // kWh meter value energy charged. (Wh) (will reset if state changes from A->B)
 signed long EnergyMeterStart = 0;                                               // kWh meter value is stored once EV is connected to EVSE (Wh)
@@ -758,7 +757,6 @@ void setMode(unsigned char NewMode) {
         setSolarStopTimer(0);                                                   // Also make sure the SolarTimer is disabled.
     }
     MeasurementActive = false;
-    SolarChargeTimer = 0;
     ChargeDelay = 0;                                                            // Clear any Chargedelay
     BacklightTimer = BACKLIGHT;                                                 // Backlight ON
     Mode = NewMode;
@@ -1044,10 +1042,10 @@ void CalcBalancedCurrent(char mod) {
             if (BalancedState[n] == STATE_C) {
                 // Automatic StartCurrent detection
                 // when not detected and automatic StartCurrent is enabled or EV electric meter is present
-                if (!Node[n].MinCurrent && Mode == MODE_SOLAR && (StartCurrent == 0 || Node[n].EVMeter)) {
+                if (!Node[n].MinCurrent) {
                     MeasurementActive = true;
                     if (Node[n].EVMeter) {
-                        if (Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER && SolarChargeTimer >= STARTCURRENT_DECREASE_TIME) {
+                        if (Node[n].IntTimer >= STARTCURRENT_AUTO_TIMER) {
                             // Request EV current measurement
                             EVMeasureNode = n;
                         }
@@ -2726,8 +2724,6 @@ void main(void) {
                     Error |= NO_SUN;                                            // Set error: NO_SUN
                 }
             }
-
-            if (Mode == MODE_SOLAR) SolarChargeTimer++;
 
             if (ChargeDelay) ChargeDelay--;                                     // Decrease Charge Delay counter
 

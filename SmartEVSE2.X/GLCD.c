@@ -560,18 +560,19 @@ void GLCD(void) {
                 GLCDbuf[x+74u+128u] = 0;
             }
         }
-        if (SolarStopTimer) {
-            seconds = SolarStopTimer;                                           // display remaining time before charging is stopped
-            minutes = seconds / 60;
-            seconds %= 60;
-            sprintf(Str, "%02u:%02u", minutes, seconds);
-            GLCD_write_buf_str(100, 0, Str, GLCD_ALIGN_LEFT);                   // print to buffer
-        } else {
+
+        if (MeasurementActive || !SolarStopTimer) {
             for (x = 0; x < 8; x++) GLCDbuf[x + 92u] = 0;                       // remove the clock from the LCD buffer
         }
 
         if (MeasurementActive) {
             GLCD_write_buf_str(128, 0, (const char*) "DETECT", GLCD_ALIGN_RIGHT);
+        } else if (SolarStopTimer) {
+            seconds = SolarStopTimer;                                           // display remaining time before charging is stopped
+            minutes = seconds / 60;
+            seconds %= 60;
+            sprintf(Str, "%02u:%02u", minutes, seconds);
+            GLCD_write_buf_str(100, 0, Str, GLCD_ALIGN_LEFT);                   // print to buffer
         }
 
         if (Isum < 0) {

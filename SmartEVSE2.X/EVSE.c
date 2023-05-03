@@ -911,7 +911,11 @@ char IsCurrentAvailable(unsigned char NodeNr) {
         // no active EVSE yet?
         if (ActiveEVSE == 0) {
             if (StartCurrent == 0) {
-                if (Isum >= ((signed int)Node[NodeNr].MinCurrent *-1) + (signed int)(ImportCurrent * 10)) return 0;
+#ifdef IMPORTCURRENT_SUM
+                if (Isum >= ((signed int)Node[NodeNr].MinCurrent * -1) + (signed int)(ImportCurrent * 10)) return 0;
+#else
+                if (Isum >= ((signed int)Node[NodeNr].MinCurrent * -1) + (signed int)(Node[NodeNr].Phases * ImportCurrent * 10)) return 0;
+#endif
             } else {
                 if (Isum >= ((signed int)StartCurrent *-10)) return 0;
             }
@@ -933,7 +937,7 @@ void CalcBalancedCurrent(char mod) {
     signed int IsumImport;
     int ActiveMax = 0, TotalCurrent = 0, Baseload;
     char CurrentSet[NR_EVSES] = {0, 0, 0, 0, 0, 0, 0, 0};
-    char n;
+    unsigned char n, SumPhases = 0;
 
     if (BalancedState[0] == STATE_C && MaxCurrent > MaxCapacity && !Config) ChargeCurrent = MaxCapacity * 10; // Do not modify MaxCurrent as it is a config setting. (fix 2.05)
     else ChargeCurrent = MaxCurrent * 10;                                       // Instead use new variable ChargeCurrent.
@@ -944,11 +948,15 @@ void CalcBalancedCurrent(char mod) {
     if (LoadBl < 2) BalancedMax[0] = ChargeCurrent;                             // Load Balancing Disabled or Master:
                                                                                 // update BalancedMax[0] if the MAX current was adjusted using buttons or CLI
 
-    for (n = 0; n < NR_EVSES; n++) if (BalancedState[n] == STATE_C) {
+    for (n = 0; n < NR_EVSES; n++) {
+        if (BalancedState[n] == STATE_C) {
             BalancedLeft++;                                                     // Count nr of Active (Charging) EVSE's
             ActiveMax += BalancedMax[n];                                        // Calculate total Max Amps for all active EVSEs
             TotalCurrent += Balanced[n];                                        // Calculate total of all set charge currents
+            SumPhases += Node[n].Phases;
         }
+    }
+    if (SumPhases < 1) SumPhases = 2;
 
     if (!mod && Mode != MODE_SOLAR) {                                           // Normal and Smart mode
         // Load Balanced set to Disabled or Master. Limit to MainsCapacity
@@ -972,7 +980,11 @@ void CalcBalancedCurrent(char mod) {
         ImportCurrent = 0;                                                      // Import option not visible , make sure it's set to 0
 #endif
 #ifdef IMPORTCURRENT_ALWAYS
+#ifdef IMPORTCURRENT_SUM
         IsumImport = Isum - (signed int)(ImportCurrent * 10);                   // Allow Import of power from the grid when solar charging
+#else
+        IsumImport = Isum - (signed int)(SumPhases * ImportCurrent * 10);       // Allow Import of power from the grid when solar charging
+#endif
 #else
         IsumImport = Isum;
 #endif
@@ -995,7 +1007,11 @@ void CalcBalancedCurrent(char mod) {
 #ifdef IMPORTCURRENT_ALWAYS
             if (!MeasurementActive && BalancedLeft && StopTime && (IsumImport > 10)) {
 #else
+#ifdef IMPORTCURRENT_SUM
             if (!MeasurementActive && BalancedLeft && StopTime && ((Isum - (signed int)(ImportCurrent * 10)) > 10)) {
+#else
+            if (!MeasurementActive && BalancedLeft && StopTime && ((Isum - (signed int)(SumPhases * ImportCurrent * 10)) > 10)) {
+#endif
 #endif
                 if (SolarStopTimer == 0) setSolarStopTimer(StopTime * 60);      // Convert minutes into seconds
             } else {

@@ -87,8 +87,7 @@ void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg
 
 /**
  * Combine Bytes received over modbus
- * 
- * @param pointer to var
+ *
  * @param pointer to buf
  * @param unsigned char pos
  * @param unsigned char endianness:\n
@@ -98,46 +97,52 @@ void ModbusSend8(unsigned char address, unsigned char function, unsigned int reg
  *        3: high byte first, high word first (big endian)
  * @param MBDataType dataType: used to determine how many bytes should be combined
  */
-void combineBytes(void *var, unsigned char *buf, unsigned char pos, unsigned char endianness, MBDataType dataType) {
-    char *pBytes;
-    pBytes = var;
-
+void combineBytes(unsigned char *buf, unsigned char pos, unsigned char endianness, MBDataType dataType) {
     // XC8 is little endian
-    switch(endianness) {
-        case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)
-            *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes++ = (unsigned char)buf[pos + 1];
-            if (dataType != MB_DATATYPE_INT16) {
-                *pBytes++ = (unsigned char)buf[pos + 2];
-                *pBytes   = (unsigned char)buf[pos + 3];
-            }
-            break;
-        case ENDIANESS_LBF_HWF: // low byte first, high word first
-            if (dataType != MB_DATATYPE_INT16) {
-                *pBytes++ = (unsigned char)buf[pos + 2];
-                *pBytes++ = (unsigned char)buf[pos + 3];
-            }
-            *pBytes++ = (unsigned char)buf[pos + 0];
-            *pBytes   = (unsigned char)buf[pos + 1];
-            break;
-        case ENDIANESS_HBF_LWF: // high byte first, low word first
-            *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes++ = (unsigned char)buf[pos + 0];
-            if (dataType != MB_DATATYPE_INT16) {
-                *pBytes++ = (unsigned char)buf[pos + 3];
-                *pBytes   = (unsigned char)buf[pos + 2];
-            }
-            break;
-        case ENDIANESS_HBF_HWF: // high byte first, high word first (big endian)
-            if (dataType != MB_DATATYPE_INT16) {
-                *pBytes++ = (unsigned char)buf[pos + 3];
-                *pBytes++ = (unsigned char)buf[pos + 2];
-            }
-            *pBytes++ = (unsigned char)buf[pos + 1];
-            *pBytes   = (unsigned char)buf[pos + 0];
-            break;
-        default:
-            break;
+    if (dataType == MB_DATATYPE_INT16) {
+        switch(endianness) {
+            case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)
+            case ENDIANESS_LBF_HWF: // low byte first, high word first
+               MBUnion.c[0] = (unsigned char)buf[pos + 0];
+               MBUnion.c[1] = (unsigned char)buf[pos + 1];
+               break;
+            case ENDIANESS_HBF_LWF: // high byte first, low word first
+            case ENDIANESS_HBF_HWF: // high byte first, high word first (big endian)
+                MBUnion.c[0] = (unsigned char)buf[pos + 1];
+                MBUnion.c[1] = (unsigned char)buf[pos + 0];
+                break;
+            default:
+                break;
+        }
+    } else {
+        switch(endianness) {
+            case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)
+                MBUnion.c[0] = (unsigned char)buf[pos + 0];
+                MBUnion.c[1] = (unsigned char)buf[pos + 1];
+                MBUnion.c[2] = (unsigned char)buf[pos + 2];
+                MBUnion.c[3] = (unsigned char)buf[pos + 3];
+                break;
+            case ENDIANESS_LBF_HWF: // low byte first, high word first
+                MBUnion.c[0] = (unsigned char)buf[pos + 2];
+                MBUnion.c[1] = (unsigned char)buf[pos + 3];
+                MBUnion.c[2] = (unsigned char)buf[pos + 0];
+                MBUnion.c[3] = (unsigned char)buf[pos + 1];
+                break;
+            case ENDIANESS_HBF_LWF: // high byte first, low word first
+                MBUnion.c[0] = (unsigned char)buf[pos + 1];
+                MBUnion.c[1] = (unsigned char)buf[pos + 0];
+                MBUnion.c[2] = (unsigned char)buf[pos + 3];
+                MBUnion.c[3] = (unsigned char)buf[pos + 2];
+                break;
+            case ENDIANESS_HBF_HWF: // high byte first, high word first (big endian)
+                MBUnion.c[0] = (unsigned char)buf[pos + 3];
+                MBUnion.c[1] = (unsigned char)buf[pos + 2];
+                MBUnion.c[2] = (unsigned char)buf[pos + 1];
+                MBUnion.c[3] = (unsigned char)buf[pos + 0];
+                break;
+            default:
+                break;
+        }
     }
 }
 
@@ -472,26 +477,27 @@ void requestMeasurement(unsigned char Meter, unsigned char Address, unsigned int
  * @return signed long Measurement
  */
 signed long receiveMeasurement(unsigned char *buf, unsigned char Count, unsigned char Endianness, MBDataType dataType, signed char Divisor) {
-    signed double dCombined;
     signed long lCombined;
 
-    if (dataType == MB_DATATYPE_FLOAT32) {
-        combineBytes(&dCombined, buf, Count * (dataType == MB_DATATYPE_INT16 ? 2u : 4u), Endianness, dataType);
-        if (Divisor >= 0) {
-            lCombined = (signed long)(dCombined / (signed long)pow10[(unsigned)Divisor]);
-        } else {
-            lCombined = (signed long)(dCombined * (signed long)pow10[(unsigned)-Divisor]);
-        }
-    } else {
-        combineBytes(&lCombined, buf, Count * (dataType == MB_DATATYPE_INT16 ? 2u : 4u), Endianness, dataType);
-        if (dataType == MB_DATATYPE_INT16) {
-            lCombined = (signed long)((signed int)lCombined); /* sign extend 16bit into 32bit */
-        }
-        if (Divisor >= 0) {
-            lCombined = lCombined / (signed long)pow10[(unsigned)Divisor];
-        } else {
-            lCombined = lCombined * (signed long)pow10[(unsigned)-Divisor];
-        }
+    combineBytes(buf, Count * (dataType == MB_DATATYPE_INT16 ? 2u : 4u), Endianness, dataType);
+
+    switch (dataType) {
+        case MB_DATATYPE_INT16:
+            lCombined =(signed long)MBUnion.i[0];
+        case MB_DATATYPE_INT32:
+            if (Divisor >= 0) {
+                lCombined = MBUnion.l / (signed long)pow10[(unsigned)Divisor];
+            } else {
+                lCombined = MBUnion.l * (signed long)pow10[(unsigned)-Divisor];
+            }
+            break;
+        case MB_DATATYPE_FLOAT32:
+            if (Divisor >= 0) {
+                lCombined = (signed long)(MBUnion.d / (signed long)pow10[(unsigned)Divisor]);
+            } else {
+                lCombined = (signed long)(MBUnion.d * (signed long)pow10[(unsigned)-Divisor]);
+            }
+            break;
     }
 
     return lCombined;

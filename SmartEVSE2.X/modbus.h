@@ -37,6 +37,13 @@ struct  {
     unsigned char Exception;
 } Modbus;
 
+union mb_union {
+    unsigned char c[4];
+    signed double d;
+    signed long l;
+    signed int i[2];
+} MBUnion;
+
 // ########################### Modbus main functions ###########################
 
 void ModbusReadInputRequest(unsigned char address, unsigned char function, unsigned int reg, unsigned int quantity);

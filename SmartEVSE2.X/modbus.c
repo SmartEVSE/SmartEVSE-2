@@ -114,6 +114,8 @@ void combineBytes(unsigned char *buf, unsigned char pos, unsigned char endiannes
             default:
                 break;
         }
+        MBUnion.c[2] = (unsigned char)0;
+        MBUnion.c[3] = (unsigned char)0;
     } else {
         switch(endianness) {
             case ENDIANESS_LBF_LWF: // low byte first, low word first (little endian)

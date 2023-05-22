@@ -991,14 +991,14 @@ void CalcBalancedCurrent(char mod) {
 
         if (IsumImport < 0) {
             // negative, we have surplus (solar) power available
-            if (IsumImport < -10) IsetBalanced = IsetBalanced + 5;              // more then 1A available, increase Balanced charge current with 0.5A
-            else IsetBalanced = IsetBalanced + 1;                               // less then 1A available, increase with 0.1A
+            if (IsumImport < -10 * SumPhases) IsetBalanced = IsetBalanced + 5;  // 3 Phases: More then 3A available, increase Balanced charge current with 0.5A
+            else if (IsumImport < -SumPhases) IsetBalanced = IsetBalanced + 1;  //           Between 0.3A and 3A available, increase with 0.1A
         } else {
             // positive, we use more power then is generated
-            if (IsumImport > 20) IsetBalanced = IsetBalanced - (IsumImport / 2);// we use atleast 2A more then available, decrease Balanced charge current.
-            else if (IsumImport > 10) IsetBalanced = IsetBalanced - 5;          // we use 1A more then available, decrease with 0.5A
-            else if (IsumImport > 3) IsetBalanced = IsetBalanced - 1;           // we use < 1A more then available, decrease with 0.1A
+            if (IsumImport > 10 * SumPhases) IsetBalanced = IsetBalanced - (IsumImport / SumPhases);// We use at least 3A more then available, set Balanced charge current to IsumImport/3 Phases
+            else if (IsumImport > SumPhases) IsetBalanced = IsetBalanced - 1;   //           We use between 0.3A and 3A more then available, decrease with 0.1A
         }
+//        printf("\nSumPhases %i IsumImport %i IsetBalanced %i",SumPhases,IsumImport,IsetBalanced);
 
         // If IsetBalanced is below MinCurrent or negative, make sure it's set to MinCurrent.
         if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {

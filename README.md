@@ -159,7 +159,7 @@ Register | Access | Description | Unit | Values
 0x0204 | R/W | Max Mains Current | A | 10 - 200
 0x0205 | R/W | Surplus energy start Current | A | 1 - 16
 0x0206 | R/W | Stop solar charging at 6A after this time | min | 0:Disable / 1 - 60
-0x0207 | R/W | Allow grid power when solar charging | A | 0 - 6
+0x0207 | R/W | Allow grid power when solar charging (sum of phases) | A | 0 (-48 A) - 96 (+48 A)
 0x0208 | R/W | Type of Mains electric meter | | *
 0x0209 | R/W | Address of Mains electric meter | | 10 - 247
 0x020A | R/W | What does Mains electric meter measure | | 0:Mains (Home+EVSE+PV) / 1:Home+EVSE

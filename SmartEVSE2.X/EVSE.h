@@ -416,7 +416,7 @@ const struct {
     {"MAINS",  "MAINS",   "Max MAINS Current (per phase)",                      10, 200, MAX_MAINS},
     {"START",  "START",   "Surplus energy start Current (sum of phases)",       0, 48, START_CURRENT},
     {"STOP",   "STOP",    "Stop solar charging at 6A after this time",          0, 60, STOP_TIME},
-    {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 20, IMPORT_CURRENT},
+    {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 96, IMPORT_CURRENT}, // -48 ... +48
     {"MAINEM", "MAINSMET","Type of mains electric meter",                       1, EM_CUSTOM, MAINS_METER},
     {"MAINAD", "MAINSADR","Address of mains electric meter",                    MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES","Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},

@@ -191,8 +191,8 @@ char LoadBl = LOADBL;                                                           
 char Switch = SWITCH;                                                           // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
 char RCmon = RC_MON;                                                            // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
 unsigned int StartCurrent = START_CURRENT;
-unsigned int StopTime = STOP_TIME;
-unsigned int ImportCurrent = IMPORT_CURRENT;
+unsigned int StopTime = STOP_TIME;                                              // Minutes
+signed int ImportCurrent = IMPORT_CURRENT;                                      // Sum of Amps; Negative: Export; Positive: Import
 unsigned char MainsMeter = MAINS_METER;                                         // Type of Mains electric meter (0: Disabled / Constants EM_*)
 unsigned char MainsMeterAddress = MAINS_METER_ADDRESS;
 unsigned char MainsMeterMeasure = MAINS_METER_MEASURE;                          // What does Mains electric meter measure (0: Mains (Home+EVSE+PV) / 1: Home+EVSE / 2: Home)
@@ -1398,7 +1398,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             StopTime = val;
             break;
         case MENU_IMPORT:
-            ImportCurrent = val;
+            ImportCurrent = (signed int)val - 48;
             break;
         case MENU_LOADBL:
             LoadBl = val;
@@ -1556,7 +1556,7 @@ unsigned int getItemValue(unsigned char nav) {
         case MENU_STOP:
             return StopTime;
         case MENU_IMPORT:
-            return ImportCurrent;
+            return (unsigned int)(ImportCurrent + 48);
         case MENU_LOADBL:
             return LoadBl;
         case MENU_MAINS:
@@ -1686,8 +1686,10 @@ const char * getMenuItemOption(unsigned char nav) {
         case MENU_MIN:
         case MENU_MAX:
         case MENU_CIRCUIT:
-        case MENU_IMPORT:
             sprintf(Str, "%2u A", value);
+            return Str;
+        case MENU_IMPORT:
+            sprintf(Str, "%2i A", (signed int)value - 48);
             return Str;
         case MENU_LOCK:
             if (Lock == 1) return StrSolenoid;

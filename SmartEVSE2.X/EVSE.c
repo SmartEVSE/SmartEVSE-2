@@ -190,7 +190,7 @@ char Config = CONFIG;                                                           
 char LoadBl = LOADBL;                                                           // Load Balance Setting (0:Disable / 1:Master / 2-4:Node)
 char Switch = SWITCH;                                                           // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
 char RCmon = RC_MON;                                                            // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
-signed int StartCurrent = START_CURRENT;                                        // Sum of Amps; Negative: Export; Positive: Import
+signed int StartCurrent = START_CURRENT;                                        // Amps per phase; Negative: Export; Positive: Import
 unsigned int StopTime = STOP_TIME;                                              // Minutes
 signed int ImportCurrent = IMPORT_CURRENT;                                      // Sum of Amps; Negative: Export; Positive: Import
 unsigned char MainsMeter = MAINS_METER;                                         // Type of Mains electric meter (0: Disabled / Constants EM_*)
@@ -872,13 +872,14 @@ unsigned char getNodePhases(unsigned char NodeNr) {
  * returns 0 if there is no current available
  */
 char IsCurrentAvailable(unsigned char NodeNr) {
-    unsigned char n, ActiveEVSE = 0;
+    unsigned char n, ActiveEVSE = 0, NodePhases = 0, SumPhases = 0;
     int Baseload, TotalCurrent = 0;
 
-
+    // Current per phase
     for (n = 0; n < NR_EVSES; n++) if (BalancedState[n] == STATE_C)             // must be in STATE_C
     {
         ActiveEVSE++;                                                           // Count nr of active (charging) EVSE's
+        SumPhases += getNodePhases(n);
         TotalCurrent += Balanced[n];                                            // Calculate total max charge current for all active EVSE's
     }
     if (ActiveEVSE == 0) {                                                      // No active (charging) EVSE's
@@ -905,20 +906,22 @@ char IsCurrentAvailable(unsigned char NodeNr) {
 
     }
 
+    // Current sum
     if (LoadBl < 2 && MainsCapacity > 9) {                                      // MainsCapacity limits the sum of mains currents.
         if (Isum > (signed int)( (MainsCapacity - MinCurrent) * 10) ) return 0;
     }
 
-    // Allow solar Charging if surplus current is above 'StartCurrent' (sum of all phases)
+    // Allow solar Charging if surplus current is above 'StartCurrent' (per phases)
     // Charging will start after the timeout (chargedelay) period has ended
     // Only when StartCurrent configured or Node MinCurrent detected or Node inactive
     if (Mode == MODE_SOLAR && (StartCurrent || Node[NodeNr].MinCurrent || BalancedState[NodeNr] == STATE_A)) {
         // no active EVSE yet?
         if (ActiveEVSE == 0) {
-            if (StartCurrent == 0) {
-                if (Isum >= ((signed int)Node[NodeNr].MinCurrent *-1) + (signed int)(ImportCurrent * 10)) return 0;
+            if (StartCurrent) {
+                NodePhases = getNodePhases(NodeNr);
+                if (Isum >= ((signed int)NodePhases * (signed int)StartCurrent * 10)) return 0;
             } else {
-                if (Isum >= ((signed int)StartCurrent * 10)) return 0;
+                if (Isum >= ((signed int)Node[NodeNr].MinCurrent * -1) + (signed int)(ImportCurrent * 10)) return 0;
             }
         }
         // check if we can split the available current between all active EVSE's
@@ -1392,7 +1395,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             Mode = val;
             break;
         case MENU_START:
-            StartCurrent = (signed int)val - 48;
+            StartCurrent = (signed int)val - 16;
             break;
         case MENU_STOP:
             StopTime = val;
@@ -1552,7 +1555,7 @@ unsigned int getItemValue(unsigned char nav) {
         case STATUS_MODE:
             return Mode;
         case MENU_START:
-            return (unsigned int)(StartCurrent + 48);
+            return (unsigned int)(StartCurrent + 16);
         case MENU_STOP:
             return StopTime;
         case MENU_IMPORT:
@@ -1669,8 +1672,8 @@ const char * getMenuItemOption(unsigned char nav) {
             else if (Mode == MODE_SOLAR) return StrSolar;
             else return StrNormal;
         case MENU_START:
-                if (value == 48) return "Automatic";
-                else sprintf(Str, "%2i A", (signed int)value - 48);
+                if (value == 16) return "Automatic";
+                else sprintf(Str, "%2i A", (signed int)value - 16);
                 return Str;
         case MENU_STOP:
             if (value) {

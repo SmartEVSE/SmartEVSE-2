@@ -60,7 +60,7 @@
 #define CHARGEDELAY 60                                                          // Seconds to wait after overcurrent, before trying again
 #define BACKLIGHT 60                                                            // Seconds delay for the LCD backlight to turn off.
 #define RFIDLOCKTIME 60                                                         // Seconds delay for the EVSE to lock again (RFIDreader = EnableOne)
-#define START_CURRENT 4                                                         // Start charging when surplus current on one phase exceeds 4A (Solar)
+#define START_CURRENT -4                                                        // Start charging when surplus current on one phase exceeds 4A (Solar)
 #define STOP_TIME 10                                                            // Stop charging after 10 minutes at MIN charge current (Solar)
 #define IMPORT_CURRENT 0                                                        // Allow the use of grid power when solar charging (Amps)
 #define MAINS_METER 1                                                           // Mains Meter, 1= Sensorbox, 2=Phoenix, 3= Finder, 4= Eastron, 5=Custom

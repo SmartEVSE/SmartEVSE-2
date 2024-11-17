@@ -157,7 +157,7 @@ Register | Access | Description | Unit | Values
 0x0202 | R/W | Grid type to which the Sensorbox is connected | | 0:4Wire / 1:3Wire
 0x0203 | R/W | CT calibration value | 0.01 | Multiplier
 0x0204 | R/W | Max Mains Current | A | 10 - 200
-0x0205 | R/W | Surplus energy start Current | A | 1 - 16
+0x0205 | R/W | Surplus energy start Current (sum of phases) | A | 0 (-48 A) - 96 (+48 A)
 0x0206 | R/W | Stop solar charging at 6A after this time | min | 0:Disable / 1 - 60
 0x0207 | R/W | Allow grid power when solar charging (sum of phases) | A | 0 (-48 A) - 96 (+48 A)
 0x0208 | R/W | Type of Mains electric meter | | *

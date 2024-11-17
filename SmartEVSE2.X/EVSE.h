@@ -315,7 +315,7 @@ extern char LoadBl;                                                             
 extern char Switch;                                                             // Allow access to EVSE with button on IO2
 extern char RCmon;                                                              // Residual Current monitor
 extern char Grid;
-extern unsigned int StartCurrent;
+extern signed int StartCurrent;
 extern unsigned int StopTime;
 extern unsigned int MainsCapacity;
 extern unsigned char MainsMeter;                                                // Type of Mains electric meter (0: Disabled / Constants EM_*)
@@ -414,7 +414,7 @@ const struct {
     {"GRID",   "GRID",    "Grid type to which the Sensorbox is connected",      0, 1, GRID},
     {"CAL",    "CAL",     "Calibrate CT1 (CT2+3 will also change)",             (unsigned int) (ICAL * 0.3), (unsigned int) (ICAL * 2.0), ICAL}, // valid range is 0.3 - 2.0 times measured value
     {"MAINS",  "MAINS",   "Max MAINS Current (per phase)",                      10, 200, MAX_MAINS},
-    {"START",  "START",   "Surplus energy start Current (sum of phases)",       0, 48, START_CURRENT},
+    {"START",  "START",   "Surplus energy start Current (sum of phases)",       0, 96, START_CURRENT}, // -48 ... +48
     {"STOP",   "STOP",    "Stop solar charging at 6A after this time",          0, 60, STOP_TIME},
     {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 96, IMPORT_CURRENT}, // -48 ... +48
     {"MAINEM", "MAINSMET","Type of mains electric meter",                       1, EM_CUSTOM, MAINS_METER},

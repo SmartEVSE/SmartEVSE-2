@@ -190,7 +190,7 @@ char Config = CONFIG;                                                           
 char LoadBl = LOADBL;                                                           // Load Balance Setting (0:Disable / 1:Master / 2-4:Node)
 char Switch = SWITCH;                                                           // External Switch on I/O 2 (0:Disable / 1:Access / 2:Smart-Solar)
 char RCmon = RC_MON;                                                            // Residual Current Monitor on I/O 3 (0:Disable / 1:Enable)
-unsigned int StartCurrent = START_CURRENT;
+signed int StartCurrent = START_CURRENT;                                        // Sum of Amps; Negative: Export; Positive: Import
 unsigned int StopTime = STOP_TIME;                                              // Minutes
 signed int ImportCurrent = IMPORT_CURRENT;                                      // Sum of Amps; Negative: Export; Positive: Import
 unsigned char MainsMeter = MAINS_METER;                                         // Type of Mains electric meter (0: Disabled / Constants EM_*)
@@ -918,7 +918,7 @@ char IsCurrentAvailable(unsigned char NodeNr) {
             if (StartCurrent == 0) {
                 if (Isum >= ((signed int)Node[NodeNr].MinCurrent *-1) + (signed int)(ImportCurrent * 10)) return 0;
             } else {
-                if (Isum >= ((signed int)StartCurrent *-10)) return 0;
+                if (Isum >= ((signed int)StartCurrent * 10)) return 0;
             }
         }
         // check if we can split the available current between all active EVSE's
@@ -1392,7 +1392,7 @@ unsigned char setItemValue(unsigned char nav, unsigned int val) {
             Mode = val;
             break;
         case MENU_START:
-            StartCurrent = val;
+            StartCurrent = (signed int)val - 48;
             break;
         case MENU_STOP:
             StopTime = val;
@@ -1552,7 +1552,7 @@ unsigned int getItemValue(unsigned char nav) {
         case STATUS_MODE:
             return Mode;
         case MENU_START:
-            return StartCurrent;
+            return (unsigned int)(StartCurrent + 48);
         case MENU_STOP:
             return StopTime;
         case MENU_IMPORT:
@@ -1669,8 +1669,8 @@ const char * getMenuItemOption(unsigned char nav) {
             else if (Mode == MODE_SOLAR) return StrSolar;
             else return StrNormal;
         case MENU_START:
-                if (value == 0) return "Automatic";
-                else sprintf(Str, "-%2u A", value);
+                if (value == 48) return "Automatic";
+                else sprintf(Str, "%2i A", (signed int)value - 48);
                 return Str;
         case MENU_STOP:
             if (value) {
@@ -1950,7 +1950,7 @@ void RS232cli(void) {
             printf("Enter new EVSE Mode (NORMAL/SMART/SOLAR): ");
             break;
         case MENU_START:
-            printf("Enter new Surplus start Current (%u-%u): -", MenuStr[menu].Min, MenuStr[menu].Max);
+            printf("Enter new Surplus start Current (%u-%u): ", MenuStr[menu].Min, MenuStr[menu].Max);
             break;
         case MENU_LOADBL:
             printf("Enter Load Balancing mode (%s", StrLoadBl[0]);
@@ -2202,7 +2202,7 @@ void UpdateCurrentData(void) {
             SetCurrent(Balanced[0]);
         }
 #ifdef LOG_DEBUG_EVSE
-        printf("\nSTATE: %s Error: %u StartCurrent: -%i ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A", getStateName(State), Error, StartCurrent,
+        printf("\nSTATE: %s Error: %u StartCurrent: %i ChargeDelay: %u SolarStopTimer: %u NoCurrent: %u Imeasured: %.1f A IsetBalanced: %.1f A", getStateName(State), Error, StartCurrent,
                                                                         ChargeDelay, SolarStopTimer,  NoCurrent,
                                                                         (double)Imeasured/10,
                                                                         (double)IsetBalanced/10);

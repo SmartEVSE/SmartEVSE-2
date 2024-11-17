@@ -110,7 +110,6 @@
 #define STARTCURRENT_MEASURE_INCREASE                                           // Count phases on decreasing and increasing current
 #define STARTCURRENT_IDENTICAL_MEASUREMENTS 3                                   // Number of identical measurements
 #define IMPORTCURRENT_ALWAYS                                                    // Import always configured current (not only on start or stop)
-#define IMPORTCURRENT_SUM                                                       // Import uses current sum
 
 #define STATE_A 0                                                               // A Vehicle not connected
 #define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy
@@ -418,11 +417,7 @@ const struct {
     {"MAINS",  "MAINS",   "Max MAINS Current (per phase)",                      10, 200, MAX_MAINS},
     {"START",  "START",   "Surplus energy start Current (sum of phases)",       0, 48, START_CURRENT},
     {"STOP",   "STOP",    "Stop solar charging at 6A after this time",          0, 60, STOP_TIME},
-#ifdef IMPORTCURRENT_SUM
     {"IMPORT", "IMPORT",  "Allow grid power when solar charging (sum of phase)",0, 20, IMPORT_CURRENT},
-#else
-    {"IMPORT", "IMPORT",  "Allow grid power when solar charging (per phase)",   0, 7, IMPORT_CURRENT},
-#endif
     {"MAINEM", "MAINSMET","Type of mains electric meter",                       1, EM_CUSTOM, MAINS_METER},
     {"MAINAD", "MAINSADR","Address of mains electric meter",                    MIN_METER_ADDRESS, MAX_METER_ADDRESS, MAINS_METER_ADDRESS},
     {"MAINM",  "MAINSMES","Mains electric meter scope (What does it measure?)", 0, 1, MAINS_METER_MEASURE},

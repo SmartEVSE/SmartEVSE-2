@@ -858,6 +858,11 @@ unsigned int getSerialNr(void) {
     return serialnr;
 }
 
+unsigned char getNodePhases(unsigned char NodeNr) {
+    if (Node[NodeNr].Phases) return Node[NodeNr].Phases;
+    else return 1;
+}
+
 /**
  * Is there at least 6A (configurable MinCurrent) available for a EVSE?
  *
@@ -911,11 +916,7 @@ char IsCurrentAvailable(unsigned char NodeNr) {
         // no active EVSE yet?
         if (ActiveEVSE == 0) {
             if (StartCurrent == 0) {
-#ifdef IMPORTCURRENT_SUM
-                if (Isum >= ((signed int)Node[NodeNr].MinCurrent * -1) + (signed int)(ImportCurrent * 10)) return 0;
-#else
-                if (Isum >= ((signed int)Node[NodeNr].MinCurrent * -1) + (signed int)(Node[NodeNr].Phases * ImportCurrent * 10)) return 0;
-#endif
+                if (Isum >= ((signed int)Node[NodeNr].MinCurrent *-1) + (signed int)(ImportCurrent * 10)) return 0;
             } else {
                 if (Isum >= ((signed int)StartCurrent *-10)) return 0;
             }
@@ -953,10 +954,9 @@ void CalcBalancedCurrent(char mod) {
             BalancedLeft++;                                                     // Count nr of Active (Charging) EVSE's
             ActiveMax += BalancedMax[n];                                        // Calculate total Max Amps for all active EVSEs
             TotalCurrent += Balanced[n];                                        // Calculate total of all set charge currents
-            SumPhases += Node[n].Phases;
+            SumPhases += getNodePhases(n);
         }
     }
-    if (SumPhases < 1) SumPhases = 2;
 
     if (!mod && Mode != MODE_SOLAR) {                                           // Normal and Smart mode
         // Load Balanced set to Disabled or Master. Limit to MainsCapacity
@@ -980,11 +980,7 @@ void CalcBalancedCurrent(char mod) {
         ImportCurrent = 0;                                                      // Import option not visible , make sure it's set to 0
 #endif
 #ifdef IMPORTCURRENT_ALWAYS
-#ifdef IMPORTCURRENT_SUM
         IsumImport = Isum - (signed int)(ImportCurrent * 10);                   // Allow Import of power from the grid when solar charging
-#else
-        IsumImport = Isum - (signed int)(SumPhases * ImportCurrent * 10);       // Allow Import of power from the grid when solar charging
-#endif
 #else
         IsumImport = Isum;
 #endif
@@ -1007,11 +1003,7 @@ void CalcBalancedCurrent(char mod) {
 #ifdef IMPORTCURRENT_ALWAYS
             if (!MeasurementActive && BalancedLeft && StopTime && (IsumImport > 10)) {
 #else
-#ifdef IMPORTCURRENT_SUM
             if (!MeasurementActive && BalancedLeft && StopTime && ((Isum - (signed int)(ImportCurrent * 10)) > 10)) {
-#else
-            if (!MeasurementActive && BalancedLeft && StopTime && ((Isum - (signed int)(SumPhases * ImportCurrent * 10)) > 10)) {
-#endif
 #endif
                 if (SolarStopTimer == 0) setSolarStopTimer(StopTime * 60);      // Convert minutes into seconds
             } else {

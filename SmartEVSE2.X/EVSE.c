@@ -999,7 +999,13 @@ void CalcBalancedCurrent(char mod) {
         if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {
             IsetBalanced = BalancedLeft * MinCurrent * 10;
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
-            if (!MeasurementActive && BalancedLeft && StopTime && (IsumImport > 10)) {
+            if (!MeasurementActive                                              // When no measurement is active
+                && BalancedLeft                                                 // and at least one car is charging
+                && StopTime                                                     // and stop time is configured
+                && (IsumImport > 10)                                            // and over 1 A (sum) more than ImportCurrent is used
+                && (!StartCurrent || StartCurrent && (Isum > ((signed int)SumPhases * ((signed int)MinCurrent + (signed int)StartCurrent) * 10))) // and over 6 A (per phase) more than StartCurrent is used (when not automatic)
+            ) {
+                // Start timer (when not already running)
                 if (SolarStopTimer == 0) setSolarStopTimer(StopTime * 60);      // Convert minutes into seconds
             } else {
                 setSolarStopTimer(0);

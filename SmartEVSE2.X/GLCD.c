@@ -592,7 +592,7 @@ void GLCD(void) {
         if (EVMeter) {                                                          // If we have a EV kWh meter configured, Show total charged energy in kWh on LCD.
             // Will reset to 0.0kWh when charging cable reconnected, and state change from STATE B->C
             if (EnergyCharged < 1000) {
-                sprintf(Str, "%3u Wh", EnergyCharged, 0, 0);
+                sprintf(Str, "%3u Wh", (unsigned int)EnergyCharged);
             } else if (EnergyCharged < 9995) {
                 sprintfl(Str, "%1u.%02ukWh", EnergyCharged, 3, 2);
             } else if (EnergyCharged < 99950) {

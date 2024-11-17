@@ -109,7 +109,6 @@
 #define STARTCURRENT_MEASURE_TIME ((STARTCURRENT_INCREASE_TIME + STARTCURRENT_DECREASE_TIME) * STARTCURRENT_MEASUREMENT_CYCLES)
 #define STARTCURRENT_MEASURE_INCREASE                                           // Count phases on decreasing and increasing current
 #define STARTCURRENT_IDENTICAL_MEASUREMENTS 3                                   // Number of identical measurements
-#define IMPORTCURRENT_ALWAYS                                                    // Import always configured current (not only on start or stop)
 
 #define STATE_A 0                                                               // A Vehicle not connected
 #define STATE_B 1                                                               // B Vehicle connected / not ready to accept energy

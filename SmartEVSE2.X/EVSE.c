@@ -979,11 +979,7 @@ void CalcBalancedCurrent(char mod) {
 #ifdef SPECIAL
         ImportCurrent = 0;                                                      // Import option not visible , make sure it's set to 0
 #endif
-#ifdef IMPORTCURRENT_ALWAYS
         IsumImport = Isum - (signed int)(ImportCurrent * 10);                   // Allow Import of power from the grid when solar charging
-#else
-        IsumImport = Isum;
-#endif
 
         if (IsumImport < 0) {
             // negative, we have surplus (solar) power available
@@ -1000,11 +996,7 @@ void CalcBalancedCurrent(char mod) {
         if ( (IsetBalanced < (BalancedLeft * MinCurrent * 10)) || (IsetBalanced < 0) ) {
             IsetBalanced = BalancedLeft * MinCurrent * 10;
                                                                                 // ----------- Check to see if we have to continue charging on solar power alone ----------
-#ifdef IMPORTCURRENT_ALWAYS
             if (!MeasurementActive && BalancedLeft && StopTime && (IsumImport > 10)) {
-#else
-            if (!MeasurementActive && BalancedLeft && StopTime && ((Isum - (signed int)(ImportCurrent * 10)) > 10)) {
-#endif
                 if (SolarStopTimer == 0) setSolarStopTimer(StopTime * 60);      // Convert minutes into seconds
             } else {
                 setSolarStopTimer(0);

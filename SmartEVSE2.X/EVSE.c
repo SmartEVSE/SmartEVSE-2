@@ -1776,6 +1776,7 @@ const char * getMenuItemOption(unsigned char nav) {
 void RS232cli(void) {
     unsigned char i, OK, x;
     unsigned int n;
+    signed int s;
     unsigned int Inew;                                                          // resolution 0.1A
     unsigned char MenuItemsCount = getMenuItems();
 
@@ -1821,6 +1822,20 @@ void RS232cli(void) {
                     write_settings();
                     Error = NO_ERROR; // Clear Errors
                 }
+                break;
+            case MENU_START:
+                s = atoi(U2buffer);
+                if (s >= -16 && s <= 16) {
+                    StartCurrent = s;
+                    write_settings();
+                } else printf("\nError! please check limits\n");
+                break;
+            case MENU_IMPORT:
+                s = atoi(U2buffer);
+                if (s >= -48 && s <= 48) {
+                    ImportCurrent = s;
+                    write_settings();
+                } else printf("\nError! please check limits\n");
                 break;
             case MENU_LOCK:
                 if (strcmp(U2buffer, (const char *) "SOLENOID") == 0) {
@@ -1949,7 +1964,10 @@ void RS232cli(void) {
             printf("Enter new EVSE Mode (NORMAL/SMART/SOLAR): ");
             break;
         case MENU_START:
-            printf("Enter new Surplus start Current (%u-%u): ", MenuStr[menu].Min, MenuStr[menu].Max);
+            printf("Enter new Surplus start Current (-16 ... 16): ");
+            break;
+        case MENU_IMPORT:
+            printf("Enter new value (-48 ... 48): ");
             break;
         case MENU_LOADBL:
             printf("Enter Load Balancing mode (%s", StrLoadBl[0]);
@@ -1999,7 +2017,7 @@ void RS232cli(void) {
         case MENU_EMCUSTOM_IDIVISOR:
         case MENU_EMCUSTOM_PDIVISOR:
         case MENU_EMCUSTOM_EDIVISOR:
-            printf("Enter new exponent of divisor (0-7): ");
+            printf("Enter new exponent of divisor (0 ... 7): ");
             break;
         case MENU_RFIDREADER:
             printf("Enter new RFID reader mode (%s", StrRFIDReader[0]);
@@ -2017,7 +2035,7 @@ void RS232cli(void) {
             menu = 0;
             break;
         default:
-            printf("Enter new value (%u-%u): ", MenuStr[menu].Min, MenuStr[menu].Max);
+            printf("Enter new value (%u ... %u): ", MenuStr[menu].Min, MenuStr[menu].Max);
             break;
     }
     ISR2FLAG = 0;                                                               // clear flag
